@@ -1,11 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { TimerSlot } from '@/types';
 import { useTimerStore } from '../../stores/timerStore';
 import { useEntriesStore } from '../../stores/entriesStore';
 import { useMasterStore } from '../../stores/masterStore';
 import { useI18n } from '../../i18n';
-import { Play, Pause, Square, Plus, X } from 'lucide-react';
-import { cn, formatDuration, getTodayISO } from '../../lib/utils';
+import { Play, Pause, Square, X } from 'lucide-react';
+import { formatDuration } from '../../lib/utils';
 
 interface TaskSlotProps {
   slot: TimerSlot;
@@ -15,10 +15,9 @@ interface TaskSlotProps {
 const TaskSlot: React.FC<TaskSlotProps> = ({ slot, index }) => {
   const { t } = useI18n();
   const {
-    startTimer,
     pauseTimer,
     resumeTimer,
-    stopTimer,
+    resetSlot,
     removeSlot,
     updateSlotField,
     getSlotElapsed,
@@ -40,7 +39,12 @@ const TaskSlot: React.FC<TaskSlotProps> = ({ slot, index }) => {
   const [newProject, setNewProject] = useState('');
   const [newActivity, setNewActivity] = useState('');
 
-  const elapsedMs = useMemo(() => getSlotElapsed(slot.id), [slot.id, getSlotElapsed]);
+  // Live elapsed - recalculates every render (tick triggers re-render)
+  const elapsedMs = getSlotElapsed(slot.id);
+
+  // Slot state
+  const isRunning = !slot.isPaused && elapsedMs > 0;
+  const isPaused = slot.isPaused && elapsedMs > 0;
 
   // Handle play/pause toggle
   const handlePlayPause = () => {
@@ -51,17 +55,18 @@ const TaskSlot: React.FC<TaskSlotProps> = ({ slot, index }) => {
     }
   };
 
-  // Handle stop and save
+  // Handle stop and save - keeps slot visible, resets timer
   const handleStopAndSave = async () => {
-    if (elapsedMs < 60000) {
+    const currentElapsed = getSlotElapsed(slot.id);
+
+    if (currentElapsed < 1000) {
       alert(t('toast.tooShort'));
       return;
     }
 
-    // Calculate start and end times
     const now = new Date();
     const endTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    const startDate = new Date(now.getTime() - elapsedMs);
+    const startDate = new Date(now.getTime() - currentElapsed);
     const startTimeStr = `${String(startDate.getHours()).padStart(2, '0')}:${String(startDate.getMinutes()).padStart(2, '0')}`;
 
     try {
@@ -72,10 +77,10 @@ const TaskSlot: React.FC<TaskSlotProps> = ({ slot, index }) => {
         taetigkeit: slot.taetigkeit,
         start_time: startTimeStr,
         end_time: endTime,
-        duration_ms: elapsedMs,
+        duration_ms: currentElapsed,
         notiz: slot.notiz || '',
       });
-      removeSlot(slot.id);
+      resetSlot(slot.id);
     } catch (error) {
       console.error('Failed to save entry:', error);
     }
@@ -121,293 +126,333 @@ const TaskSlot: React.FC<TaskSlotProps> = ({ slot, index }) => {
     }
   };
 
+  // V5.15 left-border color based on state
+  const leftBorderColor = isRunning
+    ? 'var(--neon-cyan)'
+    : isPaused
+      ? 'var(--warning)'
+      : 'var(--border)';
+
+  // V5.15 button styles (32px circles)
+  const btnBase: React.CSSProperties = {
+    width: 32,
+    height: 32,
+    borderRadius: '50%',
+    border: '1.5px solid var(--border)',
+    background: 'transparent',
+    color: 'var(--text-muted)',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  };
+
+  const selectStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '5px 8px',
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--radius-sm)',
+    background: 'transparent',
+    color: 'var(--text)',
+    fontFamily: 'var(--font)',
+    fontSize: '12px',
+    outline: 'none',
+  };
+
+  const inlineInputStyle: React.CSSProperties = {
+    ...selectStyle,
+    flex: 1,
+  };
+
   return (
     <div
-      className="p-4 rounded-lg border-2 transition-all duration-200"
       style={{
-        background:
-          slot.isPaused && !slot.startTime
-            ? 'var(--surface)'
-            : slot.isPaused
-              ? 'var(--surface-hover)'
-              : 'var(--surface)',
-        borderColor:
-          slot.isPaused && !slot.startTime
-            ? 'var(--border)'
-            : slot.isPaused
-              ? 'var(--border)'
-              : 'var(--primary)',
-        boxShadow:
-          !slot.isPaused && !slot.isPaused
-            ? '0 0 12px var(--primary-shadow)'
-            : 'none',
-        opacity: slot.isPaused && slot.startTime ? 0.7 : 1,
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius)',
+        padding: '14px',
+        paddingLeft: '18px',
+        background: isRunning
+          ? 'rgba(201,169,98,0.025)'
+          : isPaused
+            ? 'rgba(251,191,36,0.02)'
+            : 'rgba(0,0,0,0.06)',
+        transition: 'all 0.25s',
+        position: 'relative',
+        borderLeft: `3px solid ${leftBorderColor}`,
+        borderColor: isRunning
+          ? 'rgba(201,169,98,0.30)'
+          : isPaused
+            ? 'rgba(251,191,36,0.3)'
+            : 'var(--border)',
+        boxShadow: isRunning
+          ? '0 0 25px rgba(201,169,98,0.05), inset 0 1px 0 rgba(201,169,98,0.07)'
+          : 'none',
       }}
     >
-      {/* Header: Index + Timer + Play/Pause + Stop */}
-      <div className="flex items-center gap-2 mb-3">
-        <span
-          className="text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center"
-          style={{ color: 'var(--text-secondary)', background: 'var(--surface-solid)' }}
-        >
-          {index + 1}
-        </span>
+      {/* Header: Status + Timer + Buttons */}
+      <div className="flex items-center gap-2 mb-2" style={{ minHeight: '32px' }}>
+        {/* Status badge */}
+        {(isRunning || isPaused) && (
+          <span
+            className="text-[8px] font-bold tracking-widest uppercase px-2 py-0.5 rounded-full"
+            style={{
+              background: isRunning ? 'rgba(201, 169, 98, 0.08)' : 'rgba(251, 191, 36, 0.12)',
+              color: isRunning ? 'var(--neon-cyan)' : 'var(--warning)',
+            }}
+          >
+            {isRunning ? t('timer.running') : t('timer.paused')}
+          </span>
+        )}
 
-        <div className="flex-1">
-          <div className="text-xl font-mono font-bold" style={{ color: 'var(--primary)' }}>
-            {formatDuration(elapsedMs)}
-          </div>
-        </div>
-
-        {/* Play/Pause Button */}
-        <button
-          onClick={handlePlayPause}
-          className="w-10 h-10 rounded-full bg-green-600 hover:bg-green-500 text-white flex items-center justify-center transition-colors"
-          title={slot.isPaused ? t('timer.start') : t('timer.pause')}
-        >
-          {slot.isPaused ? (
-            <Play className="w-5 h-5" />
-          ) : (
-            <Pause className="w-5 h-5" />
-          )}
-        </button>
-
-        {/* Stop Button */}
-        <button
-          onClick={handleStopAndSave}
-          className="w-10 h-10 rounded-full bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center transition-colors"
-          title={t('timer.stopSave')}
-        >
-          <Square className="w-5 h-5" />
-        </button>
-
-        {/* Remove Button */}
-        <button
-          onClick={() => removeSlot(slot.id)}
-          className="w-10 h-10 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center transition-colors"
-          title={t('timer.removeTask')}
-        >
-          <X className="w-5 h-5" />
-        </button>
-      </div>
-
-      {/* Status Badge */}
-      <div className="mb-3">
-        <span
-          className="inline-block text-xs font-bold px-2 py-1 rounded"
+        {/* Elapsed time */}
+        <div
+          className="font-mono font-bold flex-1 text-right"
           style={{
-            background: slot.isPaused ? 'var(--warning-bg)' : 'var(--success-bg)',
-            color: slot.isPaused ? 'var(--warning)' : 'var(--success)',
+            fontSize: '18px',
+            color: isRunning ? 'var(--neon-cyan)' : isPaused ? 'var(--warning)' : 'var(--text-muted)',
           }}
         >
-          {slot.isPaused ? t('timer.paused') : t('timer.running')}
-        </span>
+          {formatDuration(elapsedMs)}
+        </div>
+
+        {/* Play/Pause */}
+        <button
+          onClick={handlePlayPause}
+          style={{
+            ...btnBase,
+            borderColor: isRunning ? 'var(--neon-cyan)' : isPaused ? 'var(--warning)' : 'var(--border)',
+            color: isRunning ? 'var(--neon-cyan)' : isPaused ? 'var(--warning)' : 'var(--text-muted)',
+          }}
+          title={slot.isPaused ? t('timer.start') : t('timer.pause')}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = 'var(--neon-cyan)';
+            e.currentTarget.style.color = 'var(--neon-cyan)';
+            e.currentTarget.style.background = 'rgba(201, 169, 98, 0.05)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = isRunning ? 'var(--neon-cyan)' : isPaused ? 'var(--warning)' : 'var(--border)';
+            e.currentTarget.style.color = isRunning ? 'var(--neon-cyan)' : isPaused ? 'var(--warning)' : 'var(--text-muted)';
+            e.currentTarget.style.background = 'transparent';
+          }}
+        >
+          {slot.isPaused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
+        </button>
+
+        {/* Stop & Save (visible when running or paused with elapsed) */}
+        {(isRunning || isPaused) && (
+          <button
+            onClick={handleStopAndSave}
+            style={btnBase}
+            title={t('timer.stopSave')}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = 'var(--danger)';
+              e.currentTarget.style.color = 'var(--danger)';
+              e.currentTarget.style.background = 'rgba(212, 112, 110, 0.06)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = 'var(--border)';
+              e.currentTarget.style.color = 'var(--text-muted)';
+              e.currentTarget.style.background = 'transparent';
+            }}
+          >
+            <Square className="w-3.5 h-3.5" />
+          </button>
+        )}
+
+        {/* Remove */}
+        <button
+          onClick={() => removeSlot(slot.id)}
+          style={btnBase}
+          title={t('timer.removeTask')}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = 'var(--danger)';
+            e.currentTarget.style.color = 'var(--danger)';
+            e.currentTarget.style.background = 'rgba(212, 112, 110, 0.06)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = 'var(--border)';
+            e.currentTarget.style.color = 'var(--text-muted)';
+            e.currentTarget.style.background = 'transparent';
+          }}
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
       </div>
 
-      {/* Stakeholder Dropdown */}
-      <div className="space-y-3">
-        <div>
-          <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>
-            {t('label.stakeholder')}
-          </label>
-          <div className="flex gap-1">
-            <select
-              value={slot.stakeholder}
-              onChange={(e) => updateSlotField(slot.id, 'stakeholder', e.target.value)}
-              className="flex-1 px-2 py-1 text-sm rounded"
-              style={{
-                background: 'var(--surface-solid)',
-                borderColor: 'var(--border)',
-                color: 'var(--text)',
-                border: '1px solid var(--border)',
-              }}
-            >
-              <option value="">{t('ph.select')}</option>
-              {stakeholders.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-            <button
-              onClick={() => setShowAddStakeholder(!showAddStakeholder)}
-              className="px-2 py-1 rounded transition-colors"
-              style={{
-                background: 'var(--surface-solid)',
-                color: 'var(--text-secondary)',
-              }}
-            >
-              <Plus className="w-4 h-4" />
-            </button>
-          </div>
-          {showAddStakeholder && (
-            <div className="flex gap-1 mt-1">
-              <input
-                type="text"
-                placeholder={t('ph.newStakeholder')}
-                value={newStakeholder}
-                onChange={(e) => setNewStakeholder(e.target.value)}
-                className="flex-1 px-2 py-1 text-sm rounded"
-                style={{
-                  background: 'var(--surface-solid)',
-                  borderColor: 'var(--border)',
-                  color: 'var(--text)',
-                  border: '1px solid var(--border)',
-                }}
-              />
-              <button
-                onClick={handleAddStakeholder}
-                className="px-2 py-1 text-white rounded text-sm transition-colors"
-                style={{ background: 'var(--success)' }}
-              >
-                {t('btn.save')}
-              </button>
-            </div>
-          )}
+      {/* V5.15: 3-column field grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '8px' }}>
+        {/* Stakeholder */}
+        <div style={{ display: 'flex', gap: '4px', alignItems: 'stretch' }}>
+          <select
+            value={slot.stakeholder}
+            onChange={(e) => updateSlotField(slot.id, 'stakeholder', e.target.value)}
+            style={{ ...selectStyle, flex: 1, minWidth: 0 }}
+          >
+            <option value="">{t('ph.stakeholder')}</option>
+            {stakeholders.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+          <button
+            onClick={() => setShowAddStakeholder(!showAddStakeholder)}
+            style={{
+              width: '28px',
+              minWidth: '28px',
+              padding: 0,
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-sm)',
+              background: 'transparent',
+              color: 'var(--text-secondary)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '14px',
+              flexShrink: 0,
+            }}
+          >
+            +
+          </button>
         </div>
 
-        {/* Project Dropdown */}
-        <div>
-          <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>
-            {t('label.projekt')}
-          </label>
-          <div className="flex gap-1">
-            <select
-              value={slot.projekt}
-              onChange={(e) => updateSlotField(slot.id, 'projekt', e.target.value)}
-              className="flex-1 px-2 py-1 text-sm rounded"
-              style={{
-                background: 'var(--surface-solid)',
-                borderColor: 'var(--border)',
-                color: 'var(--text)',
-                border: '1px solid var(--border)',
-              }}
-            >
-              <option value="">{t('ph.select')}</option>
-              {projects.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
-            <button
-              onClick={() => setShowAddProject(!showAddProject)}
-              className="px-2 py-1 rounded transition-colors"
-              style={{
-                background: 'var(--surface-solid)',
-                color: 'var(--text-secondary)',
-              }}
-            >
-              <Plus className="w-4 h-4" />
-            </button>
-          </div>
-          {showAddProject && (
-            <div className="flex gap-1 mt-1">
-              <input
-                type="text"
-                placeholder={t('ph.newProjekt')}
-                value={newProject}
-                onChange={(e) => setNewProject(e.target.value)}
-                className="flex-1 px-2 py-1 text-sm rounded"
-                style={{
-                  background: 'var(--surface-solid)',
-                  borderColor: 'var(--border)',
-                  color: 'var(--text)',
-                  border: '1px solid var(--border)',
-                }}
-              />
-              <button
-                onClick={handleAddProject}
-                className="px-2 py-1 text-white rounded text-sm transition-colors"
-                style={{ background: 'var(--success)' }}
-              >
-                {t('btn.save')}
-              </button>
-            </div>
-          )}
+        {/* Project */}
+        <div style={{ display: 'flex', gap: '4px', alignItems: 'stretch' }}>
+          <select
+            value={slot.projekt}
+            onChange={(e) => updateSlotField(slot.id, 'projekt', e.target.value)}
+            style={{ ...selectStyle, flex: 1, minWidth: 0 }}
+          >
+            <option value="">{t('ph.projekt')}</option>
+            {projects.map((p) => (
+              <option key={p} value={p}>{p}</option>
+            ))}
+          </select>
+          <button
+            onClick={() => setShowAddProject(!showAddProject)}
+            style={{
+              width: '28px',
+              minWidth: '28px',
+              padding: 0,
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-sm)',
+              background: 'transparent',
+              color: 'var(--text-secondary)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '14px',
+              flexShrink: 0,
+            }}
+          >
+            +
+          </button>
         </div>
 
-        {/* Activity Dropdown */}
-        <div>
-          <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>
-            {t('label.taetigkeit')}
-          </label>
-          <div className="flex gap-1">
-            <select
-              value={slot.taetigkeit}
-              onChange={(e) => updateSlotField(slot.id, 'taetigkeit', e.target.value)}
-              className="flex-1 px-2 py-1 text-sm rounded"
-              style={{
-                background: 'var(--surface-solid)',
-                borderColor: 'var(--border)',
-                color: 'var(--text)',
-                border: '1px solid var(--border)',
-              }}
-            >
-              <option value="">{t('ph.select')}</option>
-              {activities.map((a) => (
-                <option key={a} value={a}>
-                  {a}
-                </option>
-              ))}
-            </select>
-            <button
-              onClick={() => setShowAddActivity(!showAddActivity)}
-              className="px-2 py-1 rounded transition-colors"
-              style={{
-                background: 'var(--surface-solid)',
-                color: 'var(--text-secondary)',
-              }}
-            >
-              <Plus className="w-4 h-4" />
-            </button>
-          </div>
-          {showAddActivity && (
-            <div className="flex gap-1 mt-1">
-              <input
-                type="text"
-                placeholder={t('ph.newTaetigkeit')}
-                value={newActivity}
-                onChange={(e) => setNewActivity(e.target.value)}
-                className="flex-1 px-2 py-1 text-sm rounded"
-                style={{
-                  background: 'var(--surface-solid)',
-                  borderColor: 'var(--border)',
-                  color: 'var(--text)',
-                  border: '1px solid var(--border)',
-                }}
-              />
-              <button
-                onClick={handleAddActivity}
-                className="px-2 py-1 text-white rounded text-sm transition-colors"
-                style={{ background: 'var(--success)' }}
-              >
-                {t('btn.save')}
-              </button>
-            </div>
-          )}
+        {/* Activity */}
+        <div style={{ display: 'flex', gap: '4px', alignItems: 'stretch' }}>
+          <select
+            value={slot.taetigkeit}
+            onChange={(e) => updateSlotField(slot.id, 'taetigkeit', e.target.value)}
+            style={{ ...selectStyle, flex: 1, minWidth: 0 }}
+          >
+            <option value="">{t('ph.taetigkeit')}</option>
+            {activities.map((a) => (
+              <option key={a} value={a}>{a}</option>
+            ))}
+          </select>
+          <button
+            onClick={() => setShowAddActivity(!showAddActivity)}
+            style={{
+              width: '28px',
+              minWidth: '28px',
+              padding: 0,
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-sm)',
+              background: 'transparent',
+              color: 'var(--text-secondary)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '14px',
+              flexShrink: 0,
+            }}
+          >
+            +
+          </button>
         </div>
+      </div>
 
-        {/* Note Input */}
-        <div>
-          <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>
-            {t('label.notiz')}
-          </label>
+      {/* Inline add rows */}
+      {showAddStakeholder && (
+        <div className="flex gap-1 mb-2">
           <input
             type="text"
-            placeholder={t('ph.notiz')}
-            value={slot.notiz || ''}
-            onChange={(e) => updateSlotField(slot.id, 'notiz', e.target.value)}
-            className="w-full px-2 py-1 text-sm rounded"
-            style={{
-              background: 'var(--surface-solid)',
-              borderColor: 'var(--border)',
-              color: 'var(--text)',
-              border: '1px solid var(--border)',
-            }}
+            placeholder={t('ph.newStakeholder')}
+            value={newStakeholder}
+            onChange={(e) => setNewStakeholder(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleAddStakeholder()}
+            style={inlineInputStyle}
           />
+          <button
+            onClick={handleAddStakeholder}
+            style={{ padding: '4px 8px', background: 'var(--success)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}
+          >
+            {t('btn.save')}
+          </button>
         </div>
-      </div>
+      )}
+      {showAddProject && (
+        <div className="flex gap-1 mb-2">
+          <input
+            type="text"
+            placeholder={t('ph.newProjekt')}
+            value={newProject}
+            onChange={(e) => setNewProject(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleAddProject()}
+            style={inlineInputStyle}
+          />
+          <button
+            onClick={handleAddProject}
+            style={{ padding: '4px 8px', background: 'var(--success)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}
+          >
+            {t('btn.save')}
+          </button>
+        </div>
+      )}
+      {showAddActivity && (
+        <div className="flex gap-1 mb-2">
+          <input
+            type="text"
+            placeholder={t('ph.newTaetigkeit')}
+            value={newActivity}
+            onChange={(e) => setNewActivity(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleAddActivity()}
+            style={inlineInputStyle}
+          />
+          <button
+            onClick={handleAddActivity}
+            style={{ padding: '4px 8px', background: 'var(--success)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}
+          >
+            {t('btn.save')}
+          </button>
+        </div>
+      )}
+
+      {/* Note */}
+      <input
+        type="text"
+        placeholder={t('ph.notiz')}
+        value={slot.notiz || ''}
+        onChange={(e) => updateSlotField(slot.id, 'notiz', e.target.value)}
+        style={{
+          ...selectStyle,
+          width: '100%',
+        }}
+      />
     </div>
   );
 };

@@ -1,8 +1,9 @@
 import { de } from './de';
 import { fr } from './fr';
-import { useState, useCallback, ReactNode } from 'react';
+import { useCallback, ReactNode } from 'react';
 import { createContext, useContext } from 'react';
 import type { Language } from '@/types';
+import { useUiStore } from '@/stores/uiStore';
 
 type NestedTranslations = Record<string, any>;
 
@@ -11,10 +12,10 @@ function getTranslation(
   translations: NestedTranslations,
   keys: string[]
 ): string {
-  let current = translations;
+  let current: any = translations;
   for (const key of keys) {
-    current = current[key];
-    if (!current) return keys.join('.');
+    current = current?.[key];
+    if (current === undefined || current === null) return keys.join('.');
   }
   return typeof current === 'string' ? current : keys.join('.');
 }
@@ -28,22 +29,20 @@ interface I18nContextType {
 
 const I18nContext = createContext<I18nContextType | undefined>(undefined);
 
-const translations: Record<Language, NestedTranslations> = {
+const allTranslations: Record<Language, NestedTranslations> = {
   de,
   fr,
 };
 
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguage] = useState<Language>(() => {
-    const saved = localStorage.getItem('language');
-    return (saved as Language) || 'de';
-  });
+  // Single source of truth: uiStore manages language state
+  const language = useUiStore((s) => s.language);
+  const setLanguageInStore = useUiStore((s) => s.setLanguage);
 
   const t = useCallback(
     (key: string): string => {
       const keys = key.split('.');
-      const translation = getTranslation(translations[language], keys);
-      return translation;
+      return getTranslation(allTranslations[language] || allTranslations.de, keys);
     },
     [language]
   );
@@ -51,22 +50,21 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const tArray = useCallback(
     (key: string): string[] => {
       const keys = key.split('.');
-      const current = getTranslation(translations[language], keys);
+      let current: any = allTranslations[language] || allTranslations.de;
+      for (const k of keys) {
+        current = current?.[k];
+        if (!current) return [];
+      }
       return Array.isArray(current) ? current : [];
     },
     [language]
   );
 
-  const handleSetLanguage = useCallback((lang: Language) => {
-    setLanguage(lang);
-    localStorage.setItem('language', lang);
-  }, []);
-
   return (
     <I18nContext.Provider
       value={{
         language,
-        setLanguage: handleSetLanguage,
+        setLanguage: setLanguageInStore,
         t,
         tArray,
       }}

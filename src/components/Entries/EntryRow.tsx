@@ -49,31 +49,31 @@ const EntryRow: React.FC<EntryRowProps> = ({ entry, onEdit }) => {
       {/* Date */}
       <td className="px-4 py-3 text-sm" style={{ color: 'var(--text-secondary)' }}>{formatDateDE(entry.date)}</td>
 
-      {/* Stakeholder Badge */}
+      {/* Stakeholder Badge - V5.15: cyan */}
       <td className="px-4 py-3">
         <span
-          className="inline-block px-3 py-1 rounded-full text-xs font-semibold"
-          style={{ background: 'rgba(201, 169, 98, 0.12)', color: 'var(--primary)' }}
+          className="inline-block px-2 py-0.5 rounded-xl text-xs font-semibold max-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap"
+          style={{ background: 'rgba(201, 169, 98, 0.07)', color: 'var(--neon-cyan)', border: '1px solid rgba(201, 169, 98, 0.08)' }}
         >
           {entry.stakeholder}
         </span>
       </td>
 
-      {/* Project Badge */}
+      {/* Project Badge - V5.15: violet */}
       <td className="px-4 py-3">
         <span
-          className="inline-block px-3 py-1 rounded-full text-xs font-semibold"
-          style={{ background: 'rgba(110, 196, 158, 0.12)', color: 'var(--success)' }}
+          className="inline-block px-2 py-0.5 rounded-xl text-xs font-semibold max-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap"
+          style={{ background: 'rgba(155, 142, 196, 0.07)', color: 'var(--neon-violet, #9B8EC4)', border: '1px solid rgba(155, 142, 196, 0.08)' }}
         >
           {entry.projekt}
         </span>
       </td>
 
-      {/* Activity Badge */}
+      {/* Activity Badge - V5.15: green */}
       <td className="px-4 py-3">
         <span
-          className="inline-block px-3 py-1 rounded-full text-xs font-semibold"
-          style={{ background: 'rgba(129, 140, 248, 0.12)', color: '#818cf8' }}
+          className="inline-block px-2 py-0.5 rounded-xl text-xs font-semibold max-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap"
+          style={{ background: 'rgba(110, 196, 158, 0.08)', color: 'var(--success)', border: '1px solid rgba(110, 196, 158, 0.08)' }}
         >
           {entry.taetigkeit}
         </span>

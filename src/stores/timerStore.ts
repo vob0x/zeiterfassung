@@ -10,6 +10,7 @@ interface TimerState {
   error: string | null;
   addSlot: (slot: { stakeholder: string; projekt: string; taetigkeit: string; notiz?: string }) => void;
   removeSlot: (id: string) => void;
+  resetSlot: (id: string) => void;
   updateSlotField: (
     id: string,
     field: 'stakeholder' | 'projekt' | 'taetigkeit' | 'notiz',
@@ -20,7 +21,7 @@ interface TimerState {
   resumeTimer: (id: string) => void;
   stopTimer: (id: string) => void;
   stopAllTimers: () => void;
-  getSlotElapsed: (id: string) => number; // Returns milliseconds
+  getSlotElapsed: (id: string) => number;
   tick: () => void;
   saveRunningTimers: () => void;
   setError: (error: string | null) => void;
@@ -45,7 +46,7 @@ export const useTimerStore = create<TimerState>((set, get) => ({
     }
 
     const now = new Date();
-    const newSlot: any = {
+    const newSlot: TimerSlot = {
       ...slotData,
       id: generateId(),
       date: now.toISOString().split('T')[0],
@@ -69,6 +70,25 @@ export const useTimerStore = create<TimerState>((set, get) => ({
     }));
   },
 
+  // Reset slot timer to 0 but keep slot visible with its fields
+  resetSlot: (id: string) => {
+    set((state) => ({
+      taskSlots: state.taskSlots.map((slot) =>
+        slot.id === id
+          ? {
+              ...slot,
+              startTime: new Date(),
+              pausedMs: 0,
+              isPaused: true,
+              is_running: false,
+              elapsed_ms: 0,
+            }
+          : slot
+      ),
+      activeSlotId: state.activeSlotId === id ? null : state.activeSlotId,
+    }));
+  },
+
   updateSlotField: (id, field, value) => {
     set((state) => ({
       taskSlots: state.taskSlots.map((slot) =>
@@ -86,6 +106,7 @@ export const useTimerStore = create<TimerState>((set, get) => ({
               startTime: new Date(),
               pausedMs: 0,
               isPaused: false,
+              is_running: true,
             }
           : slot
       ),
@@ -112,6 +133,7 @@ export const useTimerStore = create<TimerState>((set, get) => ({
             ...slot,
             pausedMs: elapsed,
             isPaused: true,
+            is_running: false,
           };
         }
         return slot;
@@ -128,6 +150,7 @@ export const useTimerStore = create<TimerState>((set, get) => ({
               ...slot,
               startTime: new Date(),
               isPaused: false,
+              is_running: true,
             }
           : slot
       ),
@@ -154,9 +177,9 @@ export const useTimerStore = create<TimerState>((set, get) => ({
       slot.pausedMs +
       (slot.isPaused ? 0 : Date.now() - slot.startTime.getTime());
 
-    // Minimum 1 minute to save
-    if (totalMs < 60000) {
-      set({ error: 'Timer must be at least 1 minute' });
+    // Minimum 1 second to save (matching V5.15)
+    if (totalMs < 1000) {
+      set({ error: 'Timer too short' });
       return;
     }
 
@@ -184,12 +207,13 @@ export const useTimerStore = create<TimerState>((set, get) => ({
       updated_at: new Date().toISOString(),
     });
 
-    // Remove slot
-    get().removeSlot(id);
+    // Reset slot (keep visible)
+    get().resetSlot(id);
 
     // Check if any active timers remain
     const remaining = get().taskSlots;
-    if (remaining.length === 0 && state.tickInterval) {
+    const hasActive = remaining.some((s) => !s.isPaused);
+    if (!hasActive && state.tickInterval) {
       clearInterval(state.tickInterval);
       set({ tickInterval: null });
     }
@@ -197,8 +221,13 @@ export const useTimerStore = create<TimerState>((set, get) => ({
 
   stopAllTimers: () => {
     const state = get();
-    const ids = state.taskSlots.map((s) => s.id);
-    ids.forEach((id) => get().stopTimer(id));
+    const runningSlots = state.taskSlots.filter((s) => !s.isPaused || s.pausedMs > 0);
+    runningSlots.forEach((slot) => {
+      const totalMs = slot.pausedMs + (slot.isPaused ? 0 : Date.now() - slot.startTime.getTime());
+      if (totalMs >= 1000) {
+        get().stopTimer(slot.id);
+      }
+    });
 
     if (state.tickInterval) {
       clearInterval(state.tickInterval);
@@ -219,8 +248,7 @@ export const useTimerStore = create<TimerState>((set, get) => ({
   },
 
   tick: () => {
-    // Force a re-render by updating a dummy value
-    // This ensures getSlotElapsed returns updated times
+    // Force a re-render by creating new taskSlots array reference
     set((state) => ({
       taskSlots: state.taskSlots.length > 0 ? [...state.taskSlots] : [],
     }));

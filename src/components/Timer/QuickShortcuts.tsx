@@ -1,31 +1,35 @@
 import React, { useState, useMemo } from 'react';
 import { useTimerStore } from '../../stores/timerStore';
+import { useEntriesStore } from '../../stores/entriesStore';
 import { useI18n } from '../../i18n';
-import { Plus, Zap, Pin, PinOff } from 'lucide-react';
-import { cn } from '../../lib/utils';
+import { Pin, PinOff, X } from 'lucide-react';
 
 interface ShortcutItem {
   stakeholder: string;
   projekt: string;
+  taetigkeit?: string;
   frequency?: number;
   isPinned?: boolean;
 }
 
 const QuickShortcuts: React.FC = () => {
   const { t } = useI18n();
-  const { taskSlots, addSlot } = useTimerStore();
+  const { addSlot } = useTimerStore();
+  const { entries } = useEntriesStore();
   const [pinnedShortcuts, setPinnedShortcuts] = useState<ShortcutItem[]>(() => {
     const saved = localStorage.getItem('pinnedShortcuts');
     return saved ? JSON.parse(saved) : [];
   });
 
-  // Calculate frequency of stakeholder+project combinations
+  // Calculate frequency of stakeholder+project combinations from actual entries
   const autoShortcuts = useMemo(() => {
     const freq: Record<string, number> = {};
 
-    taskSlots.forEach((slot) => {
-      const key = `${slot.stakeholder}|${slot.projekt}`;
-      freq[key] = (freq[key] || 0) + 1;
+    entries.forEach((entry) => {
+      if (entry.stakeholder && entry.projekt) {
+        const key = `${entry.stakeholder}|${entry.projekt}`;
+        freq[key] = (freq[key] || 0) + 1;
+      }
     });
 
     return Object.entries(freq)
@@ -35,7 +39,7 @@ const QuickShortcuts: React.FC = () => {
         const [stakeholder, projekt] = key.split('|');
         return { stakeholder, projekt, frequency };
       });
-  }, [taskSlots]);
+  }, [entries]);
 
   // Deduplicate: filter out auto shortcuts that are already pinned
   const dedupedAutoShortcuts = autoShortcuts.filter(
@@ -48,7 +52,7 @@ const QuickShortcuts: React.FC = () => {
     addSlot({
       stakeholder: shortcut.stakeholder,
       projekt: shortcut.projekt,
-      taetigkeit: '',
+      taetigkeit: shortcut.taetigkeit || '',
       notiz: '',
     });
   };
@@ -74,65 +78,101 @@ const QuickShortcuts: React.FC = () => {
     }
   };
 
+  // Delete a shortcut (remove from pinned and hide from auto)
+  const handleDelete = (shortcut: ShortcutItem) => {
+    const updated = pinnedShortcuts.filter(
+      (p) => !(p.stakeholder === shortcut.stakeholder && p.projekt === shortcut.projekt)
+    );
+    setPinnedShortcuts(updated);
+    localStorage.setItem('pinnedShortcuts', JSON.stringify(updated));
+  };
+
   const allShortcuts = [...pinnedShortcuts, ...dedupedAutoShortcuts];
 
-  return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center gap-2 mb-3">
-        {pinnedShortcuts.length > 0 && <Pin className="w-4 h-4" style={{ color: 'var(--warning)' }} />}
-        {dedupedAutoShortcuts.length > 0 && <Zap className="w-4 h-4" style={{ color: 'var(--primary)' }} />}
-        <h3 style={{ color: 'var(--text-secondary)' }} className="text-sm font-semibold">
-          {allShortcuts.length > 0 ? t('sc.addShort') : t('sc.needData')}
-        </h3>
+  if (allShortcuts.length === 0) {
+    return (
+      <div style={{ color: 'var(--text-muted)', fontSize: '11px', textAlign: 'center', padding: '4px 0' }}>
+        {t('sc.needData')}
       </div>
+    );
+  }
 
-      {/* Shortcuts Grid */}
-      {allShortcuts.length > 0 ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {allShortcuts.map((shortcut, idx) => {
-            const isPinned = pinnedShortcuts.some(
-              (p) => p.stakeholder === shortcut.stakeholder && p.projekt === shortcut.projekt
-            );
+  return (
+    <div className="flex flex-wrap gap-2">
+      {allShortcuts.map((shortcut, idx) => {
+        const isPinned = pinnedShortcuts.some(
+          (p) => p.stakeholder === shortcut.stakeholder && p.projekt === shortcut.projekt
+        );
 
-            return (
-              <div
-                key={`${shortcut.stakeholder}-${shortcut.projekt}-${idx}`}
-                className="group relative"
-              >
-                <button
-                  onClick={() => handleShortcutClick(shortcut)}
-                  style={{ background: 'var(--surface-solid)', color: 'var(--text)' }}
-                  className="w-full px-3 py-2 text-sm rounded-lg transition-colors text-left truncate hover:opacity-80"
-                >
-                  {shortcut.stakeholder}/{shortcut.projekt}
-                </button>
+        return (
+          <div
+            key={`${shortcut.stakeholder}-${shortcut.projekt}-${idx}`}
+            className="group"
+            style={{ position: 'relative', display: 'inline-flex' }}
+          >
+            {/* V5.15 quick-chip style */}
+            <button
+              onClick={() => handleShortcutClick(shortcut)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '4px 10px',
+                paddingRight: '28px',
+                borderRadius: '16px',
+                fontSize: '11px',
+                fontWeight: 600,
+                border: `1px solid ${isPinned ? 'rgba(229,168,75,0.25)' : 'var(--border)'}`,
+                background: isPinned ? 'rgba(229,168,75,0.06)' : 'var(--surface)',
+                color: isPinned ? 'var(--warning)' : 'var(--text-secondary)',
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+                whiteSpace: 'nowrap',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border-hover)';
+                e.currentTarget.style.color = 'var(--text)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = isPinned ? 'rgba(229,168,75,0.25)' : 'var(--border)';
+                e.currentTarget.style.color = isPinned ? 'var(--warning)' : 'var(--text-secondary)';
+              }}
+            >
+              {isPinned && <Pin className="w-3 h-3" />}
+              {shortcut.stakeholder}/{shortcut.projekt}
+            </button>
 
-                {/* Pin toggle button (appears on hover) */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleTogglePin(shortcut);
-                  }}
-                  style={{ background: 'var(--surface)' }}
-                  className="absolute right-1 top-1/2 -translate-y-1/2 p-1 opacity-0 group-hover:opacity-100 transition-opacity rounded text-xs hover:opacity-60"
-                  title={isPinned ? t('sc.unpin') : t('sc.pin')}
-                >
-                  {isPinned ? (
-                    <PinOff className="w-3 h-3" style={{ color: 'var(--warning)' }} />
-                  ) : (
-                    <Pin className="w-3 h-3" style={{ color: 'var(--text-secondary)' }} />
-                  )}
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <div style={{ color: 'var(--text-muted)' }} className="text-xs text-center py-4">
-          {t('sc.needData')}
-        </div>
-      )}
+            {/* Delete button (always visible on hover) */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDelete(shortcut);
+              }}
+              className="opacity-0 group-hover:opacity-100 transition-opacity"
+              style={{
+                position: 'absolute',
+                right: '2px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                width: '18px',
+                height: '18px',
+                borderRadius: '50%',
+                border: 'none',
+                background: 'rgba(212, 112, 110, 0.15)',
+                color: 'var(--danger)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 0,
+              }}
+              title={t('timer.removeTask')}
+            >
+              <X className="w-2.5 h-2.5" />
+            </button>
+          </div>
+        );
+      })}
     </div>
   );
 };

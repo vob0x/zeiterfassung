@@ -31,23 +31,40 @@ export const useTeamStore = create<TeamState>((set, get) => ({
   createTeam: async (name: string) => {
     set({ loading: true, error: null });
     try {
-      const inviteCode = `code_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const inviteCode = Math.random().toString(36).substr(2, 6).toUpperCase();
       const newTeam: Team = {
         id: `team_${Date.now()}`,
         name,
-        creator_id: 'current_user', // Will be replaced with actual user ID
+        creator_id: 'current_user',
         invite_code: inviteCode,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
 
+      // Add the creator as first member
+      const creatorMember: TeamMember = {
+        id: `member_${Date.now()}`,
+        team_id: newTeam.id,
+        user_id: 'current_user',
+        joined_at: new Date().toISOString(),
+      };
+
+      // Load current user's entries from localStorage
+      const storedEntries = localStorage.getItem('entries');
+      const currentEntries: TimeEntry[] = storedEntries ? JSON.parse(storedEntries) : [];
+      const memberEntriesMap = new Map<string, TimeEntry[]>();
+      memberEntriesMap.set('current_user', currentEntries);
+
       set({
         team: newTeam,
+        members: [creatorMember],
+        memberEntries: memberEntriesMap,
         connected: true,
         loading: false,
       });
 
       localStorage.setItem('team', JSON.stringify(newTeam));
+      localStorage.setItem('teamMembers', JSON.stringify([creatorMember]));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to create team';
       set({ error: message, loading: false });

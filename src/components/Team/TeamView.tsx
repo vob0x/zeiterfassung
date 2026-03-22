@@ -93,13 +93,15 @@ export default function TeamView() {
             <div className="flex gap-3">
               <button
                 onClick={() => setSetupMode('create')}
-                className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded font-medium transition-colors"
+                className="flex-1 px-4 py-3 rounded font-medium transition-all"
+                style={{ background: 'rgba(201,169,98,0.07)', border: '1px solid rgba(201,169,98,0.18)', color: 'var(--neon-cyan)' }}
               >
                 Team erstellen
               </button>
               <button
                 onClick={() => setSetupMode('join')}
-                className="flex-1 px-4 py-3 bg-green-600 hover:bg-green-500 text-white rounded font-medium transition-colors"
+                className="flex-1 px-4 py-3 rounded font-medium transition-all"
+                style={{ background: 'rgba(110,196,158,0.08)', border: '1px solid rgba(110,196,158,0.18)', color: 'var(--success)' }}
               >
                 Team beitreten
               </button>
@@ -122,7 +124,8 @@ export default function TeamView() {
               <div className="flex gap-2">
                 <button
                   onClick={() => handleCreateTeam(teamName)}
-                  className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded font-medium transition-colors"
+                  className="flex-1 px-4 py-2 rounded font-medium transition-all"
+                  style={{ background: 'rgba(201,169,98,0.07)', border: '1px solid rgba(201,169,98,0.18)', color: 'var(--neon-cyan)' }}
                 >
                   Team erstellen
                 </button>
@@ -167,7 +170,8 @@ export default function TeamView() {
               <div className="flex gap-2">
                 <button
                   onClick={() => handleJoinTeam(inviteCode, teamName)}
-                  className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded font-medium transition-colors"
+                  className="flex-1 px-4 py-2 rounded font-medium transition-all"
+                  style={{ background: 'rgba(110,196,158,0.08)', border: '1px solid rgba(110,196,158,0.18)', color: 'var(--success)' }}
                 >
                   Beitreten
                 </button>
@@ -206,13 +210,15 @@ export default function TeamView() {
         <div className="flex gap-2">
           <button
             onClick={handleSync}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded font-medium transition-colors"
+            className="px-4 py-2 rounded font-medium transition-all"
+            style={{ background: 'rgba(201,169,98,0.07)', border: '1px solid rgba(201,169,98,0.18)', color: 'var(--neon-cyan)' }}
           >
             {t('team.sync')}
           </button>
           <button
             onClick={handleLeaveTeam}
-            className="px-4 py-2 bg-red-700 hover:bg-red-600 text-white rounded font-medium transition-colors"
+            className="px-4 py-2 rounded font-medium transition-all"
+            style={{ background: 'rgba(212,112,110,0.08)', border: '1px solid rgba(212,112,110,0.18)', color: 'var(--danger)' }}
           >
             Trennen
           </button>
@@ -225,12 +231,11 @@ export default function TeamView() {
           <button
             key={p}
             onClick={() => setTeamPeriod(p)}
-            className={`px-4 py-2 rounded-lg font-medium transition-all ${
-              period === p
-                ? 'bg-gradient-to-r from-cyan-500 to-blue-500 shadow-lg'
-                : ''
-            }`}
-            style={period === p ? { color: 'var(--text)' } : { background: 'var(--surface-solid)', color: 'var(--text-secondary)' }}
+            className="px-4 py-2 rounded-lg font-medium transition-all"
+            style={period === p
+              ? { background: 'rgba(201,169,98,0.12)', border: '1px solid rgba(201,169,98,0.25)', color: 'var(--neon-cyan)' }
+              : { background: 'var(--surface-solid)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }
+            }
             onMouseEnter={(e) => period !== p && (e.currentTarget.style.background = 'var(--surface-hover)')}
             onMouseLeave={(e) => period !== p && (e.currentTarget.style.background = 'var(--surface-solid)')}
           >
@@ -247,19 +252,19 @@ export default function TeamView() {
         </div>
         <div className="rounded-lg p-4 backdrop-blur-sm" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
           <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>{t('team.persons')}</div>
-          <div className="text-2xl font-bold" style={{ color: '#60a5fa' }}>{personCount}</div>
+          <div className="text-2xl font-bold" style={{ color: 'var(--neon-cyan)' }}>{personCount}</div>
         </div>
         <div className="rounded-lg p-4 backdrop-blur-sm" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
           <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Einträge</div>
-          <div className="text-2xl font-bold" style={{ color: '#a78bfa' }}>{entryCount}</div>
+          <div className="text-2xl font-bold" style={{ color: 'var(--neon-violet, #9B8EC4)' }}>{entryCount}</div>
         </div>
         <div className="rounded-lg p-4 backdrop-blur-sm" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
           <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>{t('team.perPerson')}</div>
-          <div className="text-2xl font-bold" style={{ color: '#4ade80' }}>{avgPerPerson.toFixed(1)}h</div>
+          <div className="text-2xl font-bold" style={{ color: 'var(--success)' }}>{avgPerPerson.toFixed(1)}h</div>
         </div>
         <div className="rounded-lg p-4 backdrop-blur-sm" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
           <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>{t('team.perDay')}</div>
-          <div className="text-2xl font-bold" style={{ color: '#fb923c' }}>{avgPerDay.toFixed(1)}h</div>
+          <div className="text-2xl font-bold" style={{ color: 'var(--warning)' }}>{avgPerDay.toFixed(1)}h</div>
         </div>
       </div>
 
