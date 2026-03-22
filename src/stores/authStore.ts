@@ -1,0 +1,224 @@
+import { create } from 'zustand'
+import { supabaseClient, isSupabaseAvailable } from '@/lib/supabase'
+import type { Profile, Session } from '@/types'
+
+interface AuthState {
+  profile: Profile | null
+  session: Session | null
+  loading: boolean
+  error: string | null
+  isAuthenticated: boolean
+  signIn: (codename: string, password: string) => Promise<void>
+  signUp: (codename: string, password: string) => Promise<void>
+  signOut: () => Promise<void>
+  logout: () => Promise<void>
+  initializeAuth: () => Promise<void>
+  setError: (error: string | null) => void
+  clearError: () => void
+}
+
+// Pseudonymous email: codename@zeiterfassung.local
+function codeToEmail(codename: string): string {
+  return `${codename.toLowerCase().replace(/[^a-z0-9_-]/g, '_')}@zeiterfassung.local`
+}
+
+export const useAuthStore = create<AuthState>((set, get) => ({
+  profile: null,
+  session: null,
+  loading: true,
+  error: null,
+  isAuthenticated: false,
+
+  initializeAuth: async () => {
+    set({ loading: true })
+    try {
+      if (isSupabaseAvailable() && supabaseClient) {
+        // Check existing Supabase session
+        const { data: { session } } = await supabaseClient.auth.getSession()
+        if (session?.user) {
+          // Fetch profile
+          const { data: profileData } = await supabaseClient
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .maybeSingle()
+
+          const profile: Profile = profileData || {
+            id: session.user.id,
+            codename: session.user.user_metadata?.codename || 'User',
+            created_at: session.user.created_at,
+            updated_at: session.user.created_at,
+          }
+
+          set({
+            session: {
+              user: profile,
+              access_token: session.access_token,
+              refresh_token: session.refresh_token || '',
+            },
+            profile,
+            loading: false,
+            isAuthenticated: true,
+          })
+          return
+        }
+      }
+
+      // Fallback: check localStorage
+      const stored = localStorage.getItem('zeiterfassung_session')
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        set({
+          session: parsed,
+          profile: parsed.user,
+          loading: false,
+          isAuthenticated: true,
+        })
+        return
+      }
+
+      set({ loading: false, isAuthenticated: false })
+    } catch (error) {
+      console.error('Auth init failed:', error)
+      set({ loading: false, isAuthenticated: false })
+    }
+  },
+
+  signIn: async (codename: string, password: string) => {
+    set({ loading: true, error: null })
+    try {
+      if (isSupabaseAvailable() && supabaseClient) {
+        const email = codeToEmail(codename)
+        const { data, error } = await supabaseClient.auth.signInWithPassword({
+          email,
+          password,
+        })
+        if (error) throw error
+
+        if (data.user) {
+          const { data: profileData } = await supabaseClient
+            .from('profiles')
+            .select('*')
+            .eq('id', data.user.id)
+            .maybeSingle()
+
+          const profile: Profile = profileData || {
+            id: data.user.id,
+            codename,
+            created_at: data.user.created_at,
+            updated_at: data.user.created_at,
+          }
+
+          const session: Session = {
+            user: profile,
+            access_token: data.session?.access_token || '',
+            refresh_token: data.session?.refresh_token || '',
+          }
+
+          localStorage.setItem('zeiterfassung_session', JSON.stringify(session))
+          set({ profile, session, loading: false, isAuthenticated: true })
+          return
+        }
+      }
+
+      // Offline fallback: local-only session
+      const profile: Profile = {
+        id: `local_${Date.now()}`,
+        codename,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }
+      const session: Session = {
+        user: profile,
+        access_token: 'local',
+        refresh_token: 'local',
+      }
+      localStorage.setItem('zeiterfassung_session', JSON.stringify(session))
+      set({ profile, session, loading: false, isAuthenticated: true })
+    } catch (error: any) {
+      const msg = error?.message || 'Anmeldung fehlgeschlagen'
+      set({ error: msg, loading: false })
+      throw error
+    }
+  },
+
+  signUp: async (codename: string, password: string) => {
+    set({ loading: true, error: null })
+    try {
+      if (isSupabaseAvailable() && supabaseClient) {
+        const email = codeToEmail(codename)
+        const { data, error } = await supabaseClient.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { codename },
+          },
+        })
+        if (error) {
+          // "User already registered" → codename taken
+          if (error.message?.includes('already registered')) {
+            throw new Error('Codename bereits vergeben')
+          }
+          throw error
+        }
+
+        if (data.user) {
+          const profile: Profile = {
+            id: data.user.id,
+            codename,
+            created_at: data.user.created_at || new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          }
+
+          const session: Session = {
+            user: profile,
+            access_token: data.session?.access_token || '',
+            refresh_token: data.session?.refresh_token || '',
+          }
+
+          localStorage.setItem('zeiterfassung_session', JSON.stringify(session))
+          set({ profile, session, loading: false, isAuthenticated: true })
+          return
+        }
+      }
+
+      // Offline fallback
+      const profile: Profile = {
+        id: `local_${Date.now()}`,
+        codename,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }
+      const session: Session = {
+        user: profile,
+        access_token: 'local',
+        refresh_token: 'local',
+      }
+      localStorage.setItem('zeiterfassung_session', JSON.stringify(session))
+      set({ profile, session, loading: false, isAuthenticated: true })
+    } catch (error: any) {
+      const msg = error?.message || 'Registrierung fehlgeschlagen'
+      set({ error: msg, loading: false })
+      throw error
+    }
+  },
+
+  signOut: async () => {
+    try {
+      if (isSupabaseAvailable() && supabaseClient) {
+        await supabaseClient.auth.signOut()
+      }
+    } catch (e) {
+      console.warn('Supabase signOut error:', e)
+    }
+    localStorage.removeItem('zeiterfassung_session')
+    set({ profile: null, session: null, isAuthenticated: false, loading: false })
+  },
+
+  logout: async () => {
+    await get().signOut()
+  },
+
+  setError: (error) => set({ error }),
+  clearError: () => set({ error: null }),
+}))

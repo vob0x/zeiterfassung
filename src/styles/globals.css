@@ -1,0 +1,709 @@
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=DM+Sans:wght@400;500;700&family=Space+Mono:wght@400;700&family=Outfit:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================
+   CSS Custom Properties - Cyber Theme (Default)
+   ============================================ */
+:root {
+  --bg: #0A0B0F;
+  --surface: rgba(18, 20, 28, 0.78);
+  --surface-solid: #131520;
+  --border: rgba(201, 169, 98, 0.08);
+  --border-hover: rgba(201, 169, 98, 0.20);
+  --text: #E8E4DF;
+  --text-secondary: #908B83;
+  --text-muted: #4D4941;
+  --primary: #C9A962;
+  --danger: #D4706E;
+  --success: #6EC49E;
+  --warning: #E5A84B;
+  --font-display: 'Sora', sans-serif;
+  --font: 'DM Sans', sans-serif;
+  --font-mono: 'Space Mono', monospace;
+  --radius: 14px;
+  --radius-sm: 8px;
+}
+
+/* ============================================
+   CSS Custom Properties - Light Theme
+   ============================================ */
+[data-theme='light'] {
+  --bg: #F6F5F2;
+  --surface: rgba(255, 255, 255, 0.85);
+  --surface-solid: #FFFFFF;
+  --border: #E8E5E0;
+  --border-hover: #D9D5CE;
+  --text: #1A1814;
+  --text-secondary: #5F5D58;
+  --text-muted: #9A9491;
+  --primary: #2563EB;
+  --danger: #DC2626;
+  --success: #059669;
+  --warning: #D97706;
+  --font-display: 'Outfit', sans-serif;
+  --font: 'DM Sans', sans-serif;
+  --font-mono: 'Space Mono', monospace;
+  --radius: 14px;
+  --radius-sm: 8px;
+}
+
+/* ============================================
+   Base Reset and Typography
+   ============================================ */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font);
+  background-color: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  position: relative;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(
+      circle at 20% 50%,
+      rgba(201, 169, 98, 0.03) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      circle at 80% 80%,
+      rgba(110, 196, 158, 0.02) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      circle at 40% 20%,
+      rgba(212, 112, 110, 0.02) 0%,
+      transparent 50%
+    );
+  pointer-events: none;
+  animation: meshDrift 15s ease-in-out infinite;
+  z-index: -2;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.02'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  pointer-events: none;
+  opacity: 0.5;
+  z-index: -1;
+}
+
+/* ============================================
+   Typography
+   ============================================ */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+h1 {
+  font-size: clamp(1.75rem, 5vw, 2.5rem);
+}
+
+h2 {
+  font-size: clamp(1.5rem, 4vw, 2rem);
+}
+
+h3 {
+  font-size: clamp(1.25rem, 3vw, 1.5rem);
+}
+
+p {
+  color: var(--text-secondary);
+}
+
+a {
+  color: var(--primary);
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+a:hover {
+  color: var(--primary);
+  opacity: 0.8;
+}
+
+/* ============================================
+   Scrollbar Styles
+   ============================================ */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--primary);
+  border-radius: var(--radius-sm);
+  opacity: 0.5;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  opacity: 0.8;
+}
+
+/* ============================================
+   Glassmorphism Cards
+   ============================================ */
+@layer components {
+  .card {
+    @apply backdrop-blur-md rounded-[var(--radius)] border transition-all duration-300;
+    background-color: var(--surface);
+    border-color: var(--border);
+  }
+
+  .card:hover {
+    border-color: var(--border-hover);
+    box-shadow: 0 8px 32px rgba(201, 169, 98, 0.08);
+  }
+
+  .card-solid {
+    @apply backdrop-blur-none rounded-[var(--radius)] border transition-all duration-300;
+    background-color: var(--surface-solid);
+    border-color: var(--border);
+  }
+
+  /* ============================================
+     Button Styles
+     ============================================ */
+  .btn {
+    @apply px-6 py-3 rounded-[var(--radius-sm)] font-medium transition-all duration-300 relative overflow-hidden cursor-pointer;
+    font-family: var(--font);
+    letter-spacing: 0.5px;
+  }
+
+  .btn:active::after {
+    animation: ripple 0.6s ease-out;
+  }
+
+  .btn-primary {
+    @apply bg-[var(--primary)] text-[var(--bg)] hover:shadow-lg;
+  }
+
+  .btn-primary:hover {
+    box-shadow: 0 0 24px rgba(201, 169, 98, 0.3);
+    transform: translateY(-2px);
+  }
+
+  .btn-primary:active {
+    transform: translateY(0);
+  }
+
+  .btn-secondary {
+    @apply bg-[var(--surface-solid)] text-[var(--text)] border border-[var(--border)] hover:border-[var(--border-hover)];
+  }
+
+  .btn-secondary:hover {
+    background-color: rgba(201, 169, 98, 0.08);
+  }
+
+  .btn-danger {
+    @apply bg-[var(--danger)] text-white hover:shadow-lg;
+  }
+
+  .btn-danger:hover {
+    box-shadow: 0 0 24px rgba(212, 112, 110, 0.3);
+    transform: translateY(-2px);
+  }
+
+  .btn-success {
+    @apply bg-[var(--success)] text-white hover:shadow-lg;
+  }
+
+  .btn-success:hover {
+    box-shadow: 0 0 24px rgba(110, 196, 158, 0.3);
+    transform: translateY(-2px);
+  }
+
+  .btn-sm {
+    @apply px-4 py-2 text-sm;
+  }
+
+  .btn-lg {
+    @apply px-8 py-4 text-lg;
+  }
+
+  .btn:disabled {
+    @apply opacity-50 cursor-not-allowed;
+  }
+
+  /* ============================================
+     Form Input Styles
+     ============================================ */
+  .input {
+    @apply w-full px-4 py-3 rounded-[var(--radius-sm)] border transition-all duration-300;
+    background-color: var(--surface-solid);
+    border-color: var(--border);
+    color: var(--text);
+    font-family: var(--font);
+  }
+
+  .input::placeholder {
+    color: var(--text-muted);
+  }
+
+  .input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 16px rgba(201, 169, 98, 0.2);
+  }
+
+  .input:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .textarea {
+    @apply w-full px-4 py-3 rounded-[var(--radius-sm)] border transition-all duration-300 resize-none;
+    background-color: var(--surface-solid);
+    border-color: var(--border);
+    color: var(--text);
+    font-family: var(--font);
+  }
+
+  .textarea::placeholder {
+    color: var(--text-muted);
+  }
+
+  .textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 16px rgba(201, 169, 98, 0.2);
+  }
+
+  .select {
+    @apply w-full px-4 py-3 rounded-[var(--radius-sm)] border transition-all duration-300;
+    background-color: var(--surface-solid);
+    border-color: var(--border);
+    color: var(--text);
+    font-family: var(--font);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23C9A962' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 36px;
+    appearance: none;
+  }
+
+  [data-theme='light'] .select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%232563EB' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  }
+
+  .select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 16px rgba(201, 169, 98, 0.2);
+  }
+
+  .label {
+    @apply block text-sm font-medium mb-2;
+    color: var(--text);
+  }
+
+  /* ============================================
+     Animation Keyframes
+     ============================================ */
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes slideInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slideInDown {
+    from {
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slideOutDown {
+    from {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+  }
+
+  @keyframes staggerIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes meshDrift {
+    0%,
+    100% {
+      transform: translate(0, 0);
+    }
+    50% {
+      transform: translate(30px, -30px);
+    }
+  }
+
+  @keyframes pulseGlow {
+    0%,
+    100% {
+      opacity: 1;
+      box-shadow: 0 0 16px rgba(201, 169, 98, 0.3);
+    }
+    50% {
+      opacity: 0.8;
+      box-shadow: 0 0 32px rgba(201, 169, 98, 0.5);
+    }
+  }
+
+  @keyframes ripple {
+    from {
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      opacity: 0.6;
+    }
+    to {
+      top: 50%;
+      left: 50%;
+      width: 300px;
+      height: 300px;
+      opacity: 0;
+    }
+  }
+
+  /* ============================================
+     Toast Styles
+     ============================================ */
+  .toast-container {
+    @apply fixed bottom-6 right-6 flex flex-col gap-3 z-50;
+    max-width: 400px;
+  }
+
+  .toast {
+    @apply p-4 rounded-[var(--radius-sm)] backdrop-blur-md border flex items-start gap-3;
+    background-color: var(--surface);
+    border-color: var(--border);
+    animation: slideInUp 0.3s ease-out;
+  }
+
+  .toast.success {
+    border-color: var(--success);
+  }
+
+  .toast.success .toast-icon {
+    color: var(--success);
+  }
+
+  .toast.error {
+    border-color: var(--danger);
+  }
+
+  .toast.error .toast-icon {
+    color: var(--danger);
+  }
+
+  .toast.info {
+    border-color: var(--primary);
+  }
+
+  .toast.info .toast-icon {
+    color: var(--primary);
+  }
+
+  .toast-icon {
+    @apply flex-shrink-0 w-5 h-5 mt-0.5;
+  }
+
+  .toast-content {
+    @apply flex-1;
+  }
+
+  .toast-title {
+    @apply font-medium text-sm;
+    color: var(--text);
+  }
+
+  .toast-message {
+    @apply text-xs mt-1;
+    color: var(--text-secondary);
+  }
+
+  .toast-close {
+    @apply flex-shrink-0 cursor-pointer opacity-50 hover:opacity-100 transition-opacity;
+  }
+
+  /* ============================================
+     Modal Overlay Styles
+     ============================================ */
+  .modal-overlay {
+    @apply fixed inset-0 z-50 flex items-center justify-center;
+    background-color: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  .modal-content {
+    @apply card relative max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto;
+    animation: slideInUp 0.3s ease-out;
+  }
+
+  .modal-header {
+    @apply flex items-center justify-between p-6 border-b;
+    border-color: var(--border);
+  }
+
+  .modal-title {
+    @apply text-lg font-semibold;
+    color: var(--text);
+  }
+
+  .modal-close {
+    @apply text-[var(--text-secondary)] hover:text-[var(--text)] cursor-pointer transition-colors;
+  }
+
+  .modal-body {
+    @apply p-6;
+  }
+
+  .modal-footer {
+    @apply flex gap-3 justify-end p-6 border-t;
+    border-color: var(--border);
+  }
+
+  /* ============================================
+     Table Styles
+     ============================================ */
+  .table {
+    @apply w-full border-collapse;
+  }
+
+  .table th {
+    @apply px-4 py-3 text-left font-semibold text-sm border-b;
+    color: var(--text);
+    border-color: var(--border);
+    background-color: rgba(201, 169, 98, 0.03);
+  }
+
+  .table td {
+    @apply px-4 py-3 text-sm border-b;
+    color: var(--text);
+    border-color: var(--border);
+  }
+
+  .table tr:hover {
+    background-color: rgba(201, 169, 98, 0.05);
+  }
+
+  /* ============================================
+     Utility Classes
+     ============================================ */
+  .text-primary {
+    color: var(--primary);
+  }
+
+  .text-secondary {
+    color: var(--text-secondary);
+  }
+
+  .text-muted {
+    color: var(--text-muted);
+  }
+
+  .bg-primary {
+    background-color: var(--primary);
+  }
+
+  .border-primary {
+    border-color: var(--primary);
+  }
+
+  .divider {
+    @apply my-4;
+    border-color: var(--border);
+  }
+
+  .skeleton {
+    @apply bg-gradient-to-r from-[var(--surface)] to-[var(--surface-solid)] rounded-[var(--radius-sm)];
+    animation: pulseGlow 2s ease-in-out infinite;
+  }
+}
+
+/* ============================================
+   Mobile Bottom Navigation Styles
+   ============================================ */
+.bottom-nav {
+  @apply fixed bottom-0 left-0 right-0 md:hidden;
+  background-color: var(--surface);
+  border-top: 1px solid var(--border);
+  padding-bottom: env(safe-area-inset-bottom);
+  backdrop-filter: blur(10px);
+  z-index: 40;
+}
+
+.bottom-nav-content {
+  @apply flex justify-around items-center h-20;
+}
+
+.bottom-nav-item {
+  @apply flex flex-col items-center justify-center gap-1 h-full flex-1 cursor-pointer transition-all duration-300;
+  color: var(--text-secondary);
+}
+
+.bottom-nav-item.active {
+  color: var(--primary);
+}
+
+.bottom-nav-item:hover {
+  background-color: rgba(201, 169, 98, 0.08);
+}
+
+.bottom-nav-icon {
+  @apply w-6 h-6;
+}
+
+.bottom-nav-label {
+  @apply text-xs font-medium;
+}
+
+/* ============================================
+   Responsive Design
+   ============================================ */
+@media (max-width: 768px) {
+  body {
+    padding-bottom: 80px;
+  }
+
+  .card {
+    @apply rounded-lg;
+  }
+
+  h1 {
+    font-size: 1.5rem;
+  }
+
+  h2 {
+    font-size: 1.25rem;
+  }
+
+  h3 {
+    font-size: 1.1rem;
+  }
+
+  .btn {
+    @apply px-4 py-2 text-sm;
+  }
+
+  .input,
+  .textarea {
+    font-size: 16px;
+  }
+
+  .toast-container {
+    @apply bottom-24 right-4 left-4 max-w-full;
+  }
+
+  .modal-content {
+    @apply max-w-[calc(100vw-32px)];
+  }
+}
+
+@media (max-width: 480px) {
+  h1 {
+    font-size: 1.25rem;
+  }
+
+  h2 {
+    font-size: 1.1rem;
+  }
+
+  h3 {
+    font-size: 1rem;
+  }
+
+  .card {
+    @apply rounded-lg;
+  }
+
+  .btn {
+    @apply px-3 py-2 text-xs;
+  }
+}
+
+/* ============================================
+   Print Styles
+   ============================================ */
+@media print {
+  body::before,
+  body::after {
+    display: none;
+  }
+
+  .bottom-nav,
+  .top-bar,
+  .no-print {
+    display: none !important;
+  }
+
+  .card {
+    box-shadow: none;
+    border: 1px solid #ccc;
+  }
+}

@@ -1,0 +1,51 @@
+name: iOS Build
+
+on:
+  workflow_dispatch
+
+jobs:
+  build-ios:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web app
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
+      - name: Install Capacitor CLI
+        run: npm install -g @capacitor/cli
+
+      - name: Capacitor sync
+        run: npx cap sync ios
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-web-dist
+          path: dist
+
+      - name: Note about Xcode build
+        run: |
+          echo "Web app build and Capacitor sync completed successfully!"
+          echo "To complete the iOS build, you need to:"
+          echo "1. Clone the repository on a macOS machine with Xcode installed"
+          echo "2. Run: npm install"
+          echo "3. Run: npm run cap:sync"
+          echo "4. Run: npm run cap:open:ios"
+          echo "5. Build and run the project in Xcode"

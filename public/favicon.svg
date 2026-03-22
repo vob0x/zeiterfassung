@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#0A0B0F"/>
+  <circle cx="256" cy="256" r="160" fill="none" stroke="#D4AF37" stroke-width="16" opacity="0.3"/>
+  <circle cx="256" cy="256" r="160" fill="none" stroke="#D4AF37" stroke-width="16" stroke-dasharray="600 1000" stroke-linecap="round" transform="rotate(-90 256 256)"/>
+  <line x1="256" y1="256" x2="256" y2="140" stroke="#E8E4DF" stroke-width="12" stroke-linecap="round"/>
+  <line x1="256" y1="256" x2="340" y2="280" stroke="#D4AF37" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="256" cy="256" r="12" fill="#D4AF37"/>
+  <text x="256" y="460" text-anchor="middle" font-family="sans-serif" font-weight="700" font-size="60" fill="#D4AF37">ZE</text>
+</svg>

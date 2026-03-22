@@ -1,0 +1,349 @@
+// French translations for Zeiterfassung app
+export const fr = {
+  // Navigation
+  nav: {
+    timer: "Chrono",
+    entries: "Entrées",
+    dashboard: "Tableau de bord",
+    manage: "Gestion",
+    team: "Équipe",
+  },
+  bnav: {
+    timer: "Chrono",
+    entries: "Entrées",
+    dashboard: "Tableau de bord",
+    manage: "Gestion",
+    team: "Équipe",
+  },
+
+  // Timer Section
+  timer: {
+    tasks: "Tâches",
+    manualTitle: "Saisie manuelle",
+    todayTotal: "Aujourd'hui total",
+    addTask: "+ Ajouter une tâche",
+    multipleTasks: "Plusieurs tâches",
+    running: "EN COURS",
+    paused: "PAUSE",
+    ready: "Prêt",
+    startHint: "Lancez une tâche avec ▶",
+    pause: "Pause",
+    start: "Démarrer",
+    stopSave: "Arrêter & enregistrer",
+    removeTask: "Supprimer la tâche",
+  },
+  manual: {
+    title: "Saisie manuelle",
+  },
+  ph: {
+    stakeholder: "Mandant",
+    projekt: "Projet",
+    taetigkeit: "Activité",
+    notiz: "Note (facultatif)",
+    select: "— choisir —",
+    newStakeholder: "Nouveau mandant...",
+    newProjekt: "Nouveau projet...",
+    newTaetigkeit: "Nouvelle activité...",
+    teamName: "Votre nom (p.ex. Anne)",
+  },
+  ts: {
+    pause: "Pause",
+    start: "Démarrer",
+    stopSave: "Arrêter & enregistrer",
+    remove: "Supprimer la tâche",
+  },
+
+  // Entries Section
+  entries: {
+    title: "Entrées saisies",
+    count: "Entrées",
+    total: "Total :",
+    of: "sur",
+    nodata: "Aucune entrée enregistrée.",
+    noMatch: "Aucun résultat pour le filtre actif",
+    totalSuffix: "entrées au total",
+    allStakeholder: "Tous les mandants",
+    allProjekte: "Tous les projets",
+    allTaetigkeiten: "Toutes les activités",
+  },
+  all: {
+    stakeholder: "Tous les mandants",
+    projekte: "Tous les projets",
+    taetigkeiten: "Toutes les activités",
+  },
+  filter: {
+    notiz: "🔍 Note...",
+    from: "Dès",
+    to: "Jusqu'au",
+    clearAll: "✕ Tout réinitialiser",
+  },
+  th: {
+    datum: "Date",
+    stakeholder: "Mandant",
+    projekt: "Projet",
+    taetigkeit: "Activité",
+    von: "De",
+    bis: "À",
+    dauer: "Durée",
+    notiz: "Note",
+  },
+
+  // Dashboard Section
+  dash: {
+    today: "Aujourd'hui",
+    thisWeek: "Cette semaine",
+    thisMonth: "Ce mois",
+    thisYear: "Cette année",
+    all: "Total",
+    shxpr: "Mandant × Projet",
+    byActivity: "Par activité",
+    timeline: "Chronologie",
+    noData: "Aucune donnée.",
+    noEntries: "📭 Aucune entrée pour la période sélectionnée",
+  },
+
+  // Manage Section
+  manage: {
+    stakeholder: "Mandants",
+    projekte: "Projets",
+    taetigkeiten: "Activités",
+    backup: "Sauvegarde & restauration",
+    csv: "CSV (entrées uniquement)",
+    noEntries: "Aucune entrée",
+    deleted: "supprimé.",
+    labelSh: "Mandant",
+    labelPr: "Projet",
+    labelTa: "Activité",
+    backupHint: "Avant une mise à jour : créer une sauvegarde → remplacer le fichier HTML → restaurer la sauvegarde.",
+  },
+
+  // Team Section
+  team: {
+    setupText: "Configuration de l'équipe",
+    connect: "Connecter le dossier",
+    connected: "Connecté en tant que",
+    sync: "🔄 Sync",
+    nodata: "Pas encore de données.",
+    week: "Semaine",
+    month: "Mois",
+    year: "Année",
+    all: "Total",
+    custom: "Période",
+    export: "📊 Export Excel",
+    attendance: "📅 Aperçu quotidien — Qui était actif quand",
+    shxperson: "Mandant × Personne",
+    prxperson: "Projet × Personne",
+    workload: "Charge par personne",
+    timeline: "Chronologie",
+    hours: "Heures",
+    persons: "Personnes",
+    perPerson: "⌀/Personne",
+    perDay: "⌀/Jour",
+    total: "Total",
+    today: "aujourd'hui",
+    avgWorkday: "⌀ / Jour ouvrable",
+  },
+
+  // KPIs
+  kpi: {
+    today: "Aujourd'hui",
+    entries: "Entrées",
+  },
+
+  // Edit
+  edit: {
+    title: "Modifier l'entrée",
+  },
+
+  // Buttons
+  btn: {
+    backup: "💾 Sauvegarde complète",
+    restore: "📦 Restaurer la sauvegarde",
+    csvExport: "📥 Export CSV",
+    csvImport: "📤 Import CSV",
+    save: "Enregistrer",
+    cancel: "Annuler",
+    close: "Fermer",
+    deleteAll: "🗑️ Supprimer toutes les données",
+    undo: "Annuler",
+  },
+
+  // Toasts
+  toast: {
+    saved: "enregistré",
+    deleted: "supprimé",
+    midnight: "au-delà de minuit (2 entrées)",
+    manualOk: "saisi manuellement.",
+    tooShort: "Chrono trop court",
+    backupOk: "Sauvegarde enregistrée",
+    restoreOk: "Sauvegarde restaurée",
+    importOk: "Entrées importées.",
+    exportOk: "Export Excel téléchargé",
+    syncOk: "Membres de l'équipe chargés.",
+    connected: "Connecté en tant que",
+    disconnected: "Connexion de l'équipe coupée.",
+    allDeleted: "Toutes les données supprimées.",
+    selectShPr: "Veuillez choisir un mandant et un projet.",
+    selectDate: "Veuillez entrer une date.",
+    selectTime: "Veuillez entrer les heures de début et de fin.",
+    endAfterStart: "L'heure de fin doit être après l'heure de début.",
+    entryUpdated: "Entrée mise à jour.",
+    entryDeleted: "Entrée supprimée.",
+    entryRestored: "Entrée restaurée.",
+    duplicate: "existe déjà.",
+    added: "ajouté.",
+    renamed: "Renommé en",
+    csvExported: "CSV exporté.",
+    max8: "Maximum 8 tâches.",
+    error: "Erreur :",
+    noExport: "Aucune entrée à exporter.",
+  },
+
+  // Confirmations
+  confirm: {
+    delete: "Supprimer l'entrée ?",
+    deleteAll: "⚠️ ATTENTION : Toutes les données seront supprimées de manière irréversible...",
+    deleteItem: "vraiment supprimer ?",
+    disconnect: "Déconnecter l'équipe ?",
+  },
+
+  // Labels
+  label: {
+    datum: "Date",
+    von: "De",
+    bis: "À",
+    notiz: "Note",
+    stakeholder: "Mandant",
+    projekt: "Projet",
+    taetigkeit: "Activité",
+  },
+
+  // Weekdays
+  wd: {
+    short: ["di", "lu", "ma", "me", "je", "ve", "sa"],
+    long: ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"],
+  },
+
+  // Welcome
+  welcome: {
+    fullTitle: "Bienvenue – Saisie du temps",
+    backupQ: "Restaurer la sauvegarde ?",
+    restoreBtn: "Restaurer",
+    noEntries: "Aucune entrée",
+    hint: "Commencez par enregistrer une nouvelle tâche",
+    or: "ou",
+  },
+
+  // Shortcuts
+  sc: {
+    remove: "Supprimer",
+    pin: "Épingler",
+    unpin: "Détacher",
+    pinned: "Épinglé",
+    unpinned: "Non épinglé",
+    add: "Ajouter",
+    addShort: "Ajouter rapidement",
+    addTitle: "Ajouter une nouvelle combinaison",
+    addBtn: "+ Ajouter",
+    selectBoth: "Veuillez choisir les deux",
+    exists: "existe déjà",
+    max: "Maximum 8 entrées",
+    needData: "Nécessite des données",
+  },
+
+  // Keyboard shortcuts
+  kbd: {
+    title: "Raccourcis clavier",
+    space: "Espace pour démarrer/pause",
+    s: "S pour enregistrer",
+    n: "N pour nouvelle saisie manuelle",
+    tabs: "Tab pour changer de page",
+    f: "F pour filtrer",
+    q: "Q pour quitter",
+    esc: "ESC pour fermer",
+  },
+
+  // Titles
+  title: {
+    backup: "Créer une sauvegarde",
+    rename: "Renommer",
+    delete: "Supprimer",
+    edit: "Modifier",
+    remove: "Supprimer",
+    newSh: "Nouveau mandant",
+    newPr: "Nouveau projet",
+    newTa: "Nouvelle activité",
+    stopAll: "Tout arrêter",
+    resetFilter: "Réinitialiser le filtre",
+  },
+
+  // Data sync board
+  dsb: {
+    cancelled: "Annulé",
+    crcWarn: "Avertissement CRC",
+    confirmRestore: "Confirmer la restauration",
+    restored: "Restauré",
+    heartbeatFound: "Heartbeat trouvé",
+    heartbeatOk: "Heartbeat OK",
+    startupWarn: "Avertissement de démarrage",
+    startupRestore: "Restauration au démarrage",
+  },
+
+  // CSV
+  csv: {
+    datum: "Date",
+    stakeholder: "Mandant",
+    projekt: "Projet",
+    taetigkeit: "Activité",
+    von: "De",
+    bis: "À",
+    dauer: "Durée",
+    notiz: "Note",
+    wochentag: "Jour de la semaine",
+  },
+
+  // Miscellaneous
+  running: "EN COURS",
+  paused: "PAUSE",
+  empty: "(vide)",
+  from: "De",
+  to: "À",
+  bis: "à",
+  app: {
+    title: "Saisie du temps",
+  },
+  period: {
+    label: "Période",
+  },
+
+  // Authentication
+  auth: {
+    title: "Connexion",
+    codename: "Codename",
+    password: "Mot de passe",
+    signIn: "Se connecter",
+    signUp: "S'inscrire",
+    noAccount: "Pas encore de compte ?",
+    hasAccount: "Déjà un compte ?",
+    codenameTaken: "Codename déjà pris",
+    signOut: "Se déconnecter",
+    logout: "Déconnexion",
+    subtitle: "Suivi du temps efficace",
+    disclaimer: "Suivi du temps pseudonyme. Votre vie privée est importante.",
+    codenameExample: "p.ex. alex, sophie",
+    confirmPassword: "Confirmer le mot de passe",
+    errors: {
+      codenameRequired: "Le codename est requis",
+      passwordRequired: "Le mot de passe est requis",
+      passwordsMismatch: "Les mots de passe ne correspondent pas",
+      passwordTooShort: "Le mot de passe doit avoir au moins 6 caractères",
+      authFailed: "Authentification échouée",
+    },
+  },
+  ui: {
+    loading: "Chargement...",
+    toggleTheme: "Basculer le thème",
+    toggleLanguage: "Basculer la langue",
+    viewContent: "Contenu pour",
+  },
+} as const;
