@@ -45,13 +45,13 @@ function computeUnionMs(dayEntries: TimeEntry[]): number {
   return merged.reduce((sum, [start, end]) => sum + (end - start), 0) * 60000;
 }
 
-function getIntensityColor(hours: number): string {
-  if (hours === 0) return 'bg-slate-900';
-  if (hours < 1) return 'bg-emerald-900/40 border-emerald-700/30';
-  if (hours < 3) return 'bg-emerald-800/60 border-emerald-600/40';
-  if (hours < 6) return 'bg-yellow-700/60 border-yellow-600/40';
-  if (hours < 10) return 'bg-orange-700/60 border-orange-600/40';
-  return 'bg-red-700/60 border-red-600/40';
+function getIntensityStyle(hours: number): React.CSSProperties {
+  if (hours === 0) return { background: 'var(--surface-solid)' };
+  if (hours < 1) return { background: 'rgba(110, 196, 158, 0.15)', border: '1px solid rgba(110, 196, 158, 0.2)' };
+  if (hours < 3) return { background: 'rgba(110, 196, 158, 0.3)', border: '1px solid rgba(110, 196, 158, 0.4)' };
+  if (hours < 6) return { background: 'rgba(201, 169, 98, 0.3)', border: '1px solid rgba(201, 169, 98, 0.4)' };
+  if (hours < 10) return { background: 'rgba(229, 168, 75, 0.3)', border: '1px solid rgba(229, 168, 75, 0.4)' };
+  return { background: 'rgba(212, 112, 110, 0.3)', border: '1px solid rgba(212, 112, 110, 0.4)' };
 }
 
 export function Heatmap({ entries }: HeatmapProps) {
@@ -99,18 +99,19 @@ export function Heatmap({ entries }: HeatmapProps) {
       <table className="w-full border-collapse">
         <thead>
           <tr>
-            <th className="p-2 text-left text-sm font-semibold text-slate-400 bg-slate-900/50 border border-slate-700/30">
+            <th className="p-2 text-left text-sm font-semibold border" style={{ color: 'var(--text-muted)', background: 'rgba(var(--surface-rgb), 0.5)', borderColor: 'rgba(var(--border-rgb), 0.3)' }}>
               Stakeholder
             </th>
             {projects.map((pr) => (
               <th
                 key={pr}
-                className="p-2 text-center text-sm font-semibold text-slate-300 bg-slate-900/50 border border-slate-700/30"
+                className="p-2 text-center text-sm font-semibold border"
+                style={{ color: 'var(--text-secondary)', background: 'rgba(var(--surface-rgb), 0.5)', borderColor: 'rgba(var(--border-rgb), 0.3)' }}
               >
                 {pr}
               </th>
             ))}
-            <th className="p-2 text-center text-sm font-semibold text-cyan-400 bg-slate-900/50 border border-slate-700/30">
+            <th className="p-2 text-center text-sm font-semibold border" style={{ color: 'var(--neon-cyan)', background: 'rgba(var(--surface-rgb), 0.5)', borderColor: 'rgba(var(--border-rgb), 0.3)' }}>
               Total
             </th>
           </tr>
@@ -118,7 +119,7 @@ export function Heatmap({ entries }: HeatmapProps) {
         <tbody>
           {stakeholders.map((sh) => (
             <tr key={sh}>
-              <td className="p-2 text-sm font-medium text-slate-300 bg-slate-900/30 border border-slate-700/30 sticky left-0">
+              <td className="p-2 text-sm font-medium border sticky left-0" style={{ color: 'var(--text-secondary)', background: 'rgba(var(--surface-rgb), 0.3)', borderColor: 'rgba(var(--border-rgb), 0.3)' }}>
                 {sh}
               </td>
               {projects.map((pr) => {
@@ -126,30 +127,32 @@ export function Heatmap({ entries }: HeatmapProps) {
                 return (
                   <td
                     key={`${sh}-${pr}`}
-                    className={`p-2 text-center text-sm font-medium text-white border border-slate-700/30 ${getIntensityColor(hours)}`}
+                    className="p-2 text-center text-sm font-medium rounded"
+                    style={{ ...getIntensityStyle(hours), color: 'var(--text)' }}
                   >
                     {hours > 0 ? hours.toFixed(1) : '—'}
                   </td>
                 );
               })}
-              <td className="p-2 text-center text-sm font-semibold text-cyan-300 bg-slate-900/50 border border-slate-700/30">
+              <td className="p-2 text-center text-sm font-semibold border" style={{ color: 'var(--neon-cyan)', background: 'rgba(var(--surface-rgb), 0.5)', borderColor: 'rgba(var(--border-rgb), 0.3)' }}>
                 {(totals.stakeholder[sh] || 0).toFixed(1)}
               </td>
             </tr>
           ))}
-          <tr className="border-t-2 border-slate-600">
-            <td className="p-2 text-sm font-semibold text-cyan-400 bg-slate-900/50 border border-slate-700/30">
+          <tr style={{ borderTopColor: 'var(--surface-hover)', borderTopWidth: '2px' }}>
+            <td className="p-2 text-sm font-semibold border" style={{ color: 'var(--neon-cyan)', background: 'rgba(var(--surface-rgb), 0.5)', borderColor: 'rgba(var(--border-rgb), 0.3)' }}>
               Total
             </td>
             {projects.map((pr) => (
               <td
                 key={`total-${pr}`}
-                className="p-2 text-center text-sm font-semibold text-cyan-300 bg-slate-900/50 border border-slate-700/30"
+                className="p-2 text-center text-sm font-semibold border"
+                style={{ color: 'var(--neon-cyan)', background: 'rgba(var(--surface-rgb), 0.5)', borderColor: 'rgba(var(--border-rgb), 0.3)' }}
               >
                 {(totals.project[pr] || 0).toFixed(1)}
               </td>
             ))}
-            <td className="p-2 text-center text-sm font-bold text-cyan-400 bg-slate-900/70 border border-slate-700/30">
+            <td className="p-2 text-center text-sm font-bold border" style={{ color: 'var(--neon-cyan)', background: 'rgba(var(--surface-rgb), 0.7)', borderColor: 'rgba(var(--border-rgb), 0.3)' }}>
               {Object.values(totals.stakeholder).reduce((a, b) => a + b, 0).toFixed(1)}
             </td>
           </tr>

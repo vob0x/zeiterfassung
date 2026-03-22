@@ -100,7 +100,7 @@ export function TimelineChart({ entries }: TimelineChartProps) {
   }, [entries]);
 
   if (chartData.length === 0) {
-    return <div className="text-slate-400">Keine Daten verfügbar</div>;
+    return <div style={{ color: 'var(--text-muted)' }}>Keine Daten verfügbar</div>;
   }
 
   const canvasWidth = Math.max(600, chartData.length * 40);
@@ -120,7 +120,7 @@ export function TimelineChart({ entries }: TimelineChartProps) {
           y1={padding}
           x2={padding}
           y2={canvasHeight - padding}
-          stroke="#475569"
+          stroke="var(--surface-hover)"
           strokeWidth="1"
         />
 
@@ -130,7 +130,7 @@ export function TimelineChart({ entries }: TimelineChartProps) {
           y1={canvasHeight - padding}
           x2={canvasWidth - padding}
           y2={canvasHeight - padding}
-          stroke="#475569"
+          stroke="var(--surface-hover)"
           strokeWidth="1"
         />
 
@@ -146,7 +146,7 @@ export function TimelineChart({ entries }: TimelineChartProps) {
                 y1={y}
                 x2={padding}
                 y2={y}
-                stroke="#475569"
+                stroke="var(--surface-hover)"
                 strokeWidth="1"
               />
               <text
@@ -154,7 +154,7 @@ export function TimelineChart({ entries }: TimelineChartProps) {
                 y={y + 4}
                 textAnchor="end"
                 fontSize="12"
-                fill="#94a3b8"
+                fill="var(--text-muted)"
               >
                 {hours.toFixed(0)}h
               </text>
@@ -164,7 +164,7 @@ export function TimelineChart({ entries }: TimelineChartProps) {
                   y1={y}
                   x2={canvasWidth - padding}
                   y2={y}
-                  stroke="#334155"
+                  stroke="var(--surface-solid)"
                   strokeWidth="1"
                   strokeDasharray="4"
                 />
@@ -216,7 +216,7 @@ export function TimelineChart({ entries }: TimelineChartProps) {
                 y={canvasHeight - padding + 20}
                 textAnchor="middle"
                 fontSize="12"
-                fill="#cbd5e1"
+                fill="var(--text-secondary)"
               >
                 {data.dayLabel}
               </text>
@@ -233,7 +233,7 @@ export function TimelineChart({ entries }: TimelineChartProps) {
               className="w-4 h-4 rounded"
               style={{ backgroundColor: PROJECT_COLORS[idx % PROJECT_COLORS.length] }}
             />
-            <span className="text-sm text-slate-300">{project}</span>
+            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{project}</span>
           </div>
         ))}
       </div>

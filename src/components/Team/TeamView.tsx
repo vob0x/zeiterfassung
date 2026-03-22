@@ -86,8 +86,8 @@ export default function TeamView() {
   if (!connected) {
     return (
       <div className="w-full max-w-2xl mx-auto p-4">
-        <div className="bg-slate-800/50 rounded-lg p-6 backdrop-blur-sm border border-slate-700/50 space-y-4">
-          <h2 className="text-2xl font-bold text-white">{t('team.setupText')}</h2>
+        <div className="rounded-lg p-6 backdrop-blur-sm space-y-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+          <h2 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>{t('team.setupText')}</h2>
 
           {setupMode === null && (
             <div className="flex gap-3">
@@ -113,7 +113,8 @@ export default function TeamView() {
                 placeholder="Team-Name"
                 value={teamName}
                 onChange={(e) => setTeamName(e.target.value)}
-                className="w-full px-4 py-2 bg-slate-700 text-white rounded border border-slate-600 focus:border-cyan-500 focus:outline-none"
+                className="w-full px-4 py-2 rounded border focus:outline-none"
+                style={{ background: 'var(--surface-solid)', color: 'var(--text)', borderColor: 'var(--border)' }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') handleCreateTeam(teamName);
                 }}
@@ -130,7 +131,10 @@ export default function TeamView() {
                     setSetupMode(null);
                     setTeamName('');
                   }}
-                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded font-medium transition-colors"
+                  className="px-4 py-2 rounded font-medium transition-colors"
+                  style={{ background: 'var(--surface-solid)', color: 'var(--text)' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-hover)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--surface-solid)')}
                 >
                   Abbrechen
                 </button>
@@ -146,14 +150,16 @@ export default function TeamView() {
                 value={inviteCode}
                 onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
                 maxLength={6}
-                className="w-full px-4 py-2 bg-slate-700 text-white rounded border border-slate-600 focus:border-cyan-500 focus:outline-none font-mono text-center"
+                className="w-full px-4 py-2 rounded border font-mono text-center focus:outline-none"
+                style={{ background: 'var(--surface-solid)', color: 'var(--text)', borderColor: 'var(--border)' }}
               />
               <input
                 type="text"
                 placeholder="Dein Name"
                 value={teamName}
                 onChange={(e) => setTeamName(e.target.value)}
-                className="w-full px-4 py-2 bg-slate-700 text-white rounded border border-slate-600 focus:border-cyan-500 focus:outline-none"
+                className="w-full px-4 py-2 rounded border focus:outline-none"
+                style={{ background: 'var(--surface-solid)', color: 'var(--text)', borderColor: 'var(--border)' }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') handleJoinTeam(inviteCode, teamName);
                 }}
@@ -171,7 +177,10 @@ export default function TeamView() {
                     setTeamName('');
                     setInviteCode('');
                   }}
-                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded font-medium transition-colors"
+                  className="px-4 py-2 rounded font-medium transition-colors"
+                  style={{ background: 'var(--surface-solid)', color: 'var(--text)' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-hover)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--surface-solid)')}
                 >
                   Abbrechen
                 </button>
@@ -187,10 +196,10 @@ export default function TeamView() {
   return (
     <div className="w-full max-w-7xl mx-auto p-4 space-y-6">
       {/* Team Header */}
-      <div className="bg-slate-800/50 rounded-lg p-4 backdrop-blur-sm border border-slate-700/50 flex items-center justify-between flex-wrap gap-3">
+      <div className="rounded-lg p-4 backdrop-blur-sm flex items-center justify-between flex-wrap gap-3" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
         <div>
-          <h2 className="text-2xl font-bold text-white">{team?.name}</h2>
-          <p className="text-slate-400 text-sm">
+          <h2 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>{team?.name}</h2>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
             {t('team.connected')} {members.length} {t('team.persons').toLowerCase()}
           </p>
         </div>
@@ -218,9 +227,12 @@ export default function TeamView() {
             onClick={() => setTeamPeriod(p)}
             className={`px-4 py-2 rounded-lg font-medium transition-all ${
               period === p
-                ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg'
-                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                ? 'bg-gradient-to-r from-cyan-500 to-blue-500 shadow-lg'
+                : ''
             }`}
+            style={period === p ? { color: 'var(--text)' } : { background: 'var(--surface-solid)', color: 'var(--text-secondary)' }}
+            onMouseEnter={(e) => period !== p && (e.currentTarget.style.background = 'var(--surface-hover)')}
+            onMouseLeave={(e) => period !== p && (e.currentTarget.style.background = 'var(--surface-solid)')}
           >
             {t(`team.${p}`)}
           </button>
@@ -229,59 +241,59 @@ export default function TeamView() {
 
       {/* KPI Strip */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <div className="bg-slate-800/50 rounded-lg p-4 backdrop-blur-sm border border-slate-700/50">
-          <div className="text-xs text-slate-400 mb-1">Total</div>
-          <div className="text-2xl font-bold text-cyan-400">{totalHours.toFixed(1)}h</div>
+        <div className="rounded-lg p-4 backdrop-blur-sm" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+          <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Total</div>
+          <div className="text-2xl font-bold" style={{ color: 'var(--neon-cyan)' }}>{totalHours.toFixed(1)}h</div>
         </div>
-        <div className="bg-slate-800/50 rounded-lg p-4 backdrop-blur-sm border border-slate-700/50">
-          <div className="text-xs text-slate-400 mb-1">{t('team.persons')}</div>
-          <div className="text-2xl font-bold text-blue-400">{personCount}</div>
+        <div className="rounded-lg p-4 backdrop-blur-sm" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+          <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>{t('team.persons')}</div>
+          <div className="text-2xl font-bold" style={{ color: '#60a5fa' }}>{personCount}</div>
         </div>
-        <div className="bg-slate-800/50 rounded-lg p-4 backdrop-blur-sm border border-slate-700/50">
-          <div className="text-xs text-slate-400 mb-1">Einträge</div>
-          <div className="text-2xl font-bold text-purple-400">{entryCount}</div>
+        <div className="rounded-lg p-4 backdrop-blur-sm" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+          <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Einträge</div>
+          <div className="text-2xl font-bold" style={{ color: '#a78bfa' }}>{entryCount}</div>
         </div>
-        <div className="bg-slate-800/50 rounded-lg p-4 backdrop-blur-sm border border-slate-700/50">
-          <div className="text-xs text-slate-400 mb-1">{t('team.perPerson')}</div>
-          <div className="text-2xl font-bold text-green-400">{avgPerPerson.toFixed(1)}h</div>
+        <div className="rounded-lg p-4 backdrop-blur-sm" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+          <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>{t('team.perPerson')}</div>
+          <div className="text-2xl font-bold" style={{ color: '#4ade80' }}>{avgPerPerson.toFixed(1)}h</div>
         </div>
-        <div className="bg-slate-800/50 rounded-lg p-4 backdrop-blur-sm border border-slate-700/50">
-          <div className="text-xs text-slate-400 mb-1">{t('team.perDay')}</div>
-          <div className="text-2xl font-bold text-orange-400">{avgPerDay.toFixed(1)}h</div>
+        <div className="rounded-lg p-4 backdrop-blur-sm" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+          <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>{t('team.perDay')}</div>
+          <div className="text-2xl font-bold" style={{ color: '#fb923c' }}>{avgPerDay.toFixed(1)}h</div>
         </div>
       </div>
 
       {allTeamEntries.length === 0 ? (
-        <div className="text-center py-12 text-slate-400">{t('team.nodata')}</div>
+        <div className="text-center py-12" style={{ color: 'var(--text-muted)' }}>{t('team.nodata')}</div>
       ) : (
         <>
           {/* Daily Overview */}
-          <div className="bg-slate-800/50 rounded-lg p-4 backdrop-blur-sm border border-slate-700/50">
-            <h3 className="text-lg font-semibold text-white mb-4">{t('team.attendance')}</h3>
+          <div className="rounded-lg p-4 backdrop-blur-sm" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+            <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text)' }}>{t('team.attendance')}</h3>
             <TeamDaily memberEntries={memberEntries} entries={entries} />
           </div>
 
           {/* Stakeholder × Person Matrix */}
-          <div className="bg-slate-800/50 rounded-lg p-4 backdrop-blur-sm border border-slate-700/50">
-            <h3 className="text-lg font-semibold text-white mb-4">{t('team.shxperson')}</h3>
+          <div className="rounded-lg p-4 backdrop-blur-sm" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+            <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text)' }}>{t('team.shxperson')}</h3>
             <TeamMatrix dimension="stakeholder" entries={allTeamEntries} members={members} />
           </div>
 
           {/* Project × Person Matrix */}
-          <div className="bg-slate-800/50 rounded-lg p-4 backdrop-blur-sm border border-slate-700/50">
-            <h3 className="text-lg font-semibold text-white mb-4">{t('team.prxperson')}</h3>
+          <div className="rounded-lg p-4 backdrop-blur-sm" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+            <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text)' }}>{t('team.prxperson')}</h3>
             <TeamMatrix dimension="project" entries={allTeamEntries} members={members} />
           </div>
 
           {/* Workload per Person */}
-          <div className="bg-slate-800/50 rounded-lg p-4 backdrop-blur-sm border border-slate-700/50">
-            <h3 className="text-lg font-semibold text-white mb-4">{t('team.workload')}</h3>
+          <div className="rounded-lg p-4 backdrop-blur-sm" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+            <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text)' }}>{t('team.workload')}</h3>
             <TeamWorkload memberEntries={memberEntries} entries={allTeamEntries} />
           </div>
 
           {/* Timeline */}
-          <div className="bg-slate-800/50 rounded-lg p-4 backdrop-blur-sm border border-slate-700/50">
-            <h3 className="text-lg font-semibold text-white mb-4">{t('team.timeline')}</h3>
+          <div className="rounded-lg p-4 backdrop-blur-sm" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+            <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text)' }}>{t('team.timeline')}</h3>
             <TeamTimeline memberEntries={memberEntries} members={members} />
           </div>
         </>

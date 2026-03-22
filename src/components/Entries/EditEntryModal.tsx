@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { TimeEntry } from '@/types';
 import { useEntriesStore } from '../../stores/entriesStore';
+import { useMasterStore } from '../../stores/masterStore';
 import { useI18n } from '../../i18n';
 import { Plus, X } from 'lucide-react';
 
@@ -10,14 +11,17 @@ interface EditEntryModalProps {
   onClose: () => void;
 }
 
-// Mock data
-const mockStakeholders = ['Alice', 'Bob', 'Charlie'];
-const mockProjects = ['Project A', 'Project B', 'Project C'];
-const mockActivities = ['Development', 'Design', 'Testing'];
-
 const EditEntryModal: React.FC<EditEntryModalProps> = ({ entry, isOpen, onClose }) => {
   const { t } = useI18n();
   const { update: updateEntry } = useEntriesStore();
+  const {
+    stakeholders,
+    projects,
+    activities,
+    addStakeholder: addStakeholderToStore,
+    addProject: addProjectToStore,
+    addActivity: addActivityToStore,
+  } = useMasterStore();
 
   const [formData, setFormData] = useState({
     date: entry.date,
@@ -41,12 +45,12 @@ const EditEntryModal: React.FC<EditEntryModalProps> = ({ entry, isOpen, onClose 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    if (!formData.stakeholder) newErrors.stakeholder = 'Required';
-    if (!formData.projekt) newErrors.projekt = 'Required';
+    if (!formData.stakeholder) newErrors.stakeholder = t('toast.selectShPr');
+    if (!formData.projekt) newErrors.projekt = t('toast.selectShPr');
     if (!formData.taetigkeit) newErrors.taetigkeit = 'Required';
-    if (!formData.date) newErrors.date = 'Required';
-    if (!formData.start_time) newErrors.start_time = 'Required';
-    if (!formData.end_time) newErrors.end_time = 'Required';
+    if (!formData.date) newErrors.date = t('toast.selectDate');
+    if (!formData.start_time) newErrors.start_time = t('toast.selectTime');
+    if (!formData.end_time) newErrors.end_time = t('toast.selectTime');
 
     if (formData.start_time && formData.end_time && formData.start_time >= formData.end_time) {
       newErrors.end_time = t('toast.endAfterStart');
@@ -80,41 +84,66 @@ const EditEntryModal: React.FC<EditEntryModalProps> = ({ entry, isOpen, onClose 
     }
   };
 
-  const handleAddStakeholder = () => {
+  const handleAddStakeholder = async () => {
     if (newStakeholder.trim()) {
-      setFormData({ ...formData, stakeholder: newStakeholder });
-      setNewStakeholder('');
-      setShowAddStakeholder(false);
+      try {
+        await addStakeholderToStore(newStakeholder.trim());
+        setFormData({ ...formData, stakeholder: newStakeholder.trim() });
+        setNewStakeholder('');
+        setShowAddStakeholder(false);
+      } catch (error) {
+        console.error('Failed to add stakeholder:', error);
+      }
     }
   };
 
-  const handleAddProject = () => {
+  const handleAddProject = async () => {
     if (newProject.trim()) {
-      setFormData({ ...formData, projekt: newProject });
-      setNewProject('');
-      setShowAddProject(false);
+      try {
+        await addProjectToStore(newProject.trim());
+        setFormData({ ...formData, projekt: newProject.trim() });
+        setNewProject('');
+        setShowAddProject(false);
+      } catch (error) {
+        console.error('Failed to add project:', error);
+      }
     }
   };
 
-  const handleAddActivity = () => {
+  const handleAddActivity = async () => {
     if (newActivity.trim()) {
-      setFormData({ ...formData, taetigkeit: newActivity });
-      setNewActivity('');
-      setShowAddActivity(false);
+      try {
+        await addActivityToStore(newActivity.trim());
+        setFormData({ ...formData, taetigkeit: newActivity.trim() });
+        setNewActivity('');
+        setShowAddActivity(false);
+      } catch (error) {
+        console.error('Failed to add activity:', error);
+      }
     }
   };
 
   if (!isOpen) return null;
 
+  const inputStyle = {
+    background: 'var(--surface-solid)',
+    border: '1px solid var(--border)',
+    color: 'var(--text)',
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-slate-800 rounded-lg border border-slate-700 p-6 shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+      <div
+        className="rounded-lg border p-6 shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto"
+        style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+      >
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-white">{t('edit.title')}</h2>
+          <h2 className="text-lg font-bold" style={{ color: 'var(--text)' }}>{t('edit.title')}</h2>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-slate-700 rounded text-slate-400"
+            className="p-1 rounded transition-colors"
+            style={{ color: 'var(--text-muted)' }}
           >
             <X className="w-5 h-5" />
           </button>
@@ -123,40 +152,41 @@ const EditEntryModal: React.FC<EditEntryModalProps> = ({ entry, isOpen, onClose 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Date */}
           <div>
-            <label className="block text-sm font-semibold text-slate-300 mb-1">
+            <label className="block text-sm font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>
               {t('label.datum')}
             </label>
             <input
               type="date"
               value={formData.date}
               onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
+              className="w-full px-3 py-2 rounded text-sm"
+              style={inputStyle}
             />
-            {errors.date && <div className="text-red-400 text-xs mt-1">{errors.date}</div>}
+            {errors.date && <div className="text-xs mt-1" style={{ color: 'var(--danger)' }}>{errors.date}</div>}
           </div>
 
           {/* Stakeholder */}
           <div>
-            <label className="block text-sm font-semibold text-slate-300 mb-1">
+            <label className="block text-sm font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>
               {t('label.stakeholder')}
             </label>
             <div className="flex gap-1">
               <select
                 value={formData.stakeholder}
                 onChange={(e) => setFormData({ ...formData, stakeholder: e.target.value })}
-                className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
+                className="flex-1 px-3 py-2 rounded text-sm"
+                style={inputStyle}
               >
                 <option value="">{t('ph.select')}</option>
-                {mockStakeholders.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
+                {stakeholders.map((s) => (
+                  <option key={s} value={s}>{s}</option>
                 ))}
               </select>
               <button
                 type="button"
                 onClick={() => setShowAddStakeholder(!showAddStakeholder)}
-                className="px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded text-slate-300"
+                className="px-3 py-2 rounded transition-colors"
+                style={{ background: 'var(--surface-solid)', color: 'var(--text-secondary)' }}
               >
                 <Plus className="w-4 h-4" />
               </button>
@@ -168,44 +198,44 @@ const EditEntryModal: React.FC<EditEntryModalProps> = ({ entry, isOpen, onClose 
                   placeholder={t('ph.newStakeholder')}
                   value={newStakeholder}
                   onChange={(e) => setNewStakeholder(e.target.value)}
-                  className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
+                  className="flex-1 px-3 py-2 rounded text-sm"
+                  style={inputStyle}
                 />
                 <button
                   type="button"
                   onClick={handleAddStakeholder}
-                  className="px-3 py-2 bg-green-600 hover:bg-green-500 text-white rounded text-sm"
+                  className="px-3 py-2 text-white rounded text-sm"
+                  style={{ background: 'var(--success)' }}
                 >
                   {t('btn.save')}
                 </button>
               </div>
             )}
-            {errors.stakeholder && (
-              <div className="text-red-400 text-xs mt-1">{errors.stakeholder}</div>
-            )}
+            {errors.stakeholder && <div className="text-xs mt-1" style={{ color: 'var(--danger)' }}>{errors.stakeholder}</div>}
           </div>
 
           {/* Project */}
           <div>
-            <label className="block text-sm font-semibold text-slate-300 mb-1">
+            <label className="block text-sm font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>
               {t('label.projekt')}
             </label>
             <div className="flex gap-1">
               <select
                 value={formData.projekt}
                 onChange={(e) => setFormData({ ...formData, projekt: e.target.value })}
-                className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
+                className="flex-1 px-3 py-2 rounded text-sm"
+                style={inputStyle}
               >
                 <option value="">{t('ph.select')}</option>
-                {mockProjects.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
+                {projects.map((p) => (
+                  <option key={p} value={p}>{p}</option>
                 ))}
               </select>
               <button
                 type="button"
                 onClick={() => setShowAddProject(!showAddProject)}
-                className="px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded text-slate-300"
+                className="px-3 py-2 rounded transition-colors"
+                style={{ background: 'var(--surface-solid)', color: 'var(--text-secondary)' }}
               >
                 <Plus className="w-4 h-4" />
               </button>
@@ -217,44 +247,44 @@ const EditEntryModal: React.FC<EditEntryModalProps> = ({ entry, isOpen, onClose 
                   placeholder={t('ph.newProjekt')}
                   value={newProject}
                   onChange={(e) => setNewProject(e.target.value)}
-                  className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
+                  className="flex-1 px-3 py-2 rounded text-sm"
+                  style={inputStyle}
                 />
                 <button
                   type="button"
                   onClick={handleAddProject}
-                  className="px-3 py-2 bg-green-600 hover:bg-green-500 text-white rounded text-sm"
+                  className="px-3 py-2 text-white rounded text-sm"
+                  style={{ background: 'var(--success)' }}
                 >
                   {t('btn.save')}
                 </button>
               </div>
             )}
-            {errors.projekt && (
-              <div className="text-red-400 text-xs mt-1">{errors.projekt}</div>
-            )}
+            {errors.projekt && <div className="text-xs mt-1" style={{ color: 'var(--danger)' }}>{errors.projekt}</div>}
           </div>
 
           {/* Activity */}
           <div>
-            <label className="block text-sm font-semibold text-slate-300 mb-1">
+            <label className="block text-sm font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>
               {t('label.taetigkeit')}
             </label>
             <div className="flex gap-1">
               <select
                 value={formData.taetigkeit}
                 onChange={(e) => setFormData({ ...formData, taetigkeit: e.target.value })}
-                className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
+                className="flex-1 px-3 py-2 rounded text-sm"
+                style={inputStyle}
               >
                 <option value="">{t('ph.select')}</option>
-                {mockActivities.map((a) => (
-                  <option key={a} value={a}>
-                    {a}
-                  </option>
+                {activities.map((a) => (
+                  <option key={a} value={a}>{a}</option>
                 ))}
               </select>
               <button
                 type="button"
                 onClick={() => setShowAddActivity(!showAddActivity)}
-                className="px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded text-slate-300"
+                className="px-3 py-2 rounded transition-colors"
+                style={{ background: 'var(--surface-solid)', color: 'var(--text-secondary)' }}
               >
                 <Plus className="w-4 h-4" />
               </button>
@@ -266,75 +296,79 @@ const EditEntryModal: React.FC<EditEntryModalProps> = ({ entry, isOpen, onClose 
                   placeholder={t('ph.newTaetigkeit')}
                   value={newActivity}
                   onChange={(e) => setNewActivity(e.target.value)}
-                  className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
+                  className="flex-1 px-3 py-2 rounded text-sm"
+                  style={inputStyle}
                 />
                 <button
                   type="button"
                   onClick={handleAddActivity}
-                  className="px-3 py-2 bg-green-600 hover:bg-green-500 text-white rounded text-sm"
+                  className="px-3 py-2 text-white rounded text-sm"
+                  style={{ background: 'var(--success)' }}
                 >
                   {t('btn.save')}
                 </button>
               </div>
             )}
-            {errors.taetigkeit && (
-              <div className="text-red-400 text-xs mt-1">{errors.taetigkeit}</div>
-            )}
+            {errors.taetigkeit && <div className="text-xs mt-1" style={{ color: 'var(--danger)' }}>{errors.taetigkeit}</div>}
           </div>
 
           {/* Start Time */}
           <div>
-            <label className="block text-sm font-semibold text-slate-300 mb-1">
+            <label className="block text-sm font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>
               {t('label.von')}
             </label>
             <input
               type="time"
               value={formData.start_time}
               onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
-              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
+              className="w-full px-3 py-2 rounded text-sm"
+              style={inputStyle}
             />
-            {errors.start_time && <div className="text-red-400 text-xs mt-1">{errors.start_time}</div>}
+            {errors.start_time && <div className="text-xs mt-1" style={{ color: 'var(--danger)' }}>{errors.start_time}</div>}
           </div>
 
           {/* End Time */}
           <div>
-            <label className="block text-sm font-semibold text-slate-300 mb-1">
+            <label className="block text-sm font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>
               {t('label.bis')}
             </label>
             <input
               type="time"
               value={formData.end_time}
               onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
-              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
+              className="w-full px-3 py-2 rounded text-sm"
+              style={inputStyle}
             />
-            {errors.end_time && <div className="text-red-400 text-xs mt-1">{errors.end_time}</div>}
+            {errors.end_time && <div className="text-xs mt-1" style={{ color: 'var(--danger)' }}>{errors.end_time}</div>}
           </div>
 
           {/* Note */}
           <div>
-            <label className="block text-sm font-semibold text-slate-300 mb-1">
+            <label className="block text-sm font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>
               {t('label.notiz')}
             </label>
             <input
               type="text"
               value={formData.notiz}
               onChange={(e) => setFormData({ ...formData, notiz: e.target.value })}
-              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
+              className="w-full px-3 py-2 rounded text-sm"
+              style={inputStyle}
             />
           </div>
 
           {/* Buttons */}
-          <div className="flex gap-2 pt-4 border-t border-slate-700">
+          <div className="flex gap-2 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg transition-colors"
+              className="btn btn-primary flex-1"
             >
               {t('btn.save')}
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 font-semibold rounded-lg transition-colors"
+              className="flex-1 px-4 py-2 rounded-lg font-semibold transition-colors"
+              style={{ background: 'var(--surface-solid)', color: 'var(--text-secondary)' }}
             >
               {t('btn.cancel')}
             </button>

@@ -102,7 +102,7 @@ export function TeamTimeline({ memberEntries, members }: TeamTimelineProps) {
   }, [memberEntries, members]);
 
   if (chartData.length === 0) {
-    return <div className="text-slate-400">Keine Daten verfügbar</div>;
+    return <div style={{ color: 'var(--text-muted)' }}>Keine Daten verfügbar</div>;
   }
 
   const canvasWidth = Math.max(600, chartData.length * 40);
@@ -156,7 +156,7 @@ export function TeamTimeline({ memberEntries, members }: TeamTimelineProps) {
                 y={y + 4}
                 textAnchor="end"
                 fontSize="12"
-                fill="#94a3b8"
+                style={{ fill: 'var(--text-muted)' }}
               >
                 {hours.toFixed(0)}h
               </text>
@@ -213,7 +213,7 @@ export function TeamTimeline({ memberEntries, members }: TeamTimelineProps) {
                 y={canvasHeight - padding + 20}
                 textAnchor="middle"
                 fontSize="12"
-                fill="#cbd5e1"
+                style={{ fill: 'var(--text-secondary)' }}
               >
                 {data.dayLabel}
               </text>
@@ -230,7 +230,7 @@ export function TeamTimeline({ memberEntries, members }: TeamTimelineProps) {
               className="w-4 h-4 rounded"
               style={{ backgroundColor: MEMBER_COLORS[idx % MEMBER_COLORS.length] }}
             />
-            <span className="text-sm text-slate-300">{member.user_id}</span>
+            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{member.user_id}</span>
           </div>
         ))}
       </div>

@@ -77,7 +77,7 @@ export function ActivityBars({ entries }: ActivityBarsProps) {
   }, [entries]);
 
   if (activities.length === 0) {
-    return <div className="text-slate-400">Keine Daten verfügbar</div>;
+    return <div style={{ color: 'var(--text-muted)' }}>Keine Daten verfügbar</div>;
   }
 
   return (
@@ -89,15 +89,15 @@ export function ActivityBars({ entries }: ActivityBarsProps) {
         return (
           <div key={activity.name} className="space-y-1">
             <div className="flex justify-between items-center text-sm">
-              <span className="text-slate-300 font-medium">{activity.name}</span>
-              <span className="text-cyan-400 font-semibold">{activity.hours.toFixed(1)}h</span>
+              <span className="font-medium" style={{ color: 'var(--text-secondary)' }}>{activity.name}</span>
+              <span className="font-semibold" style={{ color: 'var(--neon-cyan)' }}>{activity.hours.toFixed(1)}h</span>
             </div>
-            <div className="w-full bg-slate-800 rounded-full h-8 overflow-hidden border border-slate-700/50">
+            <div className="w-full rounded-full h-8 overflow-hidden border" style={{ background: 'var(--surface)', borderColor: 'rgba(var(--border-rgb), 0.5)' }}>
               <div
                 className={`h-full ${colorClass} flex items-center justify-end pr-3 transition-all duration-500`}
                 style={{ width: `${percentage}%` }}
               >
-                {percentage > 10 && <span className="text-xs font-semibold text-white">{percentage.toFixed(0)}%</span>}
+                {percentage > 10 && <span className="text-xs font-semibold" style={{ color: 'var(--text)' }}>{percentage.toFixed(0)}%</span>}
               </div>
             </div>
           </div>

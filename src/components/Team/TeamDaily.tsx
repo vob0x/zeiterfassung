@@ -46,12 +46,12 @@ function computeUnionMs(dayEntries: TimeEntry[]): number {
   return merged.reduce((sum, [start, end]) => sum + (end - start), 0) * 60000;
 }
 
-function getIntensityColor(hours: number): string {
-  if (hours === 0) return 'bg-slate-900 text-slate-500';
-  if (hours < 4) return 'bg-slate-700 text-slate-200';
-  if (hours < 8) return 'bg-blue-700 text-blue-100';
-  if (hours < 12) return 'bg-cyan-700 text-cyan-100';
-  return 'bg-green-700 text-green-100';
+function getIntensityColor(hours: number): { background: string; color: string } {
+  if (hours === 0) return { background: 'var(--surface-solid)', color: 'var(--text-muted)' };
+  if (hours < 4) return { background: 'var(--surface-hover)', color: '#e5e7eb' };
+  if (hours < 8) return { background: '#1e3a8a', color: '#dbeafe' };
+  if (hours < 12) return { background: '#155e75', color: '#cffafe' };
+  return { background: '#15803d', color: '#dcfce7' };
 }
 
 export function TeamDaily({ memberEntries, entries }: TeamDailyProps) {
@@ -84,7 +84,7 @@ export function TeamDaily({ memberEntries, entries }: TeamDailyProps) {
   }, [memberEntries, entries]);
 
   if (dates.length === 0 || memberIds.length === 0) {
-    return <div className="text-slate-400">Keine Daten verfügbar</div>;
+    return <div style={{ color: 'var(--text-muted)' }}>Keine Daten verfügbar</div>;
   }
 
   return (
@@ -92,7 +92,7 @@ export function TeamDaily({ memberEntries, entries }: TeamDailyProps) {
       <table className="w-full border-collapse text-sm">
         <thead>
           <tr>
-            <th className="p-2 text-left font-semibold text-slate-400 bg-slate-900/50 border border-slate-700/30 sticky left-0 z-10">
+            <th className="p-2 text-left font-semibold border sticky left-0 z-10" style={{ color: 'var(--text-muted)', background: 'var(--surface-solid)', borderColor: 'var(--border)' }}>
               Person
             </th>
             {dates.map((date) => {
@@ -103,14 +103,15 @@ export function TeamDaily({ memberEntries, entries }: TeamDailyProps) {
               return (
                 <th
                   key={date}
-                  className="p-2 text-center font-semibold text-slate-300 bg-slate-900/50 border border-slate-700/30"
+                  className="p-2 text-center font-semibold border"
+                  style={{ color: 'var(--text-secondary)', background: 'var(--surface-solid)', borderColor: 'var(--border)' }}
                 >
                   <div className="text-xs">{dayShort}</div>
                   <div>{day}</div>
                 </th>
               );
             })}
-            <th className="p-2 text-center font-semibold text-cyan-400 bg-slate-900/50 border border-slate-700/30">
+            <th className="p-2 text-center font-semibold border" style={{ color: 'var(--neon-cyan)', background: 'var(--surface-solid)', borderColor: 'var(--border)' }}>
               ⌀
             </th>
           </tr>
@@ -118,21 +119,23 @@ export function TeamDaily({ memberEntries, entries }: TeamDailyProps) {
         <tbody>
           {memberIds.map((memberId) => (
             <tr key={memberId}>
-              <td className="p-2 font-medium text-slate-300 bg-slate-900/30 border border-slate-700/30 sticky left-0 z-10">
+              <td className="p-2 font-medium border sticky left-0 z-10" style={{ color: 'var(--text-secondary)', background: 'var(--surface)', borderColor: 'var(--border)' }}>
                 {memberId}
               </td>
               {dates.map((date) => {
                 const hours = matrix[memberId][date] || 0;
+                const colorStyle = getIntensityColor(hours);
                 return (
                   <td
                     key={`${memberId}-${date}`}
-                    className={`p-2 text-center font-semibold border border-slate-700/30 ${getIntensityColor(hours)}`}
+                    className="p-2 text-center font-semibold border"
+                    style={{ ...colorStyle, borderColor: 'var(--border)' }}
                   >
                     {hours > 0 ? hours.toFixed(1) : '—'}
                   </td>
                 );
               })}
-              <td className="p-2 text-center font-semibold text-cyan-300 bg-slate-900/50 border border-slate-700/30">
+              <td className="p-2 text-center font-semibold border" style={{ color: '#cffafe', background: 'var(--surface-solid)', borderColor: 'var(--border)' }}>
                 {averages[memberId].toFixed(1)}
               </td>
             </tr>

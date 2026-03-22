@@ -47,13 +47,13 @@ function computeUnionMs(dayEntries: TimeEntry[]): number {
   return merged.reduce((sum, [start, end]) => sum + (end - start), 0) * 60000;
 }
 
-function getIntensityColor(hours: number): string {
-  if (hours === 0) return 'bg-slate-900';
-  if (hours < 2) return 'bg-emerald-900/40 border-emerald-700/30';
-  if (hours < 5) return 'bg-emerald-800/60 border-emerald-600/40';
-  if (hours < 10) return 'bg-yellow-700/60 border-yellow-600/40';
-  if (hours < 20) return 'bg-orange-700/60 border-orange-600/40';
-  return 'bg-red-700/60 border-red-600/40';
+function getIntensityColor(hours: number): { background: string; borderColor: string } {
+  if (hours === 0) return { background: 'var(--surface-hover)', borderColor: 'var(--border)' };
+  if (hours < 2) return { background: 'rgba(16, 185, 129, 0.4)', borderColor: 'rgba(16, 185, 129, 0.3)' };
+  if (hours < 5) return { background: 'rgba(16, 185, 129, 0.6)', borderColor: 'rgba(16, 185, 129, 0.4)' };
+  if (hours < 10) return { background: 'rgba(234, 179, 8, 0.6)', borderColor: 'rgba(202, 138, 4, 0.4)' };
+  if (hours < 20) return { background: 'rgba(234, 88, 12, 0.6)', borderColor: 'rgba(194, 65, 12, 0.4)' };
+  return { background: 'rgba(239, 68, 68, 0.6)', borderColor: 'rgba(220, 38, 38, 0.4)' };
 }
 
 export function TeamMatrix({ dimension, entries, members }: TeamMatrixProps) {
@@ -102,7 +102,7 @@ export function TeamMatrix({ dimension, entries, members }: TeamMatrixProps) {
   }, [dimension, entries, members]);
 
   if (items.length === 0 || memberIds.length === 0) {
-    return <div className="text-slate-400">Keine Daten verfügbar</div>;
+    return <div style={{ color: 'var(--text-muted)' }}>Keine Daten verfügbar</div>;
   }
 
   return (
@@ -110,18 +110,19 @@ export function TeamMatrix({ dimension, entries, members }: TeamMatrixProps) {
       <table className="w-full border-collapse">
         <thead>
           <tr>
-            <th className="p-2 text-left text-sm font-semibold text-slate-400 bg-slate-900/50 border border-slate-700/30">
+            <th className="p-2 text-left text-sm font-semibold border" style={{ color: 'var(--text-muted)', background: 'var(--surface-hover)', borderColor: 'var(--border)' }}>
               {dimension === 'stakeholder' ? 'Stakeholder' : 'Projekt'}
             </th>
             {memberIds.map((memberId) => (
               <th
                 key={memberId}
-                className="p-2 text-center text-sm font-semibold text-slate-300 bg-slate-900/50 border border-slate-700/30"
+                className="p-2 text-center text-sm font-semibold border"
+                style={{ color: 'var(--text-secondary)', background: 'var(--surface-hover)', borderColor: 'var(--border)' }}
               >
                 {memberId}
               </th>
             ))}
-            <th className="p-2 text-center text-sm font-semibold text-cyan-400 bg-slate-900/50 border border-slate-700/30">
+            <th className="p-2 text-center text-sm font-semibold border" style={{ color: 'var(--neon-cyan)', background: 'var(--surface-hover)', borderColor: 'var(--border)' }}>
               Total
             </th>
           </tr>
@@ -129,7 +130,7 @@ export function TeamMatrix({ dimension, entries, members }: TeamMatrixProps) {
         <tbody>
           {items.map((item) => (
             <tr key={item}>
-              <td className="p-2 text-sm font-medium text-slate-300 bg-slate-900/30 border border-slate-700/30 sticky left-0">
+              <td className="p-2 text-sm font-medium border sticky left-0" style={{ color: 'var(--text-secondary)', background: 'var(--surface)', borderColor: 'var(--border)' }}>
                 {item}
               </td>
               {memberIds.map((memberId) => {
@@ -137,30 +138,32 @@ export function TeamMatrix({ dimension, entries, members }: TeamMatrixProps) {
                 return (
                   <td
                     key={`${item}-${memberId}`}
-                    className={`p-2 text-center text-sm font-medium text-white border border-slate-700/30 ${getIntensityColor(hours)}`}
+                    className={`p-2 text-center text-sm font-medium border ${getIntensityColor(hours)}`}
+                    style={{ color: 'var(--text)', borderColor: 'var(--border)' }}
                   >
                     {hours > 0 ? hours.toFixed(1) : '—'}
                   </td>
                 );
               })}
-              <td className="p-2 text-center text-sm font-semibold text-cyan-300 bg-slate-900/50 border border-slate-700/30">
+              <td className="p-2 text-center text-sm font-semibold border" style={{ color: '#cffafe', background: 'var(--surface-solid)', borderColor: 'var(--border)' }}>
                 {(totals.item[item] || 0).toFixed(1)}
               </td>
             </tr>
           ))}
-          <tr className="border-t-2 border-slate-600">
-            <td className="p-2 text-sm font-semibold text-cyan-400 bg-slate-900/50 border border-slate-700/30">
+          <tr style={{ borderTop: '2px solid var(--border)' }}>
+            <td className="p-2 text-sm font-semibold border" style={{ color: 'var(--neon-cyan)', background: 'var(--surface-solid)', borderColor: 'var(--border)' }}>
               Total
             </td>
             {memberIds.map((memberId) => (
               <td
                 key={`total-${memberId}`}
-                className="p-2 text-center text-sm font-semibold text-cyan-300 bg-slate-900/50 border border-slate-700/30"
+                className="p-2 text-center text-sm font-semibold border"
+                style={{ color: '#cffafe', background: 'var(--surface-solid)', borderColor: 'var(--border)' }}
               >
                 {(totals.member[memberId] || 0).toFixed(1)}
               </td>
             ))}
-            <td className="p-2 text-center text-sm font-bold text-cyan-400 bg-slate-900/70 border border-slate-700/30">
+            <td className="p-2 text-center text-sm font-bold border" style={{ color: 'var(--neon-cyan)', background: 'var(--surface-hover)', borderColor: 'var(--border)' }}>
               {Object.values(totals.member).reduce((a, b) => a + b, 0).toFixed(1)}
             </td>
           </tr>

@@ -90,7 +90,7 @@ export function TeamWorkload({ memberEntries, entries }: TeamWorkloadProps) {
   }, [memberEntries, entries]);
 
   if (memberWorkload.length === 0) {
-    return <div className="text-slate-400">Keine Daten verfügbar</div>;
+    return <div style={{ color: 'var(--text-muted)' }}>Keine Daten verfügbar</div>;
   }
 
   return (
@@ -98,10 +98,10 @@ export function TeamWorkload({ memberEntries, entries }: TeamWorkloadProps) {
       {memberWorkload.map((item) => (
         <div key={item.memberId} className="space-y-1">
           <div className="flex justify-between items-center text-sm">
-            <span className="text-slate-300 font-medium">{item.memberId}</span>
-            <span className="text-cyan-400 font-semibold">{item.totalHours.toFixed(1)}h</span>
+            <span className="font-medium" style={{ color: 'var(--text-secondary)' }}>{item.memberId}</span>
+            <span className="font-semibold" style={{ color: 'var(--neon-cyan)' }}>{item.totalHours.toFixed(1)}h</span>
           </div>
-          <div className="w-full bg-slate-800 rounded-full h-8 overflow-hidden border border-slate-700/50 flex">
+          <div className="w-full rounded-full h-8 overflow-hidden border flex" style={{ background: 'var(--surface-solid)', borderColor: 'var(--border)' }}>
             {item.totalHours > 0 &&
               uniqueProjects.map((project, idx) => {
                 const hours = item.projectHours[project] || 0;
@@ -119,7 +119,7 @@ export function TeamWorkload({ memberEntries, entries }: TeamWorkloadProps) {
                     title={`${project}: ${hours.toFixed(1)}h`}
                   >
                     {percentage > 15 && (
-                      <span className="text-xs font-semibold text-white">{project.slice(0, 3)}</span>
+                      <span className="text-xs font-semibold" style={{ color: 'var(--text)' }}>{project.slice(0, 3)}</span>
                     )}
                   </div>
                 );
@@ -129,14 +129,14 @@ export function TeamWorkload({ memberEntries, entries }: TeamWorkloadProps) {
       ))}
 
       {/* Legend */}
-      <div className="flex flex-wrap gap-3 mt-4 pt-4 border-t border-slate-700/50">
+      <div className="flex flex-wrap gap-3 mt-4 pt-4" style={{ borderTop: `1px solid var(--border)` }}>
         {uniqueProjects.map((project, idx) => (
           <div key={project} className="flex items-center gap-2">
             <div
               className="w-4 h-4 rounded"
               style={{ backgroundColor: COLORS[idx % COLORS.length] }}
             />
-            <span className="text-sm text-slate-300">{project}</span>
+            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{project}</span>
           </div>
         ))}
       </div>

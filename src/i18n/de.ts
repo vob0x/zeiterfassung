@@ -275,6 +275,8 @@ export const de = {
     newTa: "Neue Tätigkeit",
     stopAll: "Alle beenden",
     resetFilter: "Filter zurücksetzen",
+    langToggle: "Sprache wechseln",
+    themeToggle: "Design wechseln",
   },
 
   // Data sync board
@@ -303,6 +305,12 @@ export const de = {
   },
 
   // Miscellaneous
+  of: "von",
+  date: "Datum",
+  duration: "Dauer",
+  stakeholder: "Stakeholder",
+  projekt: "Projekt",
+  taetigkeit: "Tätigkeit",
   running: "LÄUFT",
   paused: "PAUSE",
   empty: "(leer)",

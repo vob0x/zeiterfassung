@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Clock, Globe } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { useUiStore } from '@/stores/uiStore'
+import { useI18n } from '@/i18n'
 
 export default function LoginScreen() {
   const [isSignUp, setIsSignUp] = useState(false)
@@ -13,27 +14,28 @@ export default function LoginScreen() {
 
   const { signIn, signUp } = useAuthStore()
   const { language, setLanguage } = useUiStore()
+  const { t } = useI18n()
 
   const validateForm = (): boolean => {
     setError('')
 
     if (!codename.trim()) {
-      setError('Codename is required')
+      setError(t('auth.errors.codenameRequired'))
       return false
     }
 
     if (!password) {
-      setError('Password is required')
+      setError(t('auth.errors.passwordRequired'))
       return false
     }
 
     if (isSignUp && password !== confirmPassword) {
-      setError('Passwords do not match')
+      setError(t('auth.errors.passwordsMismatch'))
       return false
     }
 
     if (password.length < 6) {
-      setError('Password must be at least 6 characters')
+      setError(t('auth.errors.passwordTooShort'))
       return false
     }
 
@@ -57,7 +59,7 @@ export default function LoginScreen() {
       }
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : 'Authentication failed'
+        err instanceof Error ? err.message : t('auth.errors.authFailed')
       )
     } finally {
       setIsLoading(false)
@@ -86,7 +88,7 @@ export default function LoginScreen() {
               ZEITERFASSUNG
             </h1>
             <p className="text-[var(--text-secondary)] text-sm mt-2 text-center">
-              Track your time efficiently
+              {t('auth.subtitle')}
             </p>
           </div>
 
@@ -104,7 +106,7 @@ export default function LoginScreen() {
                   ? 'bg-[var(--primary)] text-[var(--bg)]'
                   : 'bg-[var(--surface)] text-[var(--text-secondary)] border border-[var(--border)]'
               }`}>
-              Sign In
+              {t('auth.signIn')}
             </button>
             <button
               onClick={() => {
@@ -118,7 +120,7 @@ export default function LoginScreen() {
                   ? 'bg-[var(--primary)] text-[var(--bg)]'
                   : 'bg-[var(--surface)] text-[var(--text-secondary)] border border-[var(--border)]'
               }`}>
-              Sign Up
+              {t('auth.signUp')}
             </button>
           </div>
 
@@ -140,13 +142,13 @@ export default function LoginScreen() {
             {/* Codename Input */}
             <div>
               <label htmlFor="codename" className="label">
-                Codename
+                {t('auth.codename')}
               </label>
               <input
                 id="codename"
                 type="text"
                 className="input"
-                placeholder="e.g. alex, sophie"
+                placeholder={t('auth.codenameExample')}
                 value={codename}
                 onChange={(e) => setCodename(e.target.value)}
                 disabled={isLoading}
@@ -157,7 +159,7 @@ export default function LoginScreen() {
             {/* Password Input */}
             <div>
               <label htmlFor="password" className="label">
-                Password
+                {t('auth.password')}
               </label>
               <input
                 id="password"
@@ -175,7 +177,7 @@ export default function LoginScreen() {
             {isSignUp && (
               <div>
                 <label htmlFor="confirmPassword" className="label">
-                  Confirm Password
+                  {t('auth.confirmPassword')}
                 </label>
                 <input
                   id="confirmPassword"
@@ -196,10 +198,10 @@ export default function LoginScreen() {
               disabled={isLoading}
               className="btn btn-primary w-full mt-6">
               {isLoading
-                ? 'Loading...'
+                ? t('ui.loading')
                 : isSignUp
-                  ? 'Sign Up'
-                  : 'Sign In'}
+                  ? t('auth.signUp')
+                  : t('auth.signIn')}
             </button>
           </form>
 
@@ -209,14 +211,14 @@ export default function LoginScreen() {
               onClick={toggleLanguage}
               className="flex items-center gap-2 text-sm text-[var(--text-secondary)] hover:text-[var(--text)] transition-colors">
               <Globe className="w-4 h-4" />
-              <span>{language === 'de' ? 'English' : 'Deutsch'}</span>
+              <span>{language === 'de' ? 'Français' : 'Deutsch'}</span>
             </button>
           </div>
         </div>
 
         {/* Footer Text */}
         <p className="text-center text-sm text-[var(--text-muted)] mt-6">
-          Pseudonymous time tracking. Your privacy is important.
+          {t('auth.disclaimer')}
         </p>
       </div>
     </div>

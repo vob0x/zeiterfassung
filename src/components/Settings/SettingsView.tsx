@@ -19,24 +19,27 @@ export function SettingsView() {
   return (
     <div className="w-full max-w-2xl mx-auto p-4 space-y-6">
       {/* Theme Section */}
-      <div className="bg-slate-800/50 rounded-lg p-4 backdrop-blur-sm border border-slate-700/50 space-y-4">
-        <h3 className="text-lg font-semibold text-white">Design</h3>
+      <div className="rounded-lg p-4 backdrop-blur-sm space-y-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+        <h3 className="text-lg font-semibold" style={{ color: 'var(--text)' }}>Design</h3>
 
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <label className="text-slate-300">Theme</label>
+            <label style={{ color: 'var(--text-secondary)' }}>Theme</label>
             <button
               onClick={toggleTheme}
-              className="px-4 py-2 rounded-lg font-medium transition-all bg-slate-700 hover:bg-slate-600 text-white"
+              className="px-4 py-2 rounded-lg font-medium transition-all"
+              style={{ background: 'var(--surface-solid)', color: 'var(--text)' }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-hover)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--surface-solid)')}
             >
               {theme === 'cyber' ? '🌙 Light' : '💻 Cyber'}
             </button>
           </div>
 
           {/* Theme Preview */}
-          <div className="mt-4 p-4 rounded-lg border border-slate-700/50 bg-slate-900/30">
-            <div className="text-xs text-slate-400 mb-2">Vorschau:</div>
-            <div className={`grid grid-cols-3 gap-2 p-3 rounded ${theme === 'cyber' ? 'bg-slate-900' : 'bg-gray-100'}`}>
+          <div className="mt-4 p-4 rounded-lg border" style={{ background: 'var(--surface-solid)', borderColor: 'var(--border)' }}>
+            <div className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>Vorschau:</div>
+            <div className={`grid grid-cols-3 gap-2 p-3 rounded ${theme === 'cyber' ? '' : 'bg-gray-100'}`} style={theme === 'cyber' ? { background: 'var(--surface-hover)' } : {}}>
               <div className={`w-8 h-8 rounded ${theme === 'cyber' ? 'bg-cyan-500' : 'bg-blue-500'}`} />
               <div className={`w-8 h-8 rounded ${theme === 'cyber' ? 'bg-purple-500' : 'bg-purple-500'}`} />
               <div className={`w-8 h-8 rounded ${theme === 'cyber' ? 'bg-pink-500' : 'bg-pink-500'}`} />
@@ -46,19 +49,21 @@ export function SettingsView() {
       </div>
 
       {/* Language Section */}
-      <div className="bg-slate-800/50 rounded-lg p-4 backdrop-blur-sm border border-slate-700/50 space-y-4">
-        <h3 className="text-lg font-semibold text-white">Sprache</h3>
+      <div className="rounded-lg p-4 backdrop-blur-sm space-y-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+        <h3 className="text-lg font-semibold" style={{ color: 'var(--text)' }}>Sprache</h3>
 
         <div className="flex gap-2">
           {['de', 'fr'].map((lang) => (
             <button
               key={lang}
               onClick={() => setLanguage(lang as 'de' | 'fr')}
-              className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                language === lang
-                  ? 'bg-cyan-600 text-white shadow-lg'
-                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-              }`}
+              className={`px-4 py-2 rounded-lg font-medium transition-all ${language === lang ? 'shadow-lg' : ''}`}
+              style={language === lang
+                ? { background: 'var(--neon-cyan)', color: 'var(--surface)' }
+                : { background: 'var(--surface-solid)', color: 'var(--text-secondary)' }
+              }
+              onMouseEnter={(e) => language !== lang && (e.currentTarget.style.background = 'var(--surface-hover)')}
+              onMouseLeave={(e) => language !== lang && (e.currentTarget.style.background = 'var(--surface-solid)')}
             >
               {lang.toUpperCase()}
             </button>
@@ -67,20 +72,23 @@ export function SettingsView() {
       </div>
 
       {/* User Profile Section */}
-      <div className="bg-slate-800/50 rounded-lg p-4 backdrop-blur-sm border border-slate-700/50 space-y-4">
-        <h3 className="text-lg font-semibold text-white">Profil</h3>
+      <div className="rounded-lg p-4 backdrop-blur-sm space-y-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+        <h3 className="text-lg font-semibold" style={{ color: 'var(--text)' }}>Profil</h3>
 
         <div className="space-y-3">
           <div>
-            <label className="text-xs text-slate-400">Codename</label>
-            <div className="mt-1 px-3 py-2 bg-slate-900/50 text-slate-300 rounded border border-slate-700/30">
+            <label className="text-xs" style={{ color: 'var(--text-muted)' }}>Codename</label>
+            <div className="mt-1 px-3 py-2 rounded border" style={{ background: 'var(--surface-solid)', color: 'var(--text-secondary)', borderColor: 'var(--border)' }}>
               {localStorage.getItem('userCodename') || 'nicht gesetzt'}
             </div>
           </div>
 
           <button
             onClick={handleSignOut}
-            className="w-full px-4 py-2 bg-red-700 hover:bg-red-600 text-white rounded-lg font-medium transition-colors"
+            className="w-full px-4 py-2 rounded-lg font-medium transition-colors"
+            style={{ background: '#b91c1c', color: 'var(--text)' }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = '#a01c1c')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = '#b91c1c')}
           >
             {t('auth.signOut')}
           </button>
@@ -89,40 +97,44 @@ export function SettingsView() {
 
       {/* Team Section */}
       {team && (
-        <div className="bg-slate-800/50 rounded-lg p-4 backdrop-blur-sm border border-slate-700/50 space-y-4">
-          <h3 className="text-lg font-semibold text-white">Team</h3>
+        <div className="rounded-lg p-4 backdrop-blur-sm space-y-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+          <h3 className="text-lg font-semibold" style={{ color: 'var(--text)' }}>Team</h3>
 
           <div className="space-y-3">
             <div>
-              <label className="text-xs text-slate-400">Team-Name</label>
-              <div className="mt-1 px-3 py-2 bg-slate-900/50 text-slate-300 rounded border border-slate-700/30">
+              <label className="text-xs" style={{ color: 'var(--text-muted)' }}>Team-Name</label>
+              <div className="mt-1 px-3 py-2 rounded border" style={{ background: 'var(--surface-solid)', color: 'var(--text-secondary)', borderColor: 'var(--border)' }}>
                 {team.name}
               </div>
             </div>
 
             <div>
-              <label className="text-xs text-slate-400">Mitglieder</label>
-              <div className="mt-1 px-3 py-2 bg-slate-900/50 text-slate-300 rounded border border-slate-700/30">
+              <label className="text-xs" style={{ color: 'var(--text-muted)' }}>Mitglieder</label>
+              <div className="mt-1 px-3 py-2 rounded border" style={{ background: 'var(--surface-solid)', color: 'var(--text-secondary)', borderColor: 'var(--border)' }}>
                 {members.length}
               </div>
             </div>
 
             {team.creator_id === localStorage.getItem('userId') && (
               <div>
-                <label className="text-xs text-slate-400">Invite Code</label>
+                <label className="text-xs" style={{ color: 'var(--text-muted)' }}>Invite Code</label>
                 <div className="mt-1 flex gap-2">
                   <input
                     type="text"
                     value={team.invite_code}
                     readOnly
-                    className="flex-1 px-3 py-2 bg-slate-900/50 text-slate-300 rounded border border-slate-700/30 font-mono"
+                    className="flex-1 px-3 py-2 rounded border font-mono"
+                    style={{ background: 'var(--surface-solid)', color: 'var(--text-secondary)', borderColor: 'var(--border)' }}
                   />
                   <button
                     onClick={() => {
                       navigator.clipboard.writeText(team.invite_code);
                       alert('In Zwischenablage kopiert');
                     }}
-                    className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded"
+                    className="px-3 py-2 rounded"
+                    style={{ background: 'var(--surface-solid)', color: 'var(--text)' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-hover)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--surface-solid)')}
                   >
                     📋
                   </button>
@@ -134,25 +146,25 @@ export function SettingsView() {
       )}
 
       {/* About Section */}
-      <div className="bg-slate-800/50 rounded-lg p-4 backdrop-blur-sm border border-slate-700/50 space-y-3">
-        <h3 className="text-lg font-semibold text-white">Info</h3>
+      <div className="rounded-lg p-4 backdrop-blur-sm space-y-3" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+        <h3 className="text-lg font-semibold" style={{ color: 'var(--text)' }}>Info</h3>
 
-        <div className="space-y-2 text-sm text-slate-400">
+        <div className="space-y-2 text-sm" style={{ color: 'var(--text-muted)' }}>
           <p>
             <strong>Zeiterfassung</strong> V6.0
           </p>
           <p>Eine moderne Zeit-Tracking-App für Teams</p>
-          <p className="text-xs text-slate-500 mt-2">© 2024. Alle Daten werden lokal gespeichert.</p>
+          <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>© 2024. Alle Daten werden lokal gespeichert.</p>
         </div>
       </div>
 
       {/* Data Sync Status */}
-      <div className="bg-slate-800/50 rounded-lg p-4 backdrop-blur-sm border border-slate-700/50 space-y-3">
-        <h3 className="text-lg font-semibold text-white">Datensynchronisation</h3>
+      <div className="rounded-lg p-4 backdrop-blur-sm space-y-3" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+        <h3 className="text-lg font-semibold" style={{ color: 'var(--text)' }}>Datensynchronisation</h3>
 
-        <div className="flex items-center gap-2 px-3 py-2 bg-green-900/20 rounded border border-green-700/30">
+        <div className="flex items-center gap-2 px-3 py-2 rounded border" style={{ background: '#064e3b', borderColor: '#047857' }}>
           <div className="w-2 h-2 rounded-full bg-green-500" />
-          <span className="text-sm text-green-400">Synchronisiert</span>
+          <span className="text-sm" style={{ color: '#4ade80' }}>Synchronisiert</span>
         </div>
       </div>
     </div>

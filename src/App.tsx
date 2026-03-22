@@ -1,6 +1,8 @@
 import { useEffect } from 'react'
 import { useAuthStore } from '@/stores/authStore'
 import { useUiStore } from '@/stores/uiStore'
+import { useEntriesStore } from '@/stores/entriesStore'
+import { useMasterStore } from '@/stores/masterStore'
 import { I18nProvider } from '@/i18n'
 import Layout from '@/components/Layout'
 import LoginScreen from '@/components/Auth/LoginScreen'
@@ -8,10 +10,20 @@ import LoginScreen from '@/components/Auth/LoginScreen'
 function AppContent() {
   const { isAuthenticated, loading, initializeAuth } = useAuthStore()
   const { theme } = useUiStore()
+  const fetchEntries = useEntriesStore((s) => s.fetch)
+  const fetchMaster = useMasterStore((s) => s.fetch)
 
   useEffect(() => {
     initializeAuth()
   }, [initializeAuth])
+
+  // Load data from localStorage once authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchEntries()
+      fetchMaster()
+    }
+  }, [isAuthenticated, fetchEntries, fetchMaster])
 
   useEffect(() => {
     const html = document.documentElement
