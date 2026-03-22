@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { TimeEntry, FilterState } from '@/types';
+import { getUserData, setUserData } from '@/lib/userStorage';
 
 // CRITICAL ALGORITHM: Compute union of overlapping time intervals per day
 // This merges overlapping time intervals to get total active time
@@ -86,11 +87,8 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
   fetch: async () => {
     set({ loading: true, error: null });
     try {
-      const stored = localStorage.getItem('entries');
-      set({
-        entries: stored ? JSON.parse(stored) : [],
-        loading: false,
-      });
+      const entries = getUserData<TimeEntry[]>('entries', []);
+      set({ entries, loading: false });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to fetch entries';
       set({ error: message, loading: false });
@@ -130,7 +128,7 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
 
       const updated = [...state.entries, newEntry];
       set({ entries: updated });
-      localStorage.setItem('entries', JSON.stringify(updated));
+      setUserData('entries', updated);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to add entry';
       set({ error: message });
@@ -152,7 +150,7 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
           : e
       );
       set({ entries: updated });
-      localStorage.setItem('entries', JSON.stringify(updated));
+      setUserData('entries', updated);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to update entry';
       set({ error: message });
@@ -166,7 +164,7 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
       const state = get();
       const updated = state.entries.filter((e) => e.id !== id);
       set({ entries: updated });
-      localStorage.setItem('entries', JSON.stringify(updated));
+      setUserData('entries', updated);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to delete entry';
       set({ error: message });

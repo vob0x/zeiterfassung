@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { TimerSlot } from '@/types';
 import { useEntriesStore } from './entriesStore';
 import { useAuthStore } from './authStore';
+import { getUserData, setUserData } from '@/lib/userStorage';
 
 interface TimerState {
   taskSlots: TimerSlot[];
@@ -267,7 +268,7 @@ export const useTimerStore = create<TimerState>((set, get) => ({
     const state = get();
     const running = state.taskSlots.filter((s) => !s.isPaused);
     if (running.length > 0) {
-      localStorage.setItem('runningTimers', JSON.stringify(running));
+      setUserData('runningTimers', running);
     }
   },
 

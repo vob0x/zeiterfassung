@@ -3,6 +3,7 @@ import { useTimerStore } from '../../stores/timerStore';
 import { useEntriesStore } from '../../stores/entriesStore';
 import { useI18n } from '../../i18n';
 import { Pin, PinOff, X } from 'lucide-react';
+import { getUserData, setUserData } from '@/lib/userStorage';
 
 interface ShortcutItem {
   stakeholder: string;
@@ -17,8 +18,7 @@ const QuickShortcuts: React.FC = () => {
   const { addSlot } = useTimerStore();
   const { entries } = useEntriesStore();
   const [pinnedShortcuts, setPinnedShortcuts] = useState<ShortcutItem[]>(() => {
-    const saved = localStorage.getItem('pinnedShortcuts');
-    return saved ? JSON.parse(saved) : [];
+    return getUserData<ShortcutItem[]>('pinnedShortcuts', []);
   });
 
   // Calculate frequency of stakeholder+project combinations from actual entries
@@ -68,12 +68,12 @@ const QuickShortcuts: React.FC = () => {
         (p) => !(p.stakeholder === shortcut.stakeholder && p.projekt === shortcut.projekt)
       );
       setPinnedShortcuts(updated);
-      localStorage.setItem('pinnedShortcuts', JSON.stringify(updated));
+      setUserData('pinnedShortcuts', updated);
     } else {
       if (pinnedShortcuts.length < 10) {
         const updated = [...pinnedShortcuts, { ...shortcut, isPinned: true }];
         setPinnedShortcuts(updated);
-        localStorage.setItem('pinnedShortcuts', JSON.stringify(updated));
+        setUserData('pinnedShortcuts', updated);
       }
     }
   };
@@ -84,7 +84,7 @@ const QuickShortcuts: React.FC = () => {
       (p) => !(p.stakeholder === shortcut.stakeholder && p.projekt === shortcut.projekt)
     );
     setPinnedShortcuts(updated);
-    localStorage.setItem('pinnedShortcuts', JSON.stringify(updated));
+    setUserData('pinnedShortcuts', updated);
   };
 
   const allShortcuts = [...pinnedShortcuts, ...dedupedAutoShortcuts];

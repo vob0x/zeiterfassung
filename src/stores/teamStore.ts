@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { Team, TeamMember, TimeEntry, PeriodType } from '@/types';
+import { getUserData, setUserData, removeUserData } from '@/lib/userStorage';
 
 interface TeamState {
   team: Team | null;
@@ -49,9 +50,8 @@ export const useTeamStore = create<TeamState>((set, get) => ({
         joined_at: new Date().toISOString(),
       };
 
-      // Load current user's entries from localStorage
-      const storedEntries = localStorage.getItem('entries');
-      const currentEntries: TimeEntry[] = storedEntries ? JSON.parse(storedEntries) : [];
+      // Load current user's entries (user-scoped)
+      const currentEntries = getUserData<TimeEntry[]>('entries', []);
       const memberEntriesMap = new Map<string, TimeEntry[]>();
       memberEntriesMap.set('current_user', currentEntries);
 
@@ -63,8 +63,8 @@ export const useTeamStore = create<TeamState>((set, get) => ({
         loading: false,
       });
 
-      localStorage.setItem('team', JSON.stringify(newTeam));
-      localStorage.setItem('teamMembers', JSON.stringify([creatorMember]));
+      setUserData('team', newTeam);
+      setUserData('teamMembers', [creatorMember]);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to create team';
       set({ error: message, loading: false });
@@ -75,7 +75,6 @@ export const useTeamStore = create<TeamState>((set, get) => ({
   joinTeam: async (inviteCode: string, teamName: string) => {
     set({ loading: true, error: null });
     try {
-      // In a real app, this would validate the invite code with Supabase
       const newTeam: Team = {
         id: `team_${Date.now()}`,
         name: teamName,
@@ -88,7 +87,7 @@ export const useTeamStore = create<TeamState>((set, get) => ({
       const newMember: TeamMember = {
         id: `member_${Date.now()}`,
         team_id: newTeam.id,
-        user_id: 'current_user', // Will be replaced with actual user ID
+        user_id: 'current_user',
         joined_at: new Date().toISOString(),
       };
 
@@ -99,8 +98,8 @@ export const useTeamStore = create<TeamState>((set, get) => ({
         loading: false,
       });
 
-      localStorage.setItem('team', JSON.stringify(newTeam));
-      localStorage.setItem('teamMembers', JSON.stringify([newMember]));
+      setUserData('team', newTeam);
+      setUserData('teamMembers', [newMember]);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to join team';
       set({ error: message, loading: false });
@@ -111,9 +110,9 @@ export const useTeamStore = create<TeamState>((set, get) => ({
   leaveTeam: async () => {
     set({ loading: true, error: null });
     try {
-      localStorage.removeItem('team');
-      localStorage.removeItem('teamMembers');
-      localStorage.removeItem('memberEntries');
+      removeUserData('team');
+      removeUserData('teamMembers');
+      removeUserData('memberEntries');
 
       set({
         team: null,
@@ -132,22 +131,19 @@ export const useTeamStore = create<TeamState>((set, get) => ({
   syncTeamData: async () => {
     set({ loading: true, error: null });
     try {
-      // Load team data from localStorage
-      const storedTeam = localStorage.getItem('team');
-      const storedMembers = localStorage.getItem('teamMembers');
-      const storedMemberEntries = localStorage.getItem('memberEntries');
+      const team = getUserData<Team | null>('team', null);
+      const members = getUserData<TeamMember[]>('teamMembers', []);
+      const memberEntriesData = getUserData<Record<string, TimeEntry[]>>('memberEntries', {});
 
-      if (storedTeam) {
-        const team = JSON.parse(storedTeam);
-        const members: TeamMember[] = storedMembers ? JSON.parse(storedMembers) : [];
-        const memberEntriesData = storedMemberEntries
-          ? JSON.parse(storedMemberEntries)
-          : {};
-
+      if (team) {
         const memberEntriesMap = new Map<string, TimeEntry[]>();
         for (const [memberId, entries] of Object.entries(memberEntriesData)) {
           memberEntriesMap.set(memberId, entries as TimeEntry[]);
         }
+
+        // Also load current user's entries into the map
+        const currentEntries = getUserData<TimeEntry[]>('entries', []);
+        memberEntriesMap.set('current_user', currentEntries);
 
         set({
           team,
@@ -159,8 +155,6 @@ export const useTeamStore = create<TeamState>((set, get) => ({
       } else {
         set({ loading: false });
       }
-
-      // In a real app, this would fetch from Supabase and sync with team members
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to sync team data';
       set({ error: message, loading: false });
@@ -186,7 +180,5 @@ export const useTeamStore = create<TeamState>((set, get) => ({
   },
 }));
 
-// Initialize team data on store creation
-if (typeof window !== 'undefined') {
-  useTeamStore.getState().syncTeamData();
-}
+// NOTE: Team sync is deferred to after auth (called from App.tsx),
+// NOT on store creation, because we need the user ID for scoped keys.

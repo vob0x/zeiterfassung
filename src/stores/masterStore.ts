@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { getUserData, setUserData } from '@/lib/userStorage';
 
 interface MasterState {
   stakeholders: string[];
@@ -31,22 +32,12 @@ export const useMasterStore = create<MasterState>((set, get) => ({
   fetch: async () => {
     set({ loading: true, error: null });
     try {
-      // Load from localStorage if available
-      const storedStakeholders = localStorage.getItem('stakeholders');
-      const storedProjects = localStorage.getItem('projects');
-      const storedActivities = localStorage.getItem('activities');
-
       set({
-        stakeholders: storedStakeholders
-          ? JSON.parse(storedStakeholders)
-          : [],
-        projects: storedProjects ? JSON.parse(storedProjects) : [],
-        activities: storedActivities ? JSON.parse(storedActivities) : [],
+        stakeholders: getUserData<string[]>('stakeholders', []),
+        projects: getUserData<string[]>('projects', []),
+        activities: getUserData<string[]>('activities', []),
         loading: false,
       });
-
-      // In a real app, this would fetch from Supabase
-      // For now, we just use localStorage
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to fetch master data';
       set({ error: message, loading: false });
@@ -62,7 +53,7 @@ export const useMasterStore = create<MasterState>((set, get) => ({
       }
       const updated = [...state.stakeholders, name].sort();
       set({ stakeholders: updated });
-      localStorage.setItem('stakeholders', JSON.stringify(updated));
+      setUserData('stakeholders', updated);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to add stakeholder';
       set({ error: message });
@@ -79,7 +70,7 @@ export const useMasterStore = create<MasterState>((set, get) => ({
       }
       const updated = [...state.projects, name].sort();
       set({ projects: updated });
-      localStorage.setItem('projects', JSON.stringify(updated));
+      setUserData('projects', updated);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to add project';
       set({ error: message });
@@ -96,7 +87,7 @@ export const useMasterStore = create<MasterState>((set, get) => ({
       }
       const updated = [...state.activities, name].sort();
       set({ activities: updated });
-      localStorage.setItem('activities', JSON.stringify(updated));
+      setUserData('activities', updated);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to add activity';
       set({ error: message });
@@ -110,7 +101,7 @@ export const useMasterStore = create<MasterState>((set, get) => ({
       const state = get();
       const updated = state.stakeholders.filter((s) => s !== name);
       set({ stakeholders: updated });
-      localStorage.setItem('stakeholders', JSON.stringify(updated));
+      setUserData('stakeholders', updated);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to remove stakeholder';
       set({ error: message });
@@ -124,7 +115,7 @@ export const useMasterStore = create<MasterState>((set, get) => ({
       const state = get();
       const updated = state.projects.filter((p) => p !== name);
       set({ projects: updated });
-      localStorage.setItem('projects', JSON.stringify(updated));
+      setUserData('projects', updated);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to remove project';
       set({ error: message });
@@ -138,7 +129,7 @@ export const useMasterStore = create<MasterState>((set, get) => ({
       const state = get();
       const updated = state.activities.filter((a) => a !== name);
       set({ activities: updated });
-      localStorage.setItem('activities', JSON.stringify(updated));
+      setUserData('activities', updated);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to remove activity';
       set({ error: message });
@@ -157,7 +148,7 @@ export const useMasterStore = create<MasterState>((set, get) => ({
         .map((s) => (s === oldName ? newName : s))
         .sort();
       set({ stakeholders: updated });
-      localStorage.setItem('stakeholders', JSON.stringify(updated));
+      setUserData('stakeholders', updated);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to rename stakeholder';
       set({ error: message });
@@ -176,7 +167,7 @@ export const useMasterStore = create<MasterState>((set, get) => ({
         .map((p) => (p === oldName ? newName : p))
         .sort();
       set({ projects: updated });
-      localStorage.setItem('projects', JSON.stringify(updated));
+      setUserData('projects', updated);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to rename project';
       set({ error: message });
@@ -195,7 +186,7 @@ export const useMasterStore = create<MasterState>((set, get) => ({
         .map((a) => (a === oldName ? newName : a))
         .sort();
       set({ activities: updated });
-      localStorage.setItem('activities', JSON.stringify(updated));
+      setUserData('activities', updated);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to rename activity';
       set({ error: message });
