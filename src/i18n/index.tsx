@@ -4,7 +4,6 @@ import { useState, useCallback, ReactNode } from 'react';
 import { createContext, useContext } from 'react';
 import type { Language } from '@/types';
 
-type TranslationKey = string;
 type NestedTranslations = Record<string, any>;
 
 // Type-safe translation getter

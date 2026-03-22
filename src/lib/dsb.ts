@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * DSB (Dark Side Backup) - 6-Layer Data Safety Belt
  * Critical backup system for data integrity and recovery

@@ -136,10 +136,10 @@ export default function DashboardView() {
           <button
             key={p}
             onClick={() => setPeriod(p)}
-            className={`px-4 py-2 rounded-lg font-medium transition-all ${
+            className={`btn btn-sm rounded-lg font-medium transition-all ${
               period === p
-                ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg'
-                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                ? 'btn-primary'
+                : 'btn-secondary'
             }`}
           >
             {t(`dash.${p}`)}
@@ -148,12 +148,12 @@ export default function DashboardView() {
       </div>
 
       {/* Filters */}
-      <div className="bg-slate-800/50 rounded-lg p-4 space-y-3 backdrop-blur-sm border border-slate-700/50">
+      <div className="card p-4 space-y-3">
         <div className="flex gap-2 flex-wrap">
           <select
             value={filters.stakeholder}
             onChange={(e) => setFilter('stakeholder', e.target.value)}
-            className="px-3 py-2 bg-slate-700 text-white rounded border border-slate-600 focus:border-cyan-500 focus:outline-none"
+            className="select"
           >
             <option value="">{t('all.stakeholder')}</option>
             {stakeholders.map((s) => (
@@ -166,7 +166,7 @@ export default function DashboardView() {
           <select
             value={filters.project}
             onChange={(e) => setFilter('project', e.target.value)}
-            className="px-3 py-2 bg-slate-700 text-white rounded border border-slate-600 focus:border-cyan-500 focus:outline-none"
+            className="select"
           >
             <option value="">{t('all.projekte')}</option>
             {projects.map((p) => (
@@ -179,7 +179,7 @@ export default function DashboardView() {
           <select
             value={filters.activity}
             onChange={(e) => setFilter('activity', e.target.value)}
-            className="px-3 py-2 bg-slate-700 text-white rounded border border-slate-600 focus:border-cyan-500 focus:outline-none"
+            className="select"
           >
             <option value="">{t('all.taetigkeiten')}</option>
             {activities.map((a) => (
@@ -194,13 +194,13 @@ export default function DashboardView() {
             placeholder={t('filter.notiz')}
             value={filters.notiz}
             onChange={(e) => setFilter('notiz', e.target.value)}
-            className="px-3 py-2 bg-slate-700 text-white rounded border border-slate-600 focus:border-cyan-500 focus:outline-none flex-1"
+            className="input flex-1"
           />
 
           {hasActiveFilters && (
             <button
               onClick={() => clearFilters()}
-              className="px-3 py-2 bg-slate-700 text-slate-300 hover:bg-slate-600 rounded border border-slate-600"
+              className="btn btn-secondary btn-sm"
             >
               {t('filter.clearAll')}
             </button>
@@ -208,7 +208,7 @@ export default function DashboardView() {
         </div>
 
         {hasActiveFilters && (
-          <div className="text-sm text-cyan-400">
+          <div style={{ color: 'var(--primary)' }} className="text-sm">
             {t('filter.notiz')} {t('filter.notiz')}
           </div>
         )}
@@ -219,26 +219,26 @@ export default function DashboardView() {
 
       {/* Empty State */}
       {filteredEntries.length === 0 ? (
-        <div className="text-center py-12 text-slate-400">
+        <div style={{ color: 'var(--text-muted)' }} className="text-center py-12">
           {t('dash.noEntries')}
         </div>
       ) : (
         <>
           {/* Heatmap */}
-          <div className="bg-slate-800/50 rounded-lg p-4 backdrop-blur-sm border border-slate-700/50">
-            <h2 className="text-lg font-semibold text-white mb-4">{t('dash.shxpr')}</h2>
+          <div className="card p-4">
+            <h2 style={{ color: 'var(--text)' }} className="text-lg font-semibold mb-4">{t('dash.shxpr')}</h2>
             <Heatmap entries={filteredEntries} />
           </div>
 
           {/* Activity Breakdown */}
-          <div className="bg-slate-800/50 rounded-lg p-4 backdrop-blur-sm border border-slate-700/50">
-            <h2 className="text-lg font-semibold text-white mb-4">{t('dash.byActivity')}</h2>
+          <div className="card p-4">
+            <h2 style={{ color: 'var(--text)' }} className="text-lg font-semibold mb-4">{t('dash.byActivity')}</h2>
             <ActivityBars entries={filteredEntries} />
           </div>
 
           {/* Timeline Chart */}
-          <div className="bg-slate-800/50 rounded-lg p-4 backdrop-blur-sm border border-slate-700/50">
-            <h2 className="text-lg font-semibold text-white mb-4">{t('dash.timeline')}</h2>
+          <div className="card p-4">
+            <h2 style={{ color: 'var(--text)' }} className="text-lg font-semibold mb-4">{t('dash.timeline')}</h2>
             <TimelineChart entries={filteredEntries} />
           </div>
         </>

@@ -46,7 +46,7 @@ const TimerCircle: React.FC = () => {
   const strokeDashoffset = circumference - (rotationDegrees / 360) * circumference;
 
   return (
-    <div className="flex flex-col items-center justify-center gap-6 p-8 bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl border border-slate-700 shadow-2xl">
+    <div className="card flex flex-col items-center justify-center gap-6 p-8 shadow-2xl">
       {/* SVG Circle */}
       <div className="relative w-48 h-48">
         <svg
@@ -62,7 +62,7 @@ const TimerCircle: React.FC = () => {
             fill="none"
             stroke="currentColor"
             strokeWidth="8"
-            className="text-slate-700"
+            style={{ color: 'var(--border)' }}
           />
 
           {/* Progress circle */}
@@ -76,16 +76,17 @@ const TimerCircle: React.FC = () => {
             strokeDasharray={circumference}
             strokeDashoffset={strokeDashoffset}
             className={cn(
-              'text-cyan-500 transition-all duration-300',
-              isRunning && 'filter drop-shadow-[0_0_8px_rgba(34,211,238,0.6)] animate-pulse'
+              'transition-all duration-300',
+              isRunning && 'filter drop-shadow-[0_0_8px_rgba(201,169,98,0.6)] animate-pulse'
             )}
+            style={{ color: 'var(--primary)' }}
             strokeLinecap="round"
           />
         </svg>
 
         {/* Center text */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <div className="text-4xl font-bold text-cyan-400 font-mono">
+          <div style={{ color: 'var(--primary)' }} className="text-4xl font-bold font-mono">
             {formatDuration(elapsedMs)}
           </div>
         </div>
@@ -93,16 +94,28 @@ const TimerCircle: React.FC = () => {
 
       {/* Status label */}
       <div className="text-center">
-        <div className="text-sm text-slate-400 mb-1">{statusText}</div>
+        <div style={{ color: 'var(--text-muted)' }} className="text-sm mb-1">{statusText}</div>
         <div
           className={cn(
             'text-xs font-semibold px-3 py-1 rounded-full',
             isRunning
-              ? 'bg-green-500 text-white'
+              ? 'text-white'
               : taskSlots.length > 0
-                ? 'bg-yellow-500 text-slate-900'
-                : 'bg-slate-600 text-slate-200'
+                ? 'text-black'
+                : ''
           )}
+          style={{
+            background: isRunning
+              ? 'var(--success)'
+              : taskSlots.length > 0
+                ? 'var(--warning)'
+                : 'var(--surface-solid)',
+            color: isRunning
+              ? 'white'
+              : taskSlots.length > 0
+                ? 'black'
+                : 'var(--text-secondary)'
+          }}
         >
           {isRunning ? t('timer.running') : taskSlots.length > 0 ? t('timer.paused') : t('timer.ready')}
         </div>

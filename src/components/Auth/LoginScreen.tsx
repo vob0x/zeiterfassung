@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Clock, Globe } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { useUiStore } from '@/stores/uiStore'
-import { useI18n } from '@/i18n'
 
 export default function LoginScreen() {
   const [isSignUp, setIsSignUp] = useState(false)
@@ -14,7 +13,6 @@ export default function LoginScreen() {
 
   const { signIn, signUp } = useAuthStore()
   const { language, setLanguage } = useUiStore()
-  const { t } = useI18n()
 
   const validateForm = (): boolean => {
     setError('')

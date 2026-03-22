@@ -6,7 +6,7 @@ import { useAuthStore } from './authStore';
 interface TimerState {
   taskSlots: TimerSlot[];
   activeSlotId: string | null;
-  tickInterval: NodeJS.Timer | null;
+  tickInterval: ReturnType<typeof setInterval> | null;
   error: string | null;
   addSlot: (slot: { stakeholder: string; projekt: string; taetigkeit: string; notiz?: string }) => void;
   removeSlot: (id: string) => void;

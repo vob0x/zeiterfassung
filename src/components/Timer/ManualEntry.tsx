@@ -8,7 +8,14 @@ import { getTodayISO } from '../../lib/utils';
 const ManualEntry: React.FC = () => {
   const { t } = useI18n();
   const { add: addEntry } = useEntriesStore();
-  const { stakeholders, projects, activities } = useMasterStore();
+  const {
+    stakeholders,
+    projects,
+    activities,
+    addStakeholder: addStakeholderToStore,
+    addProject: addProjectToStore,
+    addActivity: addActivityToStore,
+  } = useMasterStore();
 
   const [formData, setFormData] = useState({
     date: getTodayISO(),
@@ -122,59 +129,74 @@ const ManualEntry: React.FC = () => {
     }
   };
 
-  const handleAddStakeholder = () => {
+  const handleAddStakeholder = async () => {
     if (newStakeholder.trim()) {
-      setFormData({ ...formData, stakeholder: newStakeholder });
-      setNewStakeholder('');
-      setShowAddStakeholder(false);
+      try {
+        await addStakeholderToStore(newStakeholder.trim());
+        setFormData({ ...formData, stakeholder: newStakeholder.trim() });
+        setNewStakeholder('');
+        setShowAddStakeholder(false);
+      } catch (error) {
+        console.error('Failed to add stakeholder:', error);
+      }
     }
   };
 
-  const handleAddProject = () => {
+  const handleAddProject = async () => {
     if (newProject.trim()) {
-      setFormData({ ...formData, projekt: newProject });
-      setNewProject('');
-      setShowAddProject(false);
+      try {
+        await addProjectToStore(newProject.trim());
+        setFormData({ ...formData, projekt: newProject.trim() });
+        setNewProject('');
+        setShowAddProject(false);
+      } catch (error) {
+        console.error('Failed to add project:', error);
+      }
     }
   };
 
-  const handleAddActivity = () => {
+  const handleAddActivity = async () => {
     if (newActivity.trim()) {
-      setFormData({ ...formData, taetigkeit: newActivity });
-      setNewActivity('');
-      setShowAddActivity(false);
+      try {
+        await addActivityToStore(newActivity.trim());
+        setFormData({ ...formData, taetigkeit: newActivity.trim() });
+        setNewActivity('');
+        setShowAddActivity(false);
+      } catch (error) {
+        console.error('Failed to add activity:', error);
+      }
     }
   };
 
   return (
-    <div className="bg-slate-800 rounded-lg border border-slate-700 p-6 shadow-lg">
-      <h2 className="text-lg font-bold text-white mb-4">{t('manual.title')}</h2>
+    <div className="card p-6">
+      <h2 style={{ color: 'var(--text)' }} className="text-lg font-bold mb-4">{t('manual.title')}</h2>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Date */}
         <div>
-          <label className="block text-sm font-semibold text-slate-300 mb-1">
+          <label style={{ color: 'var(--text-secondary)' }} className="block text-sm font-semibold mb-1">
             {t('label.datum')}
           </label>
           <input
             type="date"
             value={formData.date}
             onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-            className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
+            className="input text-sm"
           />
-          {errors.date && <div className="text-red-400 text-xs mt-1">{errors.date}</div>}
+          {errors.date && <div style={{ color: 'var(--danger)' }} className="text-xs mt-1">{errors.date}</div>}
         </div>
 
         {/* Stakeholder */}
         <div>
-          <label className="block text-sm font-semibold text-slate-300 mb-1">
+          <label style={{ color: 'var(--text-secondary)' }} className="block text-sm font-semibold mb-1">
             {t('label.stakeholder')}
           </label>
           <div className="flex gap-1">
             <select
               value={formData.stakeholder}
               onChange={(e) => setFormData({ ...formData, stakeholder: e.target.value })}
-              className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
+              className="select flex-1 text-sm"
             >
               <option value="">{t('ph.select')}</option>
               {stakeholders.map((s) => (
@@ -186,7 +208,8 @@ const ManualEntry: React.FC = () => {
             <button
               type="button"
               onClick={() => setShowAddStakeholder(!showAddStakeholder)}
-              className="px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded text-slate-300"
+              style={{ background: 'var(--surface-solid)', color: 'var(--text-secondary)' }}
+              className="px-3 py-2 rounded transition-colors hover:opacity-80"
             >
               <Plus className="w-4 h-4" />
             </button>
@@ -198,30 +221,31 @@ const ManualEntry: React.FC = () => {
                 placeholder={t('ph.newStakeholder')}
                 value={newStakeholder}
                 onChange={(e) => setNewStakeholder(e.target.value)}
-                className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
+                className="input flex-1 text-sm"
               />
               <button
                 type="button"
                 onClick={handleAddStakeholder}
-                className="px-3 py-2 bg-green-600 hover:bg-green-500 text-white rounded text-sm"
+                style={{ background: 'var(--success)', color: 'white' }}
+                className="px-3 py-2 rounded text-sm font-medium transition-opacity hover:opacity-90"
               >
                 {t('btn.save')}
               </button>
             </div>
           )}
-          {errors.stakeholder && <div className="text-red-400 text-xs mt-1">{errors.stakeholder}</div>}
+          {errors.stakeholder && <div style={{ color: 'var(--danger)' }} className="text-xs mt-1">{errors.stakeholder}</div>}
         </div>
 
         {/* Project */}
         <div>
-          <label className="block text-sm font-semibold text-slate-300 mb-1">
+          <label style={{ color: 'var(--text-secondary)' }} className="block text-sm font-semibold mb-1">
             {t('label.projekt')}
           </label>
           <div className="flex gap-1">
             <select
               value={formData.projekt}
               onChange={(e) => setFormData({ ...formData, projekt: e.target.value })}
-              className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
+              className="select flex-1 text-sm"
             >
               <option value="">{t('ph.select')}</option>
               {projects.map((p) => (
@@ -233,7 +257,8 @@ const ManualEntry: React.FC = () => {
             <button
               type="button"
               onClick={() => setShowAddProject(!showAddProject)}
-              className="px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded text-slate-300"
+              style={{ background: 'var(--surface-solid)', color: 'var(--text-secondary)' }}
+              className="px-3 py-2 rounded transition-colors hover:opacity-80"
             >
               <Plus className="w-4 h-4" />
             </button>
@@ -245,30 +270,31 @@ const ManualEntry: React.FC = () => {
                 placeholder={t('ph.newProjekt')}
                 value={newProject}
                 onChange={(e) => setNewProject(e.target.value)}
-                className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
+                className="input flex-1 text-sm"
               />
               <button
                 type="button"
                 onClick={handleAddProject}
-                className="px-3 py-2 bg-green-600 hover:bg-green-500 text-white rounded text-sm"
+                style={{ background: 'var(--success)', color: 'white' }}
+                className="px-3 py-2 rounded text-sm font-medium transition-opacity hover:opacity-90"
               >
                 {t('btn.save')}
               </button>
             </div>
           )}
-          {errors.projekt && <div className="text-red-400 text-xs mt-1">{errors.projekt}</div>}
+          {errors.projekt && <div style={{ color: 'var(--danger)' }} className="text-xs mt-1">{errors.projekt}</div>}
         </div>
 
         {/* Activity */}
         <div>
-          <label className="block text-sm font-semibold text-slate-300 mb-1">
+          <label style={{ color: 'var(--text-secondary)' }} className="block text-sm font-semibold mb-1">
             {t('label.taetigkeit')}
           </label>
           <div className="flex gap-1">
             <select
               value={formData.taetigkeit}
               onChange={(e) => setFormData({ ...formData, taetigkeit: e.target.value })}
-              className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
+              className="select flex-1 text-sm"
             >
               <option value="">{t('ph.select')}</option>
               {activities.map((a) => (
@@ -280,7 +306,8 @@ const ManualEntry: React.FC = () => {
             <button
               type="button"
               onClick={() => setShowAddActivity(!showAddActivity)}
-              className="px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded text-slate-300"
+              style={{ background: 'var(--surface-solid)', color: 'var(--text-secondary)' }}
+              className="px-3 py-2 rounded transition-colors hover:opacity-80"
             >
               <Plus className="w-4 h-4" />
             </button>
@@ -292,51 +319,52 @@ const ManualEntry: React.FC = () => {
                 placeholder={t('ph.newTaetigkeit')}
                 value={newActivity}
                 onChange={(e) => setNewActivity(e.target.value)}
-                className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
+                className="input flex-1 text-sm"
               />
               <button
                 type="button"
                 onClick={handleAddActivity}
-                className="px-3 py-2 bg-green-600 hover:bg-green-500 text-white rounded text-sm"
+                style={{ background: 'var(--success)', color: 'white' }}
+                className="px-3 py-2 rounded text-sm font-medium transition-opacity hover:opacity-90"
               >
                 {t('btn.save')}
               </button>
             </div>
           )}
-          {errors.taetigkeit && <div className="text-red-400 text-xs mt-1">{errors.taetigkeit}</div>}
+          {errors.taetigkeit && <div style={{ color: 'var(--danger)' }} className="text-xs mt-1">{errors.taetigkeit}</div>}
         </div>
 
         {/* Start Time */}
         <div>
-          <label className="block text-sm font-semibold text-slate-300 mb-1">
+          <label style={{ color: 'var(--text-secondary)' }} className="block text-sm font-semibold mb-1">
             {t('label.von')}
           </label>
           <input
             type="time"
             value={formData.startTime}
             onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-            className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
+            className="input text-sm"
           />
-          {errors.startTime && <div className="text-red-400 text-xs mt-1">{errors.startTime}</div>}
+          {errors.startTime && <div style={{ color: 'var(--danger)' }} className="text-xs mt-1">{errors.startTime}</div>}
         </div>
 
         {/* End Time */}
         <div>
-          <label className="block text-sm font-semibold text-slate-300 mb-1">
+          <label style={{ color: 'var(--text-secondary)' }} className="block text-sm font-semibold mb-1">
             {t('label.bis')}
           </label>
           <input
             type="time"
             value={formData.endTime}
             onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-            className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
+            className="input text-sm"
           />
-          {errors.endTime && <div className="text-red-400 text-xs mt-1">{errors.endTime}</div>}
+          {errors.endTime && <div style={{ color: 'var(--danger)' }} className="text-xs mt-1">{errors.endTime}</div>}
         </div>
 
         {/* Note */}
         <div>
-          <label className="block text-sm font-semibold text-slate-300 mb-1">
+          <label style={{ color: 'var(--text-secondary)' }} className="block text-sm font-semibold mb-1">
             {t('label.notiz')}
           </label>
           <input
@@ -344,14 +372,14 @@ const ManualEntry: React.FC = () => {
             placeholder={t('ph.notiz')}
             value={formData.notiz}
             onChange={(e) => setFormData({ ...formData, notiz: e.target.value })}
-            className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
+            className="input text-sm"
           />
         </div>
 
         {/* Submit Button */}
         <button
           type="submit"
-          className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg transition-colors"
+          className="btn btn-primary w-full font-semibold"
         >
           {t('btn.save')}
         </button>

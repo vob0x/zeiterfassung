@@ -80,9 +80,9 @@ const QuickShortcuts: React.FC = () => {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center gap-2 mb-3">
-        {pinnedShortcuts.length > 0 && <Pin className="w-4 h-4 text-yellow-400" />}
-        {dedupedAutoShortcuts.length > 0 && <Zap className="w-4 h-4 text-cyan-400" />}
-        <h3 className="text-sm font-semibold text-slate-300">
+        {pinnedShortcuts.length > 0 && <Pin className="w-4 h-4" style={{ color: 'var(--warning)' }} />}
+        {dedupedAutoShortcuts.length > 0 && <Zap className="w-4 h-4" style={{ color: 'var(--primary)' }} />}
+        <h3 style={{ color: 'var(--text-secondary)' }} className="text-sm font-semibold">
           {allShortcuts.length > 0 ? t('sc.addShort') : t('sc.needData')}
         </h3>
       </div>
@@ -102,7 +102,8 @@ const QuickShortcuts: React.FC = () => {
               >
                 <button
                   onClick={() => handleShortcutClick(shortcut)}
-                  className="w-full px-3 py-2 text-sm bg-slate-700 hover:bg-slate-600 text-slate-100 rounded-lg transition-colors text-left truncate"
+                  style={{ background: 'var(--surface-solid)', color: 'var(--text)' }}
+                  className="w-full px-3 py-2 text-sm rounded-lg transition-colors text-left truncate hover:opacity-80"
                 >
                   {shortcut.stakeholder}/{shortcut.projekt}
                 </button>
@@ -113,13 +114,14 @@ const QuickShortcuts: React.FC = () => {
                     e.stopPropagation();
                     handleTogglePin(shortcut);
                   }}
-                  className="absolute right-1 top-1/2 -translate-y-1/2 p-1 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-600 hover:bg-slate-500 rounded text-xs"
+                  style={{ background: 'var(--surface)' }}
+                  className="absolute right-1 top-1/2 -translate-y-1/2 p-1 opacity-0 group-hover:opacity-100 transition-opacity rounded text-xs hover:opacity-60"
                   title={isPinned ? t('sc.unpin') : t('sc.pin')}
                 >
                   {isPinned ? (
-                    <PinOff className="w-3 h-3 text-yellow-400" />
+                    <PinOff className="w-3 h-3" style={{ color: 'var(--warning)' }} />
                   ) : (
-                    <Pin className="w-3 h-3 text-slate-300" />
+                    <Pin className="w-3 h-3" style={{ color: 'var(--text-secondary)' }} />
                   )}
                 </button>
               </div>
@@ -127,7 +129,7 @@ const QuickShortcuts: React.FC = () => {
           })}
         </div>
       ) : (
-        <div className="text-xs text-slate-500 text-center py-4">
+        <div style={{ color: 'var(--text-muted)' }} className="text-xs text-center py-4">
           {t('sc.needData')}
         </div>
       )}

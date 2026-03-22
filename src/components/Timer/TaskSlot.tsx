@@ -24,7 +24,14 @@ const TaskSlot: React.FC<TaskSlotProps> = ({ slot, index }) => {
     getSlotElapsed,
   } = useTimerStore();
   const { add: addEntry } = useEntriesStore();
-  const { stakeholders, projects, activities } = useMasterStore();
+  const {
+    stakeholders,
+    projects,
+    activities,
+    addStakeholder: addStakeholderToStore,
+    addProject: addProjectToStore,
+    addActivity: addActivityToStore,
+  } = useMasterStore();
 
   const [showAddStakeholder, setShowAddStakeholder] = useState(false);
   const [showAddProject, setShowAddProject] = useState(false);
@@ -75,50 +82,79 @@ const TaskSlot: React.FC<TaskSlotProps> = ({ slot, index }) => {
   };
 
   // Handle add new dimension
-  const handleAddStakeholder = () => {
+  const handleAddStakeholder = async () => {
     if (newStakeholder.trim()) {
-      // In real app, save to master data
-      updateSlotField(slot.id, 'stakeholder', newStakeholder);
-      setNewStakeholder('');
-      setShowAddStakeholder(false);
+      try {
+        await addStakeholderToStore(newStakeholder.trim());
+        updateSlotField(slot.id, 'stakeholder', newStakeholder.trim());
+        setNewStakeholder('');
+        setShowAddStakeholder(false);
+      } catch (error) {
+        console.error('Failed to add stakeholder:', error);
+      }
     }
   };
 
-  const handleAddProject = () => {
+  const handleAddProject = async () => {
     if (newProject.trim()) {
-      updateSlotField(slot.id, 'projekt', newProject);
-      setNewProject('');
-      setShowAddProject(false);
+      try {
+        await addProjectToStore(newProject.trim());
+        updateSlotField(slot.id, 'projekt', newProject.trim());
+        setNewProject('');
+        setShowAddProject(false);
+      } catch (error) {
+        console.error('Failed to add project:', error);
+      }
     }
   };
 
-  const handleAddActivity = () => {
+  const handleAddActivity = async () => {
     if (newActivity.trim()) {
-      updateSlotField(slot.id, 'taetigkeit', newActivity);
-      setNewActivity('');
-      setShowAddActivity(false);
+      try {
+        await addActivityToStore(newActivity.trim());
+        updateSlotField(slot.id, 'taetigkeit', newActivity.trim());
+        setNewActivity('');
+        setShowAddActivity(false);
+      } catch (error) {
+        console.error('Failed to add activity:', error);
+      }
     }
   };
 
   return (
     <div
-      className={cn(
-        'p-4 rounded-lg border-2 transition-all duration-200',
-        slot.isPaused && !slot.startTime
-          ? 'bg-slate-800 border-slate-600'
-          : slot.isPaused
-            ? 'bg-slate-750 border-slate-600 opacity-70'
-            : 'bg-slate-700 border-cyan-500 shadow-lg shadow-cyan-500/20'
-      )}
+      className="p-4 rounded-lg border-2 transition-all duration-200"
+      style={{
+        background:
+          slot.isPaused && !slot.startTime
+            ? 'var(--surface)'
+            : slot.isPaused
+              ? 'var(--surface-hover)'
+              : 'var(--surface)',
+        borderColor:
+          slot.isPaused && !slot.startTime
+            ? 'var(--border)'
+            : slot.isPaused
+              ? 'var(--border)'
+              : 'var(--primary)',
+        boxShadow:
+          !slot.isPaused && !slot.isPaused
+            ? '0 0 12px var(--primary-shadow)'
+            : 'none',
+        opacity: slot.isPaused && slot.startTime ? 0.7 : 1,
+      }}
     >
       {/* Header: Index + Timer + Play/Pause + Stop */}
       <div className="flex items-center gap-2 mb-3">
-        <span className="text-xs font-bold text-slate-500 bg-slate-600 rounded-full w-6 h-6 flex items-center justify-center">
+        <span
+          className="text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center"
+          style={{ color: 'var(--text-secondary)', background: 'var(--surface-solid)' }}
+        >
           {index + 1}
         </span>
 
         <div className="flex-1">
-          <div className="text-xl font-mono font-bold text-cyan-400">
+          <div className="text-xl font-mono font-bold" style={{ color: 'var(--primary)' }}>
             {formatDuration(elapsedMs)}
           </div>
         </div>
@@ -158,12 +194,11 @@ const TaskSlot: React.FC<TaskSlotProps> = ({ slot, index }) => {
       {/* Status Badge */}
       <div className="mb-3">
         <span
-          className={cn(
-            'inline-block text-xs font-bold px-2 py-1 rounded',
-            slot.isPaused
-              ? 'bg-yellow-500/20 text-yellow-300'
-              : 'bg-green-500/20 text-green-300'
-          )}
+          className="inline-block text-xs font-bold px-2 py-1 rounded"
+          style={{
+            background: slot.isPaused ? 'var(--warning-bg)' : 'var(--success-bg)',
+            color: slot.isPaused ? 'var(--warning)' : 'var(--success)',
+          }}
         >
           {slot.isPaused ? t('timer.paused') : t('timer.running')}
         </span>
@@ -172,14 +207,20 @@ const TaskSlot: React.FC<TaskSlotProps> = ({ slot, index }) => {
       {/* Stakeholder Dropdown */}
       <div className="space-y-3">
         <div>
-          <label className="block text-xs font-semibold text-slate-400 mb-1">
+          <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>
             {t('label.stakeholder')}
           </label>
           <div className="flex gap-1">
             <select
               value={slot.stakeholder}
               onChange={(e) => updateSlotField(slot.id, 'stakeholder', e.target.value)}
-              className="flex-1 px-2 py-1 text-sm bg-slate-600 border border-slate-500 rounded text-white"
+              className="flex-1 px-2 py-1 text-sm rounded"
+              style={{
+                background: 'var(--surface-solid)',
+                borderColor: 'var(--border)',
+                color: 'var(--text)',
+                border: '1px solid var(--border)',
+              }}
             >
               <option value="">{t('ph.select')}</option>
               {stakeholders.map((s) => (
@@ -190,7 +231,11 @@ const TaskSlot: React.FC<TaskSlotProps> = ({ slot, index }) => {
             </select>
             <button
               onClick={() => setShowAddStakeholder(!showAddStakeholder)}
-              className="px-2 py-1 bg-slate-600 hover:bg-slate-500 rounded text-slate-300"
+              className="px-2 py-1 rounded transition-colors"
+              style={{
+                background: 'var(--surface-solid)',
+                color: 'var(--text-secondary)',
+              }}
             >
               <Plus className="w-4 h-4" />
             </button>
@@ -202,11 +247,18 @@ const TaskSlot: React.FC<TaskSlotProps> = ({ slot, index }) => {
                 placeholder={t('ph.newStakeholder')}
                 value={newStakeholder}
                 onChange={(e) => setNewStakeholder(e.target.value)}
-                className="flex-1 px-2 py-1 text-sm bg-slate-600 border border-slate-500 rounded text-white"
+                className="flex-1 px-2 py-1 text-sm rounded"
+                style={{
+                  background: 'var(--surface-solid)',
+                  borderColor: 'var(--border)',
+                  color: 'var(--text)',
+                  border: '1px solid var(--border)',
+                }}
               />
               <button
                 onClick={handleAddStakeholder}
-                className="px-2 py-1 bg-green-600 hover:bg-green-500 text-white rounded text-sm"
+                className="px-2 py-1 text-white rounded text-sm transition-colors"
+                style={{ background: 'var(--success)' }}
               >
                 {t('btn.save')}
               </button>
@@ -216,14 +268,20 @@ const TaskSlot: React.FC<TaskSlotProps> = ({ slot, index }) => {
 
         {/* Project Dropdown */}
         <div>
-          <label className="block text-xs font-semibold text-slate-400 mb-1">
+          <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>
             {t('label.projekt')}
           </label>
           <div className="flex gap-1">
             <select
               value={slot.projekt}
               onChange={(e) => updateSlotField(slot.id, 'projekt', e.target.value)}
-              className="flex-1 px-2 py-1 text-sm bg-slate-600 border border-slate-500 rounded text-white"
+              className="flex-1 px-2 py-1 text-sm rounded"
+              style={{
+                background: 'var(--surface-solid)',
+                borderColor: 'var(--border)',
+                color: 'var(--text)',
+                border: '1px solid var(--border)',
+              }}
             >
               <option value="">{t('ph.select')}</option>
               {projects.map((p) => (
@@ -234,7 +292,11 @@ const TaskSlot: React.FC<TaskSlotProps> = ({ slot, index }) => {
             </select>
             <button
               onClick={() => setShowAddProject(!showAddProject)}
-              className="px-2 py-1 bg-slate-600 hover:bg-slate-500 rounded text-slate-300"
+              className="px-2 py-1 rounded transition-colors"
+              style={{
+                background: 'var(--surface-solid)',
+                color: 'var(--text-secondary)',
+              }}
             >
               <Plus className="w-4 h-4" />
             </button>
@@ -246,11 +308,18 @@ const TaskSlot: React.FC<TaskSlotProps> = ({ slot, index }) => {
                 placeholder={t('ph.newProjekt')}
                 value={newProject}
                 onChange={(e) => setNewProject(e.target.value)}
-                className="flex-1 px-2 py-1 text-sm bg-slate-600 border border-slate-500 rounded text-white"
+                className="flex-1 px-2 py-1 text-sm rounded"
+                style={{
+                  background: 'var(--surface-solid)',
+                  borderColor: 'var(--border)',
+                  color: 'var(--text)',
+                  border: '1px solid var(--border)',
+                }}
               />
               <button
                 onClick={handleAddProject}
-                className="px-2 py-1 bg-green-600 hover:bg-green-500 text-white rounded text-sm"
+                className="px-2 py-1 text-white rounded text-sm transition-colors"
+                style={{ background: 'var(--success)' }}
               >
                 {t('btn.save')}
               </button>
@@ -260,14 +329,20 @@ const TaskSlot: React.FC<TaskSlotProps> = ({ slot, index }) => {
 
         {/* Activity Dropdown */}
         <div>
-          <label className="block text-xs font-semibold text-slate-400 mb-1">
+          <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>
             {t('label.taetigkeit')}
           </label>
           <div className="flex gap-1">
             <select
               value={slot.taetigkeit}
               onChange={(e) => updateSlotField(slot.id, 'taetigkeit', e.target.value)}
-              className="flex-1 px-2 py-1 text-sm bg-slate-600 border border-slate-500 rounded text-white"
+              className="flex-1 px-2 py-1 text-sm rounded"
+              style={{
+                background: 'var(--surface-solid)',
+                borderColor: 'var(--border)',
+                color: 'var(--text)',
+                border: '1px solid var(--border)',
+              }}
             >
               <option value="">{t('ph.select')}</option>
               {activities.map((a) => (
@@ -278,7 +353,11 @@ const TaskSlot: React.FC<TaskSlotProps> = ({ slot, index }) => {
             </select>
             <button
               onClick={() => setShowAddActivity(!showAddActivity)}
-              className="px-2 py-1 bg-slate-600 hover:bg-slate-500 rounded text-slate-300"
+              className="px-2 py-1 rounded transition-colors"
+              style={{
+                background: 'var(--surface-solid)',
+                color: 'var(--text-secondary)',
+              }}
             >
               <Plus className="w-4 h-4" />
             </button>
@@ -290,11 +369,18 @@ const TaskSlot: React.FC<TaskSlotProps> = ({ slot, index }) => {
                 placeholder={t('ph.newTaetigkeit')}
                 value={newActivity}
                 onChange={(e) => setNewActivity(e.target.value)}
-                className="flex-1 px-2 py-1 text-sm bg-slate-600 border border-slate-500 rounded text-white"
+                className="flex-1 px-2 py-1 text-sm rounded"
+                style={{
+                  background: 'var(--surface-solid)',
+                  borderColor: 'var(--border)',
+                  color: 'var(--text)',
+                  border: '1px solid var(--border)',
+                }}
               />
               <button
                 onClick={handleAddActivity}
-                className="px-2 py-1 bg-green-600 hover:bg-green-500 text-white rounded text-sm"
+                className="px-2 py-1 text-white rounded text-sm transition-colors"
+                style={{ background: 'var(--success)' }}
               >
                 {t('btn.save')}
               </button>
@@ -304,7 +390,7 @@ const TaskSlot: React.FC<TaskSlotProps> = ({ slot, index }) => {
 
         {/* Note Input */}
         <div>
-          <label className="block text-xs font-semibold text-slate-400 mb-1">
+          <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>
             {t('label.notiz')}
           </label>
           <input
@@ -312,7 +398,13 @@ const TaskSlot: React.FC<TaskSlotProps> = ({ slot, index }) => {
             placeholder={t('ph.notiz')}
             value={slot.notiz || ''}
             onChange={(e) => updateSlotField(slot.id, 'notiz', e.target.value)}
-            className="w-full px-2 py-1 text-sm bg-slate-600 border border-slate-500 rounded text-white"
+            className="w-full px-2 py-1 text-sm rounded"
+            style={{
+              background: 'var(--surface-solid)',
+              borderColor: 'var(--border)',
+              color: 'var(--text)',
+              border: '1px solid var(--border)',
+            }}
           />
         </div>
       </div>

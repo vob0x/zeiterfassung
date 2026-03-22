@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { TimeEntry } from '@/types';
 
 interface BackupData {

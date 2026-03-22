@@ -38,11 +38,11 @@ const TimerView: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 py-6 px-4">
+    <div className="py-6 px-4" style={{ background: 'var(--background)' }}>
       <div className="max-w-7xl mx-auto">
         {/* Page Header */}
         <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold text-white">{t('nav.timer')}</h1>
+          <h1 className="text-3xl font-bold" style={{ color: 'var(--text)' }}>{t('nav.timer')}</h1>
           {taskSlots.length > 0 && (
             <button
               onClick={handleStopAll}
@@ -55,30 +55,31 @@ const TimerView: React.FC = () => {
         </div>
 
         {/* Today Total & Progress */}
-        <div className="mb-8 p-6 bg-slate-800 rounded-lg border border-slate-700">
+        <div className="card mb-8 p-6">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-slate-300">{t('timer.todayTotal')}</span>
-            <span className="text-2xl font-bold text-cyan-400">
+            <span style={{ color: 'var(--text-secondary)' }}>{t('timer.todayTotal')}</span>
+            <span className="text-2xl font-bold font-mono" style={{ color: 'var(--primary)' }}>
               {formatDurationHM(todayTotalMs)} / {formatDurationHM(dailyGoalMs)}
             </span>
           </div>
 
           {/* Progress Bar */}
-          <div className="w-full h-3 bg-slate-700 rounded-full overflow-hidden">
+          <div className="w-full h-3 rounded-full overflow-hidden" style={{ background: 'var(--surface-solid)' }}>
             <div
-              className={cn(
-                'h-full transition-all duration-500 rounded-full',
-                progressPercent >= 100
-                  ? 'bg-green-500'
-                  : progressPercent >= 70
-                    ? 'bg-yellow-500'
-                    : 'bg-cyan-500'
-              )}
-              style={{ width: `${progressPercent}%` }}
+              className="h-full transition-all duration-500 rounded-full"
+              style={{
+                width: `${progressPercent}%`,
+                background:
+                  progressPercent >= 100
+                    ? 'var(--success)'
+                    : progressPercent >= 70
+                      ? 'var(--warning)'
+                      : 'var(--primary)',
+              }}
             />
           </div>
 
-          <div className="text-xs text-slate-400 mt-2">
+          <div className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
             {Math.round(progressPercent)}% {t('of')} 8:24
           </div>
         </div>
@@ -88,40 +89,63 @@ const TimerView: React.FC = () => {
           {/* Left Column: Task Slots & Quick Shortcuts */}
           <div className="lg:col-span-2 space-y-6">
             {/* Quick Shortcuts */}
-            <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
+            <div className="card p-4">
               <QuickShortcuts />
             </div>
 
             {/* Task Slots */}
             <div className="space-y-3">
-              <h2 className="text-lg font-bold text-white">{t('timer.tasks')}</h2>
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold" style={{ color: 'var(--text)' }}>{t('timer.tasks')}</h2>
+                {taskSlots.length > 0 && (
+                  <span className="text-xs font-mono" style={{ color: 'var(--text-secondary)' }}>
+                    {taskSlots.length}/8
+                  </span>
+                )}
+              </div>
 
-              {taskSlots.length === 0 ? (
-                <div className="p-6 bg-slate-800 rounded-lg border border-slate-700 text-center">
-                  <p className="text-slate-400 text-sm">{t('timer.startHint')}</p>
+              {taskSlots.length === 0 && (
+                <div className="card p-8 text-center">
+                  <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>{t('timer.startHint')}</p>
+                  <button
+                    onClick={() => {
+                      addSlot({
+                        stakeholder: '',
+                        projekt: '',
+                        taetigkeit: '',
+                        notiz: '',
+                      });
+                    }}
+                    className="btn btn-primary"
+                  >
+                    {t('timer.addTask')}
+                  </button>
                 </div>
-              ) : (
-                <>
-                  {taskSlots.map((slot, index) => (
-                    <TaskSlot key={slot.id} slot={slot} index={index} />
-                  ))}
+              )}
 
-                  {taskSlots.length < 8 && (
-                    <button
-                      onClick={() => {
-                        addSlot({
-                          stakeholder: '',
-                          projekt: '',
-                          taetigkeit: '',
-                          notiz: '',
-                        });
-                      }}
-                      className="w-full px-4 py-3 bg-slate-700 hover:bg-slate-600 text-slate-300 font-semibold rounded-lg border border-dashed border-slate-600 transition-colors"
-                    >
-                      {t('timer.addTask')}
-                    </button>
-                  )}
-                </>
+              {taskSlots.map((slot, index) => (
+                <TaskSlot key={slot.id} slot={slot} index={index} />
+              ))}
+
+              {taskSlots.length > 0 && taskSlots.length < 8 && (
+                <button
+                  onClick={() => {
+                    addSlot({
+                      stakeholder: '',
+                      projekt: '',
+                      taetigkeit: '',
+                      notiz: '',
+                    });
+                  }}
+                  className="w-full px-4 py-3 rounded-lg transition-colors"
+                  style={{
+                    background: 'var(--surface)',
+                    border: '1px dashed var(--border)',
+                    color: 'var(--text-secondary)',
+                  }}
+                >
+                  + {t('timer.addTask')}
+                </button>
               )}
             </div>
 

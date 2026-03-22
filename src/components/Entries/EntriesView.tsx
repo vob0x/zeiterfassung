@@ -149,51 +149,51 @@ const EntriesView: React.FC = () => {
     filters.notiz;
 
   return (
-    <div className="min-h-screen bg-slate-900 py-6 px-4">
+    <div className="min-h-screen py-6 px-4">
       <div className="max-w-7xl mx-auto">
         {/* Page Header */}
-        <h1 className="text-3xl font-bold text-white mb-8">{t('entries.title')}</h1>
+        <h1 style={{ color: 'var(--text)' }} className="text-3xl font-bold mb-8">{t('entries.title')}</h1>
 
         {/* Filter Bar */}
-        <div className="bg-slate-800 rounded-lg border border-slate-700 p-6 mb-6">
-          <h2 className="text-sm font-semibold text-slate-300 mb-4">{t('filter.from')}</h2>
+        <div className="card p-6 mb-6">
+          <h2 style={{ color: 'var(--text-secondary)' }} className="text-sm font-semibold mb-4">{t('filter.from')}</h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
             {/* Date From */}
             <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-1">
+              <label style={{ color: 'var(--text-muted)' }} className="block text-xs font-semibold mb-1">
                 {t('filter.from')}
               </label>
               <input
                 type="date"
                 value={filters.from}
                 onChange={(e) => setFilter('from', e.target.value)}
-                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
+                className="input text-sm"
               />
             </div>
 
             {/* Date To */}
             <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-1">
+              <label style={{ color: 'var(--text-muted)' }} className="block text-xs font-semibold mb-1">
                 {t('filter.to')}
               </label>
               <input
                 type="date"
                 value={filters.to}
                 onChange={(e) => setFilter('to', e.target.value)}
-                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
+                className="input text-sm"
               />
             </div>
 
             {/* Stakeholder */}
             <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-1">
+              <label style={{ color: 'var(--text-muted)' }} className="block text-xs font-semibold mb-1">
                 {t('label.stakeholder')}
               </label>
               <select
                 value={filters.stakeholder}
                 onChange={(e) => setFilter('stakeholder', e.target.value)}
-                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
+                className="select text-sm"
               >
                 <option value="">{t('all.stakeholder')}</option>
                 {uniqueStakeholders.map((s) => (
@@ -206,13 +206,13 @@ const EntriesView: React.FC = () => {
 
             {/* Project */}
             <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-1">
+              <label style={{ color: 'var(--text-muted)' }} className="block text-xs font-semibold mb-1">
                 {t('label.projekt')}
               </label>
               <select
                 value={filters.project}
                 onChange={(e) => setFilter('project', e.target.value)}
-                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
+                className="select text-sm"
               >
                 <option value="">{t('all.projekte')}</option>
                 {uniqueProjects.map((p) => (
@@ -225,13 +225,13 @@ const EntriesView: React.FC = () => {
 
             {/* Activity */}
             <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-1">
+              <label style={{ color: 'var(--text-muted)' }} className="block text-xs font-semibold mb-1">
                 {t('label.taetigkeit')}
               </label>
               <select
                 value={filters.activity}
                 onChange={(e) => setFilter('activity', e.target.value)}
-                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
+                className="select text-sm"
               >
                 <option value="">{t('all.taetigkeiten')}</option>
                 {uniqueActivities.map((a) => (
@@ -244,7 +244,7 @@ const EntriesView: React.FC = () => {
 
             {/* Search */}
             <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-1">
+              <label style={{ color: 'var(--text-muted)' }} className="block text-xs font-semibold mb-1">
                 {t('filter.notiz')}
               </label>
               <input
@@ -252,75 +252,81 @@ const EntriesView: React.FC = () => {
                 placeholder={t('filter.notiz')}
                 value={filters.notiz}
                 onChange={(e) => setFilter('notiz', e.target.value)}
-                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
+                className="input text-sm"
               />
             </div>
           </div>
 
           {/* Active Filters Tags & Clear Button */}
           {hasActiveFilters && (
-            <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-slate-700">
+            <div style={{ borderColor: 'var(--border)' }} className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t">
               {filters.from && (
-                <span className="inline-flex items-center gap-1 px-2 py-1 bg-slate-700 rounded text-xs text-slate-300">
+                <span style={{ background: 'var(--surface-solid)', color: 'var(--text-secondary)' }} className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs">
                   {t('filter.from')}: {filters.from}
                   <button
                     onClick={() => setFilter('from', '')}
-                    className="hover:text-white"
+                    style={{ color: 'var(--text)' }}
+                    className="hover:opacity-80"
                   >
                     <X className="w-3 h-3" />
                   </button>
                 </span>
               )}
               {filters.to && (
-                <span className="inline-flex items-center gap-1 px-2 py-1 bg-slate-700 rounded text-xs text-slate-300">
+                <span style={{ background: 'var(--surface-solid)', color: 'var(--text-secondary)' }} className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs">
                   {t('filter.to')}: {filters.to}
                   <button
                     onClick={() => setFilter('to', '')}
-                    className="hover:text-white"
+                    style={{ color: 'var(--text)' }}
+                    className="hover:opacity-80"
                   >
                     <X className="w-3 h-3" />
                   </button>
                 </span>
               )}
               {filters.stakeholder && (
-                <span className="inline-flex items-center gap-1 px-2 py-1 bg-slate-700 rounded text-xs text-slate-300">
+                <span style={{ background: 'var(--surface-solid)', color: 'var(--text-secondary)' }} className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs">
                   {filters.stakeholder}
                   <button
                     onClick={() => setFilter('stakeholder', '')}
-                    className="hover:text-white"
+                    style={{ color: 'var(--text)' }}
+                    className="hover:opacity-80"
                   >
                     <X className="w-3 h-3" />
                   </button>
                 </span>
               )}
               {filters.project && (
-                <span className="inline-flex items-center gap-1 px-2 py-1 bg-slate-700 rounded text-xs text-slate-300">
+                <span style={{ background: 'var(--surface-solid)', color: 'var(--text-secondary)' }} className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs">
                   {filters.project}
                   <button
                     onClick={() => setFilter('project', '')}
-                    className="hover:text-white"
+                    style={{ color: 'var(--text)' }}
+                    className="hover:opacity-80"
                   >
                     <X className="w-3 h-3" />
                   </button>
                 </span>
               )}
               {filters.activity && (
-                <span className="inline-flex items-center gap-1 px-2 py-1 bg-slate-700 rounded text-xs text-slate-300">
+                <span style={{ background: 'var(--surface-solid)', color: 'var(--text-secondary)' }} className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs">
                   {filters.activity}
                   <button
                     onClick={() => setFilter('activity', '')}
-                    className="hover:text-white"
+                    style={{ color: 'var(--text)' }}
+                    className="hover:opacity-80"
                   >
                     <X className="w-3 h-3" />
                   </button>
                 </span>
               )}
               {filters.notiz && (
-                <span className="inline-flex items-center gap-1 px-2 py-1 bg-slate-700 rounded text-xs text-slate-300">
+                <span style={{ background: 'var(--surface-solid)', color: 'var(--text-secondary)' }} className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs">
                   {filters.notiz}
                   <button
                     onClick={() => setFilter('notiz', '')}
-                    className="hover:text-white"
+                    style={{ color: 'var(--text)' }}
+                    className="hover:opacity-80"
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -329,7 +335,8 @@ const EntriesView: React.FC = () => {
 
               <button
                 onClick={clearFilters}
-                className="ml-auto px-3 py-1 bg-red-600/30 hover:bg-red-600/50 text-red-400 rounded text-xs font-semibold transition-colors"
+                style={{ background: 'rgba(212, 112, 110, 0.3)', color: 'var(--danger)' }}
+                className="ml-auto px-3 py-1 rounded text-xs font-semibold transition-colors hover:opacity-80"
               >
                 {t('filter.clearAll')}
               </button>
@@ -338,31 +345,32 @@ const EntriesView: React.FC = () => {
         </div>
 
         {/* Summary */}
-        <div className="mb-6 flex items-center gap-4 text-sm text-slate-300">
+        <div style={{ color: 'var(--text-secondary)' }} className="mb-6 flex items-center gap-4 text-sm">
           <span>
-            <strong className="text-white">{sortedEntries.length}</strong> {t('entries.count')}
+            <strong style={{ color: 'var(--text)' }}>{sortedEntries.length}</strong> {t('entries.count')}
           </span>
           <span>
-            <strong className="text-cyan-400">{formatDurationHM(totalDurationMs)}</strong> {t('entries.total')}
+            <strong style={{ color: 'var(--primary)' }}>{formatDurationHM(totalDurationMs)}</strong> {t('entries.total')}
           </span>
         </div>
 
         {/* Entries Table */}
         {sortedEntries.length === 0 ? (
-          <div className="text-center py-12 bg-slate-800 rounded-lg border border-slate-700">
-            <p className="text-slate-400">
+          <div className="card text-center py-12">
+            <p style={{ color: 'var(--text-muted)' }}>
               {hasActiveFilters ? t('entries.noMatch') : t('entries.nodata')}
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-slate-700">
-            <table className="w-full">
-              <thead className="bg-slate-800 border-b border-slate-700">
+          <div className="overflow-x-auto rounded-lg border" style={{ borderColor: 'var(--border)' }}>
+            <table className="table">
+              <thead style={{ backgroundColor: 'rgba(201, 169, 98, 0.03)' }}>
                 <tr>
                   <th className="px-4 py-3 text-left">
                     <button
                       onClick={() => handleSort('date')}
-                      className="text-xs font-semibold text-slate-300 hover:text-white transition-colors flex items-center gap-1"
+                      style={{ color: 'var(--text-secondary)' }}
+                      className="text-xs font-semibold hover:opacity-80 transition-colors flex items-center gap-1"
                     >
                       {t('th.datum')}
                       {sortField === 'date' && (
@@ -373,7 +381,8 @@ const EntriesView: React.FC = () => {
                   <th className="px-4 py-3 text-left">
                     <button
                       onClick={() => handleSort('stakeholder')}
-                      className="text-xs font-semibold text-slate-300 hover:text-white transition-colors flex items-center gap-1"
+                      style={{ color: 'var(--text-secondary)' }}
+                      className="text-xs font-semibold hover:opacity-80 transition-colors flex items-center gap-1"
                     >
                       {t('th.stakeholder')}
                       {sortField === 'stakeholder' && (
@@ -384,7 +393,8 @@ const EntriesView: React.FC = () => {
                   <th className="px-4 py-3 text-left">
                     <button
                       onClick={() => handleSort('projekt')}
-                      className="text-xs font-semibold text-slate-300 hover:text-white transition-colors flex items-center gap-1"
+                      style={{ color: 'var(--text-secondary)' }}
+                      className="text-xs font-semibold hover:opacity-80 transition-colors flex items-center gap-1"
                     >
                       {t('th.projekt')}
                       {sortField === 'projekt' && (
@@ -395,7 +405,8 @@ const EntriesView: React.FC = () => {
                   <th className="px-4 py-3 text-left">
                     <button
                       onClick={() => handleSort('taetigkeit')}
-                      className="text-xs font-semibold text-slate-300 hover:text-white transition-colors flex items-center gap-1"
+                      style={{ color: 'var(--text-secondary)' }}
+                      className="text-xs font-semibold hover:opacity-80 transition-colors flex items-center gap-1"
                     >
                       {t('th.taetigkeit')}
                       {sortField === 'taetigkeit' && (
@@ -403,16 +414,17 @@ const EntriesView: React.FC = () => {
                       )}
                     </button>
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-300">
+                  <th style={{ color: 'var(--text-secondary)' }} className="px-4 py-3 text-left text-xs font-semibold">
                     {t('th.von')}
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-300">
+                  <th style={{ color: 'var(--text-secondary)' }} className="px-4 py-3 text-left text-xs font-semibold">
                     {t('th.bis')}
                   </th>
                   <th className="px-4 py-3 text-left">
                     <button
                       onClick={() => handleSort('duration')}
-                      className="text-xs font-semibold text-slate-300 hover:text-white transition-colors flex items-center gap-1"
+                      style={{ color: 'var(--text-secondary)' }}
+                      className="text-xs font-semibold hover:opacity-80 transition-colors flex items-center gap-1"
                     >
                       {t('th.dauer')}
                       {sortField === 'duration' && (
@@ -420,15 +432,15 @@ const EntriesView: React.FC = () => {
                       )}
                     </button>
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-300">
+                  <th style={{ color: 'var(--text-secondary)' }} className="px-4 py-3 text-left text-xs font-semibold">
                     {t('th.notiz')}
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-300">
+                  <th style={{ color: 'var(--text-secondary)' }} className="px-4 py-3 text-left text-xs font-semibold">
                     {t('title.edit')}
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-700">
+              <tbody style={{ borderColor: 'var(--border)' }} className="divide-y">
                 {sortedEntries.map((entry) => (
                   <EntryRow
                     key={entry.id}

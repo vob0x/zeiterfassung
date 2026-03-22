@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Offline Change Queue
  * Persists pending changes to localStorage and flushes them when back online

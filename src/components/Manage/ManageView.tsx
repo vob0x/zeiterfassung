@@ -205,21 +205,22 @@ export default function ManageView() {
     const [newValue, setNewValue] = useState('');
 
     return (
-      <div className="flex-1 bg-slate-800/50 rounded-lg p-4 backdrop-blur-sm border border-slate-700/50 space-y-3">
-        <h3 className="text-lg font-semibold text-white">{title}</h3>
+      <div className="flex-1 card p-4 space-y-3">
+        <h3 style={{ color: 'var(--text)' }} className="text-lg font-semibold">{title}</h3>
 
         <div className="space-y-2">
           {items.map((item) => (
             <div
               key={item}
-              className="flex items-center justify-between p-2 bg-slate-900/50 rounded border border-slate-700/30 hover:border-slate-600/50 transition-colors"
+              style={{ background: 'rgba(201, 169, 98, 0.03)', borderColor: 'var(--border)' }}
+              className="flex items-center justify-between p-2 rounded border transition-colors hover:opacity-80"
             >
               {editingType === type && editingName === item ? (
                 <input
                   type="text"
                   value={editingName}
                   onChange={(e) => setEditingName(e.target.value)}
-                  className="flex-1 px-2 py-1 bg-slate-700 text-white rounded border border-cyan-500 focus:outline-none text-sm"
+                  className="input flex-1 text-sm"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       handleRenameItem(type, item, editingName);
@@ -231,7 +232,7 @@ export default function ManageView() {
                   autoFocus
                 />
               ) : (
-                <span className="flex-1 text-slate-300">{item}</span>
+                <span style={{ color: 'var(--text-secondary)' }} className="flex-1">{item}</span>
               )}
               <div className="flex gap-1">
                 <button
@@ -239,14 +240,16 @@ export default function ManageView() {
                     setEditingType(type);
                     setEditingName(item);
                   }}
-                  className="px-2 py-1 text-slate-400 hover:text-blue-400 transition-colors text-sm"
+                  style={{ color: 'var(--text-secondary)' }}
+                  className="px-2 py-1 hover:opacity-60 transition-colors text-sm"
                   title="Rename"
                 >
                   ✏️
                 </button>
                 <button
                   onClick={() => handleDeleteItem(type, item)}
-                  className="px-2 py-1 text-slate-400 hover:text-red-400 transition-colors text-sm"
+                  style={{ color: 'var(--text-secondary)' }}
+                  className="px-2 py-1 hover:opacity-60 transition-colors text-sm"
                   title="Delete"
                 >
                   🗑️
@@ -268,14 +271,15 @@ export default function ManageView() {
                 setNewValue('');
               }
             }}
-            className="flex-1 px-3 py-2 bg-slate-700 text-white rounded border border-slate-600 focus:border-cyan-500 focus:outline-none text-sm"
+            className="input flex-1 text-sm"
           />
           <button
             onClick={() => {
               onAdd(newValue);
               setNewValue('');
             }}
-            className="px-3 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded font-medium transition-colors text-sm"
+            style={{ background: 'var(--primary)', color: 'var(--bg)' }}
+            className="px-3 py-2 rounded font-medium transition-opacity hover:opacity-90 text-sm"
           >
             +
           </button>
@@ -309,17 +313,17 @@ export default function ManageView() {
       </div>
 
       {/* Backup & Restore Section */}
-      <div className="bg-slate-800/50 rounded-lg p-4 backdrop-blur-sm border border-slate-700/50 space-y-3">
-        <h3 className="text-lg font-semibold text-white">{t('manage.backup')}</h3>
+      <div className="card p-4 space-y-3">
+        <h3 style={{ color: 'var(--text)' }} className="text-lg font-semibold">{t('manage.backup')}</h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <button
             onClick={handleBackupExport}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded font-medium transition-colors"
+            className="btn btn-primary"
           >
             {t('btn.backup')}
           </button>
-          <label className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded font-medium transition-colors cursor-pointer text-center">
+          <label className="btn btn-primary cursor-pointer text-center">
             {t('btn.restore')}
             <input
               type="file"
@@ -333,12 +337,12 @@ export default function ManageView() {
           </label>
           <button
             onClick={handleCSVExport}
-            className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded font-medium transition-colors"
+            className="btn btn-success"
             disabled={entries.length === 0}
           >
             {t('btn.csvExport')}
           </button>
-          <label className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded font-medium transition-colors cursor-pointer text-center disabled:opacity-50">
+          <label className="btn btn-success cursor-pointer text-center disabled:opacity-50">
             {t('btn.csvImport')}
             <input
               type="file"
@@ -352,33 +356,33 @@ export default function ManageView() {
           </label>
         </div>
 
-        <p className="text-xs text-slate-400 italic">{t('manage.backupHint')}</p>
+        <p style={{ color: 'var(--text-muted)' }} className="text-xs italic">{t('manage.backupHint')}</p>
       </div>
 
       {/* Delete All Data */}
-      <div className="bg-slate-800/50 rounded-lg p-4 backdrop-blur-sm border border-red-700/30 space-y-3">
-        <h3 className="text-lg font-semibold text-red-400">Achtung</h3>
+      <div className="card p-4 space-y-3" style={{ borderColor: 'rgba(212, 112, 110, 0.3)' }}>
+        <h3 style={{ color: 'var(--danger)' }} className="text-lg font-semibold">Achtung</h3>
 
         {!showDeleteAll ? (
           <button
             onClick={() => setShowDeleteAll(true)}
-            className="px-4 py-2 bg-red-700 hover:bg-red-600 text-white rounded font-medium transition-colors"
+            className="btn btn-danger"
           >
             {t('btn.deleteAll')}
           </button>
         ) : (
           <div className="space-y-3">
-            <p className="text-yellow-400">{t('confirm.deleteAll')}</p>
+            <p style={{ color: 'var(--warning)' }}>{t('confirm.deleteAll')}</p>
             <div className="flex gap-2">
               <button
                 onClick={handleDeleteAllData}
-                className="px-4 py-2 bg-red-700 hover:bg-red-600 text-white rounded font-medium transition-colors flex-1"
+                className="btn btn-danger flex-1"
               >
                 Ja, alle Daten löschen
               </button>
               <button
                 onClick={() => setShowDeleteAll(false)}
-                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded font-medium transition-colors"
+                className="btn btn-secondary"
               >
                 Abbrechen
               </button>

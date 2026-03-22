@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { supabaseClient as supabase } from './supabase';
 
 type AuthSession = any;

@@ -25,6 +25,9 @@
   --font-mono: 'Space Mono', monospace;
   --radius: 14px;
   --radius-sm: 8px;
+  --neon-cyan: #C9A962;
+  --surface-hover: rgba(201, 169, 98, 0.04);
+  --surface-active: rgba(201, 169, 98, 0.08);
 }
 
 /* ============================================
@@ -48,6 +51,13 @@
   --font-mono: 'Space Mono', monospace;
   --radius: 14px;
   --radius-sm: 8px;
+  --neon-cyan: #2563EB;
+  --surface-hover: rgba(37, 99, 235, 0.04);
+  --surface-active: rgba(37, 99, 235, 0.08);
+}
+
+[data-theme='light'] .top-bar {
+  background-color: rgba(255, 255, 255, 0.92);
 }
 
 /* ============================================
@@ -584,6 +594,75 @@ a:hover {
     @apply bg-gradient-to-r from-[var(--surface)] to-[var(--surface-solid)] rounded-[var(--radius-sm)];
     animation: pulseGlow 2s ease-in-out infinite;
   }
+
+  /* ============================================
+     Top Bar Navigation
+     ============================================ */
+  .top-bar {
+    @apply fixed top-0 left-0 right-0 z-50;
+    background-color: var(--surface);
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(24px) saturate(1.5);
+    -webkit-backdrop-filter: blur(24px) saturate(1.5);
+  }
+
+  /* ============================================
+     Icon Button
+     ============================================ */
+  .btn-icon {
+    @apply flex items-center justify-center px-2 py-2 rounded-lg transition-all duration-200 cursor-pointer;
+    color: var(--text-secondary);
+    background: transparent;
+    border: none;
+  }
+
+  .btn-icon:hover {
+    color: var(--text);
+    background-color: rgba(201, 169, 98, 0.08);
+  }
+
+  /* ============================================
+     Navigation Tab
+     ============================================ */
+  .nav-tab {
+    @apply relative px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 cursor-pointer;
+    color: var(--text-secondary);
+    background: transparent;
+    border: none;
+  }
+
+  .nav-tab:hover {
+    color: var(--text);
+    background-color: rgba(201, 169, 98, 0.06);
+  }
+
+  .nav-tab.active {
+    color: var(--primary);
+  }
+
+  .nav-tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60%;
+    height: 2px;
+    background: var(--primary);
+    border-radius: 1px;
+    box-shadow: 0 0 8px rgba(201, 169, 98, 0.4);
+  }
+
+  /* ============================================
+     Utility Animation
+     ============================================ */
+  .animate-fadeIn {
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  /* ============================================
+     Neon Cyan Alias (for components using var(--neon-cyan))
+     ============================================ */
 }
 
 /* ============================================
