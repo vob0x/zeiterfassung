@@ -182,12 +182,12 @@ export function TimelineChart({ entries }: TimelineChartProps) {
             <g key={data.date}>
               {/* Stacked bars by project */}
               {data.totalHours > 0 &&
-                Object.entries(data.projektHours).map(([project, hours]) => {
+                Object.entries(data.projectHours).map(([project, hours]) => {
                   if (hours === 0) return null;
 
                   const barHeight = (hours / maxHours) * chartHeight;
                   const color = Object.fromEntries(
-                    [...new Set(Object.keys(data.projektHours))].map((p, i) => [
+                    [...new Set(Object.keys(data.projectHours))].map((p, i) => [
                       p,
                       PROJECT_COLORS[i % PROJECT_COLORS.length],
                     ])

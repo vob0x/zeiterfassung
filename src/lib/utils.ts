@@ -97,15 +97,15 @@ export function cn(...classes: (string | undefined | false | null)[]): string {
  * CRITICAL ALGORITHM: Compute union of overlapping time intervals
  * Handles overlapping intervals by merging them to get total active time
  */
-export function computeUnionMs(entries: Array<{ startTime: string; endTime: string }>): number {
+export function computeUnionMs(entries: Array<{ start_time: string; end_time: string }>): number {
   const intervals: [number, number][] = [];
 
   // Convert each entry to minutes from midnight
   for (const e of entries) {
-    if (!e.startTime || !e.endTime) continue;
+    if (!e.start_time || !e.end_time) continue;
 
-    const [sh, sm] = e.startTime.split(':').map(Number);
-    const [eh, em] = e.endTime.split(':').map(Number);
+    const [sh, sm] = e.start_time.split(':').map(Number);
+    const [eh, em] = e.end_time.split(':').map(Number);
 
     let startMin = sh * 60 + sm;
     let endMin = eh * 60 + em;

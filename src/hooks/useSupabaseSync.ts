@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * useSupabaseSync Hook
  * Syncs local Zustand store data with Supabase

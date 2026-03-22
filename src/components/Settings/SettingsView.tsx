@@ -107,19 +107,19 @@ export function SettingsView() {
               </div>
             </div>
 
-            {team.createdBy === localStorage.getItem('userId') && (
+            {team.creator_id === localStorage.getItem('userId') && (
               <div>
                 <label className="text-xs text-slate-400">Invite Code</label>
                 <div className="mt-1 flex gap-2">
                   <input
                     type="text"
-                    value={team.inviteCode}
+                    value={team.invite_code}
                     readOnly
                     className="flex-1 px-3 py-2 bg-slate-900/50 text-slate-300 rounded border border-slate-700/30 font-mono"
                   />
                   <button
                     onClick={() => {
-                      navigator.clipboard.writeText(team.inviteCode);
+                      navigator.clipboard.writeText(team.invite_code);
                       alert('In Zwischenablage kopiert');
                     }}
                     className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded"

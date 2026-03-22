@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { TimerSlot } from '@/types';
 import { useTimerStore } from '../../stores/timerStore';
 import { useEntriesStore } from '../../stores/entriesStore';
+import { useMasterStore } from '../../stores/masterStore';
 import { useI18n } from '../../i18n';
 import { Play, Pause, Square, Plus, X } from 'lucide-react';
 import { cn, formatDuration, getTodayISO } from '../../lib/utils';
@@ -10,11 +11,6 @@ interface TaskSlotProps {
   slot: TimerSlot;
   index: number;
 }
-
-// Mock stakeholders, projects, activities (in real app, from stores/API)
-const mockStakeholders = ['Alice', 'Bob', 'Charlie'];
-const mockProjects = ['Project A', 'Project B', 'Project C'];
-const mockActivities = ['Development', 'Design', 'Testing'];
 
 const TaskSlot: React.FC<TaskSlotProps> = ({ slot, index }) => {
   const { t } = useI18n();
@@ -28,6 +24,7 @@ const TaskSlot: React.FC<TaskSlotProps> = ({ slot, index }) => {
     getSlotElapsed,
   } = useTimerStore();
   const { add: addEntry } = useEntriesStore();
+  const { stakeholders, projects, activities } = useMasterStore();
 
   const [showAddStakeholder, setShowAddStakeholder] = useState(false);
   const [showAddProject, setShowAddProject] = useState(false);
@@ -57,22 +54,21 @@ const TaskSlot: React.FC<TaskSlotProps> = ({ slot, index }) => {
     // Calculate start and end times
     const now = new Date();
     const endTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-
-    const startDate = new Date(slot.start_time);
-    const startTime = `${String(startDate.getHours()).padStart(2, '0')}:${String(startDate.getMinutes()).padStart(2, '0')}`;
+    const startDate = new Date(now.getTime() - elapsedMs);
+    const startTimeStr = `${String(startDate.getHours()).padStart(2, '0')}:${String(startDate.getMinutes()).padStart(2, '0')}`;
 
     try {
       await addEntry({
-        date: getTodayISO(),
+        date: slot.date || now.toISOString().split('T')[0],
         stakeholder: slot.stakeholder,
-        project: slot.projekt,
-        activity: slot.taetigkeit,
-        startTime,
-        endTime,
-        notiz: slot.notiz,
+        projekt: slot.projekt,
+        taetigkeit: slot.taetigkeit,
+        start_time: startTimeStr,
+        end_time: endTime,
+        duration_ms: elapsedMs,
+        notiz: slot.notiz || '',
       });
-
-      stopTimer(slot.id);
+      removeSlot(slot.id);
     } catch (error) {
       console.error('Failed to save entry:', error);
     }
@@ -108,7 +104,7 @@ const TaskSlot: React.FC<TaskSlotProps> = ({ slot, index }) => {
     <div
       className={cn(
         'p-4 rounded-lg border-2 transition-all duration-200',
-        slot.isPaused && !slot.start_time
+        slot.isPaused && !slot.startTime
           ? 'bg-slate-800 border-slate-600'
           : slot.isPaused
             ? 'bg-slate-750 border-slate-600 opacity-70'
@@ -186,7 +182,7 @@ const TaskSlot: React.FC<TaskSlotProps> = ({ slot, index }) => {
               className="flex-1 px-2 py-1 text-sm bg-slate-600 border border-slate-500 rounded text-white"
             >
               <option value="">{t('ph.select')}</option>
-              {mockStakeholders.map((s) => (
+              {stakeholders.map((s) => (
                 <option key={s} value={s}>
                   {s}
                 </option>
@@ -230,7 +226,7 @@ const TaskSlot: React.FC<TaskSlotProps> = ({ slot, index }) => {
               className="flex-1 px-2 py-1 text-sm bg-slate-600 border border-slate-500 rounded text-white"
             >
               <option value="">{t('ph.select')}</option>
-              {mockProjects.map((p) => (
+              {projects.map((p) => (
                 <option key={p} value={p}>
                   {p}
                 </option>
@@ -274,7 +270,7 @@ const TaskSlot: React.FC<TaskSlotProps> = ({ slot, index }) => {
               className="flex-1 px-2 py-1 text-sm bg-slate-600 border border-slate-500 rounded text-white"
             >
               <option value="">{t('ph.select')}</option>
-              {mockActivities.map((a) => (
+              {activities.map((a) => (
                 <option key={a} value={a}>
                   {a}
                 </option>

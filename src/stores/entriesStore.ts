@@ -58,7 +58,7 @@ interface EntriesState {
   error: string | null;
   filters: FilterState;
   fetch: () => Promise<void>;
-  add: (entry: Omit<TimeEntry, 'id' | 'userId' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  add: (entry: Record<string, any>) => Promise<void>;
   update: (id: string, updates: Partial<TimeEntry>) => Promise<void>;
   delete: (id: string) => Promise<void>;
   setFilter: (key: keyof FilterState, value: string) => void;
@@ -101,12 +101,31 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
     set({ error: null });
     try {
       const state = get();
+
+      // Calculate duration_ms if not provided
+      let duration_ms = (entry as any).duration_ms || 0;
+      if (!duration_ms && entry.start_time && entry.end_time) {
+        const [sh, sm] = entry.start_time.split(':').map(Number);
+        const [eh, em] = entry.end_time.split(':').map(Number);
+        let startMins = sh * 60 + sm;
+        let endMins = eh * 60 + em;
+        if (endMins < startMins) endMins += 24 * 60;
+        duration_ms = (endMins - startMins) * 60000;
+      }
+
       const newEntry: TimeEntry = {
-        ...entry,
-        id: `entry_${Date.now()}`,
-        user_id: 'current_user', // Will be replaced with actual user ID from auth
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        id: `entry_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+        user_id: (entry as any).user_id || 'local',
+        date: entry.date,
+        stakeholder: entry.stakeholder || '',
+        projekt: entry.projekt || (entry as any).project || '',
+        taetigkeit: entry.taetigkeit || (entry as any).activity || '',
+        start_time: entry.start_time || (entry as any).startTime || '',
+        end_time: entry.end_time || (entry as any).endTime || '',
+        duration_ms: duration_ms,
+        notiz: entry.notiz || (entry as any).notiz || '',
+        created_at: (entry as any).created_at || new Date().toISOString(),
+        updated_at: (entry as any).updated_at || new Date().toISOString(),
       };
 
       const updated = [...state.entries, newEntry];

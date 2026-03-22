@@ -57,7 +57,7 @@ function getIntensityColor(hours: number): string {
 export function Heatmap({ entries }: HeatmapProps) {
   const { stakeholders, projects, matrix, totals } = useMemo(() => {
     const uniqueStakeholders = [...new Set(entries.map((e) => e.stakeholder))].sort();
-    const uniqueProjects = [...new Set(entries.map((e) => e.project))].sort();
+    const uniqueProjects = [...new Set(entries.map((e) => e.projekt))].sort();
 
     const matrix: Record<string, Record<string, number>> = {};
     const stakeholderTotals: Record<string, number> = {};
@@ -76,7 +76,7 @@ export function Heatmap({ entries }: HeatmapProps) {
     for (const sh of uniqueStakeholders) {
       for (const pr of uniqueProjects) {
         const dayEntries = entries.filter(
-          (e) => e.stakeholder === sh && e.project === pr
+          (e) => e.stakeholder === sh && e.projekt === pr
         );
         const totalMs = dayEntries.reduce((sum, e) => sum + computeUnionMs([e]), 0);
         const hours = totalMs / (1000 * 60 * 60);

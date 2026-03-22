@@ -1,17 +1,14 @@
 import React, { useState } from 'react';
 import { useEntriesStore } from '../../stores/entriesStore';
+import { useMasterStore } from '../../stores/masterStore';
 import { useI18n } from '../../i18n';
 import { Plus } from 'lucide-react';
 import { getTodayISO } from '../../lib/utils';
 
-// Mock data for dropdowns
-const mockStakeholders = ['Alice', 'Bob', 'Charlie'];
-const mockProjects = ['Project A', 'Project B', 'Project C'];
-const mockActivities = ['Development', 'Design', 'Testing'];
-
 const ManualEntry: React.FC = () => {
   const { t } = useI18n();
   const { add: addEntry } = useEntriesStore();
+  const { stakeholders, projects, activities } = useMasterStore();
 
   const [formData, setFormData] = useState({
     date: getTodayISO(),
@@ -39,11 +36,11 @@ const ManualEntry: React.FC = () => {
     if (!formData.projekt) newErrors.projekt = t('toast.selectShPr');
     if (!formData.taetigkeit) newErrors.taetigkeit = 'Required';
     if (!formData.date) newErrors.date = t('toast.selectDate');
-    if (!formData.start_time) newErrors.start_time = t('toast.selectTime');
-    if (!formData.end_time) newErrors.end_time = t('toast.selectTime');
+    if (!formData.startTime) newErrors.startTime = t('toast.selectTime');
+    if (!formData.endTime) newErrors.endTime = t('toast.selectTime');
 
-    if (formData.start_time && formData.end_time && formData.start_time >= formData.end_time) {
-      newErrors.end_time = t('toast.endAfterStart');
+    if (formData.startTime && formData.endTime && formData.startTime >= formData.endTime) {
+      newErrors.endTime = t('toast.endAfterStart');
     }
 
     setErrors(newErrors);
@@ -60,8 +57,8 @@ const ManualEntry: React.FC = () => {
       const entries = [];
 
       // Check for midnight crossing
-      const [startH, startM] = formData.start_time.split(':').map(Number);
-      const [endH, endM] = formData.end_time.split(':').map(Number);
+      const [startH, startM] = formData.startTime.split(':').map(Number);
+      const [endH, endM] = formData.endTime.split(':').map(Number);
       const startMins = startH * 60 + startM;
       const endMins = endH * 60 + endM;
 
@@ -74,30 +71,30 @@ const ManualEntry: React.FC = () => {
         entries.push({
           date: formData.date,
           stakeholder: formData.stakeholder,
-          project: formData.projekt,
-          activity: formData.taetigkeit,
-          startTime: formData.start_time,
-          endTime: '23:59',
+          projekt: formData.projekt,
+          taetigkeit: formData.taetigkeit,
+          start_time: formData.startTime,
+          end_time: '23:59',
           notiz: formData.notiz,
         });
 
         entries.push({
           date: nextDateISO,
           stakeholder: formData.stakeholder,
-          project: formData.projekt,
-          activity: formData.taetigkeit,
-          startTime: '00:00',
-          endTime: formData.end_time,
+          projekt: formData.projekt,
+          taetigkeit: formData.taetigkeit,
+          start_time: '00:00',
+          end_time: formData.endTime,
           notiz: formData.notiz,
         });
       } else {
         entries.push({
           date: formData.date,
           stakeholder: formData.stakeholder,
-          project: formData.projekt,
-          activity: formData.taetigkeit,
-          startTime: formData.start_time,
-          endTime: formData.end_time,
+          projekt: formData.projekt,
+          taetigkeit: formData.taetigkeit,
+          start_time: formData.startTime,
+          end_time: formData.endTime,
           notiz: formData.notiz,
         });
       }
@@ -180,7 +177,7 @@ const ManualEntry: React.FC = () => {
               className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
             >
               <option value="">{t('ph.select')}</option>
-              {mockStakeholders.map((s) => (
+              {stakeholders.map((s) => (
                 <option key={s} value={s}>
                   {s}
                 </option>
@@ -227,7 +224,7 @@ const ManualEntry: React.FC = () => {
               className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
             >
               <option value="">{t('ph.select')}</option>
-              {mockProjects.map((p) => (
+              {projects.map((p) => (
                 <option key={p} value={p}>
                   {p}
                 </option>
@@ -274,7 +271,7 @@ const ManualEntry: React.FC = () => {
               className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
             >
               <option value="">{t('ph.select')}</option>
-              {mockActivities.map((a) => (
+              {activities.map((a) => (
                 <option key={a} value={a}>
                   {a}
                 </option>
@@ -316,11 +313,11 @@ const ManualEntry: React.FC = () => {
           </label>
           <input
             type="time"
-            value={formData.start_time}
+            value={formData.startTime}
             onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
             className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
           />
-          {errors.start_time && <div className="text-red-400 text-xs mt-1">{errors.start_time}</div>}
+          {errors.startTime && <div className="text-red-400 text-xs mt-1">{errors.startTime}</div>}
         </div>
 
         {/* End Time */}
@@ -330,11 +327,11 @@ const ManualEntry: React.FC = () => {
           </label>
           <input
             type="time"
-            value={formData.end_time}
+            value={formData.endTime}
             onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
             className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
           />
-          {errors.end_time && <div className="text-red-400 text-xs mt-1">{errors.end_time}</div>}
+          {errors.endTime && <div className="text-red-400 text-xs mt-1">{errors.endTime}</div>}
         </div>
 
         {/* Note */}

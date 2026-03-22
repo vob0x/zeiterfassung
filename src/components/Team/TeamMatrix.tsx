@@ -58,9 +58,9 @@ function getIntensityColor(hours: number): string {
 
 export function TeamMatrix({ dimension, entries, members }: TeamMatrixProps) {
   const { items, memberIds, matrix, totals } = useMemo(() => {
-    const dimensionKey = dimension === 'stakeholder' ? 'stakeholder' : 'project';
+    const dimensionKey = dimension === 'stakeholder' ? 'stakeholder' : 'projekt';
     const uniqueItems = [...new Set(entries.map((e) => e[dimensionKey]))].sort();
-    const memberIdList = members.map((m) => m.userCodename).sort();
+    const memberIdList = members.map((m) => m.user_id).sort();
 
     const matrix: Record<string, Record<string, number>> = {};
     const itemTotals: Record<string, number> = {};
@@ -83,7 +83,7 @@ export function TeamMatrix({ dimension, entries, members }: TeamMatrixProps) {
     for (const item of uniqueItems) {
       for (const memberId of memberIdList) {
         const memberItemEntries = entries.filter(
-          (e) => e[dimensionKey] === item && e.userId === members.find((m) => m.userCodename === memberId)?.userId
+          (e) => e[dimensionKey] === item && e.user_id === members.find((m) => m.user_id === memberId)?.user_id
         );
 
         let total = 0;

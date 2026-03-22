@@ -59,7 +59,7 @@ function computeUnionMs(dayEntries: TimeEntry[]): number {
 
 export function TeamWorkload({ memberEntries, entries }: TeamWorkloadProps) {
   const { memberWorkload, uniqueProjects, maxHours } = useMemo(() => {
-    const uniqueProjects = [...new Set(entries.map((e) => e.project))].sort();
+    const uniqueProjects = [...new Set(entries.map((e) => e.projekt))].sort();
     const memberIds = Array.from(memberEntries.keys()).sort();
 
     let maxHours = 0;
@@ -69,7 +69,7 @@ export function TeamWorkload({ memberEntries, entries }: TeamWorkloadProps) {
       const projectHours: Record<string, number> = {};
 
       for (const project of uniqueProjects) {
-        const projectEntries = memberEntries_.filter((e) => e.project === project);
+        const projectEntries = memberEntries_.filter((e) => e.projekt === project);
         let total = 0;
 
         for (const date of [...new Set(projectEntries.map((e) => e.date))]) {

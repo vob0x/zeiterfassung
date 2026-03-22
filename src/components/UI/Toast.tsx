@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { X, CheckCircle2, AlertCircle, Info } from 'lucide-react'
+import { X, CheckCircle2, AlertCircle, Info, AlertTriangle } from 'lucide-react'
 import { useUiStore } from '@/stores/uiStore'
 
 export default function Toast() {
@@ -21,7 +21,7 @@ export default function Toast() {
 interface ToastItemProps {
   toast: {
     id: string
-    type: 'success' | 'error' | 'info'
+    type: 'success' | 'error' | 'info' | 'warning'
     title?: string
     message: string
     duration?: number
@@ -48,6 +48,8 @@ function ToastItem({ toast, onClose }: ToastItemProps) {
         return <AlertCircle className="toast-icon" />
       case 'info':
         return <Info className="toast-icon" />
+      case 'warning':
+        return <AlertTriangle className="toast-icon" />
       default:
         return null
     }

@@ -109,8 +109,8 @@ export interface TimeEntryWithProfile extends TimeEntry {
 export interface UserSettings {
   id: string;
   user_id: string;
-  theme: 'light' | 'dark';
-  language: 'de' | 'en';
+  theme: 'cyber' | 'light';
+  language: 'de' | 'fr';
   pinned_shortcuts: string[]; // Array of shortcut IDs or names
   created_at: string;
   updated_at: string;
@@ -121,14 +121,19 @@ export interface UserSettings {
 // ============================================================================
 
 export interface TimerSlot {
+  id: string;
   date: string; // YYYY-MM-DD format
   stakeholder: string;
   projekt: string;
   taetigkeit: string;
   start_time: string; // HH:MM format
-  elapsed_ms: number; // Elapsed time in milliseconds
+  elapsed_ms: number;
   notiz?: string;
   is_running: boolean;
+  // Timer runtime fields
+  startTime: Date;
+  pausedMs: number;
+  isPaused: boolean;
 }
 
 // ============================================================================
@@ -310,8 +315,8 @@ export interface DatabaseTimeEntries {
 export interface DatabaseUserSettings {
   id: string;
   user_id: string;
-  theme: 'light' | 'dark';
-  language: 'de' | 'en';
+  theme: 'cyber' | 'light';
+  language: 'de' | 'fr';
   pinned_shortcuts: string[];
   created_at: string;
   updated_at: string;
@@ -321,7 +326,7 @@ export interface DatabaseUserSettings {
 // UI & App Configuration Types
 // ============================================================================
 
-export type Language = 'de' | 'fr' | 'en';
+export type Language = 'de' | 'fr';
 export type Theme = 'cyber' | 'light';
 export type ViewType = 'timer' | 'entries' | 'dashboard' | 'manage' | 'team';
 export type PeriodType = 'week' | 'month' | 'year' | 'all' | 'custom';

@@ -1,16 +1,18 @@
 import { create } from 'zustand';
 import { TimerSlot } from '@/types';
+import { useEntriesStore } from './entriesStore';
+import { useAuthStore } from './authStore';
 
 interface TimerState {
   taskSlots: TimerSlot[];
   activeSlotId: string | null;
   tickInterval: NodeJS.Timer | null;
   error: string | null;
-  addSlot: (slot: Omit<TimerSlot, 'id' | 'startTime' | 'pausedMs' | 'isPaused'>) => void;
+  addSlot: (slot: { stakeholder: string; projekt: string; taetigkeit: string; notiz?: string }) => void;
   removeSlot: (id: string) => void;
   updateSlotField: (
     id: string,
-    field: keyof Omit<TimerSlot, 'id' | 'startTime' | 'pausedMs' | 'isPaused'>,
+    field: 'stakeholder' | 'projekt' | 'taetigkeit' | 'notiz',
     value: string
   ) => void;
   startTimer: (id: string) => void;
@@ -36,23 +38,28 @@ export const useTimerStore = create<TimerState>((set, get) => ({
   error: null,
 
   addSlot: (slotData) => {
-    const newSlot: TimerSlot = {
+    const state = get();
+    if (state.taskSlots.length >= 8) {
+      set({ error: 'Maximum 8 concurrent tasks allowed' });
+      return;
+    }
+
+    const now = new Date();
+    const newSlot: any = {
       ...slotData,
       id: generateId(),
-      startTime: new Date(),
+      date: now.toISOString().split('T')[0],
+      start_time: `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
+      elapsed_ms: 0,
+      is_running: false,
+      startTime: now,
       pausedMs: 0,
-      isPaused: true, // Starts paused
+      isPaused: true,
     };
 
     set((state) => ({
       taskSlots: [...state.taskSlots, newSlot],
     }));
-
-    // Limit to 8 simultaneous tasks
-    const state = get();
-    if (state.taskSlots.length > 8) {
-      set({ error: 'Maximum 8 concurrent tasks allowed' });
-    }
   },
 
   removeSlot: (id: string) => {
@@ -153,11 +160,35 @@ export const useTimerStore = create<TimerState>((set, get) => ({
       return;
     }
 
-    // Save entry and remove slot
+    // Calculate start and end times
+    const now = new Date();
+    const endTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const startDate = new Date(now.getTime() - totalMs);
+    const startTime = `${String(startDate.getHours()).padStart(2, '0')}:${String(startDate.getMinutes()).padStart(2, '0')}`;
+
+    // Save entry to entries store
+    const entriesStore = useEntriesStore.getState();
+    const authStore = useAuthStore.getState();
+
+    entriesStore.add({
+      date: slot.date || now.toISOString().split('T')[0],
+      stakeholder: slot.stakeholder || '',
+      projekt: slot.projekt || '',
+      taetigkeit: slot.taetigkeit || '',
+      start_time: startTime,
+      end_time: endTime,
+      duration_ms: totalMs,
+      notiz: slot.notiz || '',
+      user_id: authStore.profile?.id || 'local',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+
+    // Remove slot
     get().removeSlot(id);
 
     // Check if any active timers remain
-    const remaining = state.taskSlots.filter((s) => s.id !== id);
+    const remaining = get().taskSlots;
     if (remaining.length === 0 && state.tickInterval) {
       clearInterval(state.tickInterval);
       set({ tickInterval: null });

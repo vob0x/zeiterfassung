@@ -67,7 +67,7 @@ export default function LoginScreen() {
   }
 
   const toggleLanguage = () => {
-    setLanguage(language === 'de' ? 'en' : 'de')
+    setLanguage(language === 'de' ? 'fr' : 'de')
   }
 
   return (

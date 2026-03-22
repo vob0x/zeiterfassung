@@ -7,7 +7,7 @@ import { formatDurationHM, computeUnionMs, cn } from '../../lib/utils';
 import EntryRow from './EntryRow';
 import EditEntryModal from './EditEntryModal';
 
-type SortField = 'date' | 'stakeholder' | 'project' | 'activity' | 'duration';
+type SortField = 'date' | 'stakeholder' | 'projekt' | 'taetigkeit' | 'duration';
 type SortDirection = 'asc' | 'desc';
 
 const EntriesView: React.FC = () => {
@@ -72,8 +72,8 @@ const EntriesView: React.FC = () => {
     const sorted = [...filteredEntries];
 
     sorted.sort((a, b) => {
-      let aVal: any = a[sortField];
-      let bVal: any = b[sortField];
+      let aVal: any = (a as any)[sortField];
+      let bVal: any = (b as any)[sortField];
 
       // Special case for duration
       if (sortField === 'duration') {
@@ -383,22 +383,22 @@ const EntriesView: React.FC = () => {
                   </th>
                   <th className="px-4 py-3 text-left">
                     <button
-                      onClick={() => handleSort('project')}
+                      onClick={() => handleSort('projekt')}
                       className="text-xs font-semibold text-slate-300 hover:text-white transition-colors flex items-center gap-1"
                     >
                       {t('th.projekt')}
-                      {sortField === 'project' && (
+                      {sortField === 'projekt' && (
                         <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
                       )}
                     </button>
                   </th>
                   <th className="px-4 py-3 text-left">
                     <button
-                      onClick={() => handleSort('activity')}
+                      onClick={() => handleSort('taetigkeit')}
                       className="text-xs font-semibold text-slate-300 hover:text-white transition-colors flex items-center gap-1"
                     >
                       {t('th.taetigkeit')}
-                      {sortField === 'activity' && (
+                      {sortField === 'taetigkeit' && (
                         <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
                       )}
                     </button>

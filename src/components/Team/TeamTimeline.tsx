@@ -69,7 +69,7 @@ export function TeamTimeline({ memberEntries, members }: TeamTimelineProps) {
     const chartDates = uniqueDates.slice(Math.max(0, uniqueDates.length - 14));
 
     const memberColorMap_ = Object.fromEntries(
-      members.map((m, i) => [m.userCodename, MEMBER_COLORS[i % MEMBER_COLORS.length]])
+      members.map((m, i) => [m.user_id, MEMBER_COLORS[i % MEMBER_COLORS.length]])
     );
 
     let maxHours = 0;
@@ -230,7 +230,7 @@ export function TeamTimeline({ memberEntries, members }: TeamTimelineProps) {
               className="w-4 h-4 rounded"
               style={{ backgroundColor: MEMBER_COLORS[idx % MEMBER_COLORS.length] }}
             />
-            <span className="text-sm text-slate-300">{member.userCodename}</span>
+            <span className="text-sm text-slate-300">{member.user_id}</span>
           </div>
         ))}
       </div>

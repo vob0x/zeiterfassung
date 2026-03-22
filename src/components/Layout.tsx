@@ -12,6 +12,7 @@ import {
   X,
   LogOut,
 } from 'lucide-react'
+import { ViewType } from '@/types'
 import { useUiStore } from '@/stores/uiStore'
 import { useI18n } from '@/i18n'
 import { useAuthStore } from '@/stores/authStore'
@@ -52,7 +53,7 @@ export default function Layout() {
   ]
 
   const handleViewChange = (viewId: string) => {
-    setCurrentView(viewId)
+    setCurrentView(viewId as ViewType)
     setMobileMenuOpen(false)
   }
 

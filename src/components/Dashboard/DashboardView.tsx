@@ -47,8 +47,8 @@ export default function DashboardView() {
       if (dateRange.end && entry.date > dateRange.end) return false;
 
       if (filters.stakeholder && entry.stakeholder !== filters.stakeholder) return false;
-      if (filters.project && entry.project !== filters.project) return false;
-      if (filters.activity && entry.activity !== filters.activity) return false;
+      if (filters.project && entry.projekt !== filters.project) return false;
+      if (filters.activity && entry.taetigkeit !== filters.activity) return false;
 
       if (filters.notiz) {
         const searchTerm = filters.notiz.toLowerCase();
@@ -106,10 +106,24 @@ export default function DashboardView() {
   }
 
   const kpiToday = computeUnionMs(todayEntries) / (1000 * 60 * 60);
-  const kpiPeriod = filteredEntries.reduce((sum, entry) => {
-    const dayEntries = filteredEntries.filter((e) => e.date === entry.date);
-    return sum + computeUnionMs(dayEntries) / (1000 * 60 * 60);
-  }, 0);
+
+  // Fix: compute kpiPeriod correctly by grouping by date first
+  const kpiPeriod = useMemo(() => {
+    const byDate = new Map<string, typeof filteredEntries>();
+    filteredEntries.forEach((entry) => {
+      if (!byDate.has(entry.date)) {
+        byDate.set(entry.date, []);
+      }
+      byDate.get(entry.date)!.push(entry);
+    });
+
+    let total = 0;
+    byDate.forEach((dayEntries) => {
+      total += computeUnionMs(dayEntries) / (1000 * 60 * 60);
+    });
+    return total;
+  }, [filteredEntries]);
+
   const kpiEntries = filteredEntries.length;
 
   const hasActiveFilters = Object.values(filters).some((v) => v !== '');
