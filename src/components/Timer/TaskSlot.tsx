@@ -4,6 +4,7 @@ import { useTimerStore } from '../../stores/timerStore';
 import { useEntriesStore } from '../../stores/entriesStore';
 import { useMasterStore } from '../../stores/masterStore';
 import { useI18n } from '../../i18n';
+import { useUiStore } from '../../stores/uiStore';
 import { Play, Pause, Square, X } from 'lucide-react';
 import { formatDuration } from '../../lib/utils';
 
@@ -14,6 +15,7 @@ interface TaskSlotProps {
 
 const TaskSlot: React.FC<TaskSlotProps> = ({ slot, index }) => {
   const { t } = useI18n();
+  const { showToast } = useUiStore();
   const {
     pauseTimer,
     resumeTimer,
@@ -60,7 +62,7 @@ const TaskSlot: React.FC<TaskSlotProps> = ({ slot, index }) => {
     const currentElapsed = getSlotElapsed(slot.id);
 
     if (currentElapsed < 1000) {
-      alert(t('toast.tooShort'));
+      showToast(t('toast.tooShort'), 'warning');
       return;
     }
 

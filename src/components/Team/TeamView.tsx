@@ -3,6 +3,7 @@ import { useI18n } from '../../i18n';
 import { useTeamStore } from '../../stores/teamStore';
 import { useEntriesStore } from '../../stores/entriesStore';
 import { useUiStore } from '../../stores/uiStore';
+import ConfirmDialog from '../UI/ConfirmDialog';
 import { PeriodType } from '@/types';
 import { TeamDaily } from './TeamDaily';
 import { TeamMatrix } from './TeamMatrix';
@@ -19,10 +20,11 @@ export default function TeamView() {
   const [teamName, setTeamName] = useState('');
   const [inviteCode, setInviteCode] = useState('');
   const [setupMode, setSetupMode] = useState<'create' | 'join' | null>(null);
+  const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
 
   const handleCreateTeam = async (name: string) => {
     if (!name.trim()) {
-      showToast('Team-Name erforderlich', 'error');
+      showToast(t('team.nameRequired'), 'error');
       return;
     }
 
@@ -32,13 +34,13 @@ export default function TeamView() {
       setTeamName('');
       setSetupMode(null);
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Fehler', 'error');
+      showToast(error instanceof Error ? error.message : t('toast.error'), 'error');
     }
   };
 
   const handleJoinTeam = async (code: string, name: string) => {
     if (!code.trim() || !name.trim()) {
-      showToast('Invite-Code und Name erforderlich', 'error');
+      showToast(t('team.codeRequired'), 'error');
       return;
     }
 
@@ -49,7 +51,7 @@ export default function TeamView() {
       setTeamName('');
       setSetupMode(null);
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Fehler', 'error');
+      showToast(error instanceof Error ? error.message : t('toast.error'), 'error');
     }
   };
 
@@ -58,19 +60,16 @@ export default function TeamView() {
       await syncTeamData();
       showToast(t('toast.syncOk'), 'success');
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Fehler', 'error');
+      showToast(error instanceof Error ? error.message : t('toast.error'), 'error');
     }
   };
 
   const handleLeaveTeam = async () => {
-    const confirmed = window.confirm(t('confirm.disconnect'));
-    if (!confirmed) return;
-
     try {
       await leaveTeam();
       showToast(t('toast.disconnected'), 'success');
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Fehler', 'error');
+      showToast(error instanceof Error ? error.message : t('toast.error'), 'error');
     }
   };
 
@@ -96,14 +95,14 @@ export default function TeamView() {
                 className="flex-1 px-4 py-3 rounded font-medium transition-all"
                 style={{ background: 'rgba(201,169,98,0.07)', border: '1px solid rgba(201,169,98,0.18)', color: 'var(--neon-cyan)' }}
               >
-                Team erstellen
+                {t('team.create')}
               </button>
               <button
                 onClick={() => setSetupMode('join')}
                 className="flex-1 px-4 py-3 rounded font-medium transition-all"
                 style={{ background: 'rgba(110,196,158,0.08)', border: '1px solid rgba(110,196,158,0.18)', color: 'var(--success)' }}
               >
-                Team beitreten
+                {t('team.join')}
               </button>
             </div>
           )}
@@ -112,7 +111,7 @@ export default function TeamView() {
             <div className="space-y-3">
               <input
                 type="text"
-                placeholder="Team-Name"
+                placeholder={t('ph.teamNameInput')}
                 value={teamName}
                 onChange={(e) => setTeamName(e.target.value)}
                 className="w-full px-4 py-2 rounded border focus:outline-none"
@@ -127,7 +126,7 @@ export default function TeamView() {
                   className="flex-1 px-4 py-2 rounded font-medium transition-all"
                   style={{ background: 'rgba(201,169,98,0.07)', border: '1px solid rgba(201,169,98,0.18)', color: 'var(--neon-cyan)' }}
                 >
-                  Team erstellen
+                  {t('team.create')}
                 </button>
                 <button
                   onClick={() => {
@@ -139,7 +138,7 @@ export default function TeamView() {
                   onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-hover)')}
                   onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--surface-solid)')}
                 >
-                  Abbrechen
+                  {t('btn.cancel')}
                 </button>
               </div>
             </div>
@@ -149,7 +148,7 @@ export default function TeamView() {
             <div className="space-y-3">
               <input
                 type="text"
-                placeholder="Invite-Code (6 Zeichen)"
+                placeholder={t('team.inviteCodePlaceholder')}
                 value={inviteCode}
                 onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
                 maxLength={6}
@@ -158,7 +157,7 @@ export default function TeamView() {
               />
               <input
                 type="text"
-                placeholder="Dein Name"
+                placeholder={t('team.yourName')}
                 value={teamName}
                 onChange={(e) => setTeamName(e.target.value)}
                 className="w-full px-4 py-2 rounded border focus:outline-none"
@@ -173,7 +172,7 @@ export default function TeamView() {
                   className="flex-1 px-4 py-2 rounded font-medium transition-all"
                   style={{ background: 'rgba(110,196,158,0.08)', border: '1px solid rgba(110,196,158,0.18)', color: 'var(--success)' }}
                 >
-                  Beitreten
+                  {t('team.join')}
                 </button>
                 <button
                   onClick={() => {
@@ -186,7 +185,7 @@ export default function TeamView() {
                   onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-hover)')}
                   onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--surface-solid)')}
                 >
-                  Abbrechen
+                  {t('btn.cancel')}
                 </button>
               </div>
             </div>
@@ -216,11 +215,11 @@ export default function TeamView() {
             {t('team.sync')}
           </button>
           <button
-            onClick={handleLeaveTeam}
+            onClick={() => setShowDisconnectConfirm(true)}
             className="px-4 py-2 rounded font-medium transition-all"
             style={{ background: 'rgba(212,112,110,0.08)', border: '1px solid rgba(212,112,110,0.18)', color: 'var(--danger)' }}
           >
-            Trennen
+            {t('team.disconnect')}
           </button>
         </div>
       </div>
@@ -247,7 +246,7 @@ export default function TeamView() {
       {/* KPI Strip */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <div className="rounded-lg p-4 backdrop-blur-sm" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
-          <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Total</div>
+          <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>{t('team.total')}</div>
           <div className="text-2xl font-bold" style={{ color: 'var(--neon-cyan)' }}>{totalHours.toFixed(1)}h</div>
         </div>
         <div className="rounded-lg p-4 backdrop-blur-sm" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
@@ -255,7 +254,7 @@ export default function TeamView() {
           <div className="text-2xl font-bold" style={{ color: 'var(--neon-cyan)' }}>{personCount}</div>
         </div>
         <div className="rounded-lg p-4 backdrop-blur-sm" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
-          <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Einträge</div>
+          <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>{t('kpi.entries')}</div>
           <div className="text-2xl font-bold" style={{ color: 'var(--neon-violet, #9B8EC4)' }}>{entryCount}</div>
         </div>
         <div className="rounded-lg p-4 backdrop-blur-sm" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
@@ -303,6 +302,17 @@ export default function TeamView() {
           </div>
         </>
       )}
+      {/* Disconnect Confirmation */}
+      <ConfirmDialog
+        isOpen={showDisconnectConfirm}
+        onClose={() => setShowDisconnectConfirm(false)}
+        title={t('confirm.disconnect')}
+        message={t('confirm.disconnect')}
+        confirmText={t('team.disconnect')}
+        cancelText={t('btn.cancel')}
+        onConfirm={handleLeaveTeam}
+        isDanger
+      />
     </div>
   );
 }

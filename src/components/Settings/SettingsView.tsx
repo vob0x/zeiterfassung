@@ -1,26 +1,25 @@
-import React from 'react';
+import { useState } from 'react';
 import { useI18n } from '../../i18n';
 import { useUiStore } from '../../stores/uiStore';
 import { useTeamStore } from '../../stores/teamStore';
+import ConfirmDialog from '../UI/ConfirmDialog';
 
 export function SettingsView() {
   const { t, language, setLanguage } = useI18n();
-  const { theme, toggleTheme } = useUiStore();
+  const { theme, toggleTheme, showToast } = useUiStore();
   const { team, members } = useTeamStore();
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
 
   const handleSignOut = () => {
-    const confirmed = window.confirm('Wirklich abmelden?');
-    if (confirmed) {
-      localStorage.clear();
-      window.location.reload();
-    }
+    localStorage.clear();
+    window.location.reload();
   };
 
   return (
     <div className="w-full max-w-2xl mx-auto p-4 space-y-6">
       {/* Theme Section */}
       <div className="rounded-lg p-4 backdrop-blur-sm space-y-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
-        <h3 className="text-lg font-semibold" style={{ color: 'var(--text)' }}>Design</h3>
+        <h3 className="text-lg font-semibold" style={{ color: 'var(--text)' }}>{t('settings.design')}</h3>
 
         <div className="space-y-3">
           <div className="flex items-center justify-between">
@@ -38,11 +37,11 @@ export function SettingsView() {
 
           {/* Theme Preview */}
           <div className="mt-4 p-4 rounded-lg border" style={{ background: 'var(--surface-solid)', borderColor: 'var(--border)' }}>
-            <div className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>Vorschau:</div>
-            <div className={`grid grid-cols-3 gap-2 p-3 rounded ${theme === 'cyber' ? '' : 'bg-gray-100'}`} style={theme === 'cyber' ? { background: 'var(--surface-hover)' } : {}}>
-              <div className={`w-8 h-8 rounded ${theme === 'cyber' ? 'bg-cyan-500' : 'bg-blue-500'}`} />
-              <div className={`w-8 h-8 rounded ${theme === 'cyber' ? 'bg-purple-500' : 'bg-purple-500'}`} />
-              <div className={`w-8 h-8 rounded ${theme === 'cyber' ? 'bg-pink-500' : 'bg-pink-500'}`} />
+            <div className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>{t('settings.preview')}</div>
+            <div className="grid grid-cols-3 gap-2 p-3 rounded" style={{ background: 'var(--surface-hover)' }}>
+              <div className="w-8 h-8 rounded" style={{ background: 'var(--neon-cyan)' }} />
+              <div className="w-8 h-8 rounded" style={{ background: 'var(--neon-violet)' }} />
+              <div className="w-8 h-8 rounded" style={{ background: 'var(--neon-magenta)' }} />
             </div>
           </div>
         </div>
@@ -50,7 +49,7 @@ export function SettingsView() {
 
       {/* Language Section */}
       <div className="rounded-lg p-4 backdrop-blur-sm space-y-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
-        <h3 className="text-lg font-semibold" style={{ color: 'var(--text)' }}>Sprache</h3>
+        <h3 className="text-lg font-semibold" style={{ color: 'var(--text)' }}>{t('settings.language')}</h3>
 
         <div className="flex gap-2">
           {['de', 'fr'].map((lang) => (
@@ -73,22 +72,20 @@ export function SettingsView() {
 
       {/* User Profile Section */}
       <div className="rounded-lg p-4 backdrop-blur-sm space-y-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
-        <h3 className="text-lg font-semibold" style={{ color: 'var(--text)' }}>Profil</h3>
+        <h3 className="text-lg font-semibold" style={{ color: 'var(--text)' }}>{t('settings.profile')}</h3>
 
         <div className="space-y-3">
           <div>
-            <label className="text-xs" style={{ color: 'var(--text-muted)' }}>Codename</label>
+            <label className="text-xs" style={{ color: 'var(--text-muted)' }}>{t('auth.codename')}</label>
             <div className="mt-1 px-3 py-2 rounded border" style={{ background: 'var(--surface-solid)', color: 'var(--text-secondary)', borderColor: 'var(--border)' }}>
-              {localStorage.getItem('userCodename') || 'nicht gesetzt'}
+              {localStorage.getItem('userCodename') || t('settings.notSet')}
             </div>
           </div>
 
           <button
-            onClick={handleSignOut}
+            onClick={() => setShowSignOutConfirm(true)}
             className="w-full px-4 py-2 rounded-lg font-medium transition-colors"
-            style={{ background: '#b91c1c', color: 'var(--text)' }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = '#a01c1c')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = '#b91c1c')}
+            style={{ background: 'var(--danger)', color: '#fff' }}
           >
             {t('auth.signOut')}
           </button>
@@ -98,18 +95,18 @@ export function SettingsView() {
       {/* Team Section */}
       {team && (
         <div className="rounded-lg p-4 backdrop-blur-sm space-y-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
-          <h3 className="text-lg font-semibold" style={{ color: 'var(--text)' }}>Team</h3>
+          <h3 className="text-lg font-semibold" style={{ color: 'var(--text)' }}>{t('nav.team')}</h3>
 
           <div className="space-y-3">
             <div>
-              <label className="text-xs" style={{ color: 'var(--text-muted)' }}>Team-Name</label>
+              <label className="text-xs" style={{ color: 'var(--text-muted)' }}>{t('settings.teamName')}</label>
               <div className="mt-1 px-3 py-2 rounded border" style={{ background: 'var(--surface-solid)', color: 'var(--text-secondary)', borderColor: 'var(--border)' }}>
                 {team.name}
               </div>
             </div>
 
             <div>
-              <label className="text-xs" style={{ color: 'var(--text-muted)' }}>Mitglieder</label>
+              <label className="text-xs" style={{ color: 'var(--text-muted)' }}>{t('settings.members')}</label>
               <div className="mt-1 px-3 py-2 rounded border" style={{ background: 'var(--surface-solid)', color: 'var(--text-secondary)', borderColor: 'var(--border)' }}>
                 {members.length}
               </div>
@@ -117,7 +114,7 @@ export function SettingsView() {
 
             {team.creator_id === localStorage.getItem('userId') && (
               <div>
-                <label className="text-xs" style={{ color: 'var(--text-muted)' }}>Invite Code</label>
+                <label className="text-xs" style={{ color: 'var(--text-muted)' }}>{t('settings.inviteCode')}</label>
                 <div className="mt-1 flex gap-2">
                   <input
                     type="text"
@@ -129,12 +126,13 @@ export function SettingsView() {
                   <button
                     onClick={() => {
                       navigator.clipboard.writeText(team.invite_code);
-                      alert('In Zwischenablage kopiert');
+                      showToast(t('settings.copied'), 'success');
                     }}
                     className="px-3 py-2 rounded"
                     style={{ background: 'var(--surface-solid)', color: 'var(--text)' }}
                     onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-hover)')}
                     onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--surface-solid)')}
+                    aria-label={t('settings.copied')}
                   >
                     📋
                   </button>
@@ -147,26 +145,38 @@ export function SettingsView() {
 
       {/* About Section */}
       <div className="rounded-lg p-4 backdrop-blur-sm space-y-3" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
-        <h3 className="text-lg font-semibold" style={{ color: 'var(--text)' }}>Info</h3>
+        <h3 className="text-lg font-semibold" style={{ color: 'var(--text)' }}>{t('settings.info')}</h3>
 
         <div className="space-y-2 text-sm" style={{ color: 'var(--text-muted)' }}>
           <p>
-            <strong>Zeiterfassung</strong> V6.0
+            <strong>{t('app.title')}</strong> V6.0
           </p>
-          <p>Eine moderne Zeit-Tracking-App für Teams</p>
-          <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>© 2024. Alle Daten werden lokal gespeichert.</p>
+          <p>{t('settings.appDesc')}</p>
+          <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>© 2024. {t('settings.copyright')}</p>
         </div>
       </div>
 
       {/* Data Sync Status */}
       <div className="rounded-lg p-4 backdrop-blur-sm space-y-3" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
-        <h3 className="text-lg font-semibold" style={{ color: 'var(--text)' }}>Datensynchronisation</h3>
+        <h3 className="text-lg font-semibold" style={{ color: 'var(--text)' }}>{t('settings.dataSync')}</h3>
 
-        <div className="flex items-center gap-2 px-3 py-2 rounded border" style={{ background: '#064e3b', borderColor: '#047857' }}>
-          <div className="w-2 h-2 rounded-full bg-green-500" />
-          <span className="text-sm" style={{ color: '#4ade80' }}>Synchronisiert</span>
+        <div className="flex items-center gap-2 px-3 py-2 rounded border" style={{ background: 'var(--surface-solid)', borderColor: 'var(--success)' }}>
+          <div className="w-2 h-2 rounded-full" style={{ background: 'var(--success)' }} />
+          <span className="text-sm" style={{ color: 'var(--success)' }}>{t('settings.synced')}</span>
         </div>
       </div>
+
+      {/* Sign Out Confirmation */}
+      <ConfirmDialog
+        isOpen={showSignOutConfirm}
+        onClose={() => setShowSignOutConfirm(false)}
+        title={t('auth.signOut')}
+        message={t('settings.confirmSignOut')}
+        confirmText={t('auth.signOut')}
+        cancelText={t('btn.cancel')}
+        onConfirm={handleSignOut}
+        isDanger
+      />
     </div>
   );
 }

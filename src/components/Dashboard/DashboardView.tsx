@@ -2,7 +2,8 @@ import React, { useMemo, useState } from 'react';
 import { useI18n } from '../../i18n';
 import { useEntriesStore } from '../../stores/entriesStore';
 import { useMasterStore } from '../../stores/masterStore';
-import { TimeEntry, PeriodType } from '@/types';
+import { PeriodType } from '@/types';
+import { computeUnionMs } from '../../lib/utils';
 import { KpiCards } from './KpiCards';
 import { Heatmap } from './Heatmap';
 import { ActivityBars } from './ActivityBars';
@@ -63,47 +64,6 @@ export default function DashboardView() {
   // Compute today's entries
   const today = new Date().toISOString().split('T')[0];
   const todayEntries = entries.filter((e) => e.date === today);
-
-  // Compute union of overlapping intervals per day (CRITICAL ALGORITHM)
-  function computeUnionMs(dayEntries: TimeEntry[]): number {
-    const intervals: [number, number][] = [];
-
-    for (const e of dayEntries) {
-      if (!e.start_time || !e.end_time) continue;
-
-      const [sh, sm] = e.start_time.split(':').map(Number);
-      const [eh, em] = e.end_time.split(':').map(Number);
-
-      let startMin = sh * 60 + sm;
-      let endMin = eh * 60 + em;
-
-      if (endMin < startMin) {
-        endMin += 24 * 60;
-      }
-
-      if (endMin > startMin) {
-        intervals.push([startMin, endMin]);
-      }
-    }
-
-    if (!intervals.length) return 0;
-
-    intervals.sort((a, b) => a[0] - b[0]);
-
-    const merged: [number, number][] = [[...intervals[0]]];
-    for (let i = 1; i < intervals.length; i++) {
-      const [cs, ce] = intervals[i];
-      const last = merged[merged.length - 1];
-
-      if (cs <= last[1]) {
-        last[1] = Math.max(last[1], ce);
-      } else {
-        merged.push([cs, ce]);
-      }
-    }
-
-    return merged.reduce((sum, [start, end]) => sum + (end - start), 0) * 60000;
-  }
 
   const kpiToday = computeUnionMs(todayEntries) / (1000 * 60 * 60);
 
@@ -209,7 +169,7 @@ export default function DashboardView() {
 
         {hasActiveFilters && (
           <div style={{ color: 'var(--primary)' }} className="text-sm">
-            {t('filter.notiz')} {t('filter.notiz')}
+            {filteredEntries.length} {t('entries.count')}
           </div>
         )}
       </div>
@@ -219,8 +179,11 @@ export default function DashboardView() {
 
       {/* Empty State */}
       {filteredEntries.length === 0 ? (
-        <div style={{ color: 'var(--text-muted)' }} className="text-center py-12">
-          {t('dash.noEntries')}
+        <div className="card text-center py-16 px-6">
+          <div className="text-4xl mb-4" style={{ opacity: 0.4 }}>📭</div>
+          <p className="text-lg font-semibold mb-2" style={{ color: 'var(--text-secondary)' }}>
+            {t('dash.noEntries')}
+          </p>
         </div>
       ) : (
         <>

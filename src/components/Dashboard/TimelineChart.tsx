@@ -1,5 +1,7 @@
 import React, { useMemo } from 'react';
 import { TimeEntry } from '@/types';
+import { useI18n } from '../../i18n';
+import { computeUnionMs } from '../../lib/utils';
 
 interface TimelineChartProps {
   entries: TimeEntry[];
@@ -16,47 +18,10 @@ const PROJECT_COLORS = [
   '#14b8a6', // teal-500
 ];
 
-function computeUnionMs(dayEntries: TimeEntry[]): number {
-  const intervals: [number, number][] = [];
-
-  for (const e of dayEntries) {
-    if (!e.start_time || !e.end_time) continue;
-
-    const [sh, sm] = e.start_time.split(':').map(Number);
-    const [eh, em] = e.end_time.split(':').map(Number);
-
-    let startMin = sh * 60 + sm;
-    let endMin = eh * 60 + em;
-
-    if (endMin < startMin) {
-      endMin += 24 * 60;
-    }
-
-    if (endMin > startMin) {
-      intervals.push([startMin, endMin]);
-    }
-  }
-
-  if (!intervals.length) return 0;
-
-  intervals.sort((a, b) => a[0] - b[0]);
-
-  const merged: [number, number][] = [[...intervals[0]]];
-  for (let i = 1; i < intervals.length; i++) {
-    const [cs, ce] = intervals[i];
-    const last = merged[merged.length - 1];
-
-    if (cs <= last[1]) {
-      last[1] = Math.max(last[1], ce);
-    } else {
-      merged.push([cs, ce]);
-    }
-  }
-
-  return merged.reduce((sum, [start, end]) => sum + (end - start), 0) * 60000;
-}
-
 export function TimelineChart({ entries }: TimelineChartProps) {
+  const { t, tArray } = useI18n();
+  const wdShort = tArray('wd.short');
+
   const { chartData, uniqueProjects, maxHours } = useMemo(() => {
     if (entries.length === 0) return { chartData: [], uniqueProjects: [], maxHours: 0 };
 
@@ -85,7 +50,7 @@ export function TimelineChart({ entries }: TimelineChartProps) {
       maxHours = Math.max(maxHours, totalHours);
 
       const dateObj = new Date(date);
-      const dayShort = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'][dateObj.getDay()];
+      const dayShort = (wdShort.length === 7 ? wdShort : ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'])[dateObj.getDay()];
       const dayNum = dateObj.getDate();
 
       return {
@@ -97,10 +62,10 @@ export function TimelineChart({ entries }: TimelineChartProps) {
     });
 
     return { chartData, uniqueProjects, maxHours };
-  }, [entries]);
+  }, [entries, wdShort]);
 
   if (chartData.length === 0) {
-    return <div style={{ color: 'var(--text-muted)' }}>Keine Daten verfügbar</div>;
+    return <div style={{ color: 'var(--text-muted)' }}>{t('dash.noData')}</div>;
   }
 
   const canvasWidth = Math.max(600, chartData.length * 40);

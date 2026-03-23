@@ -4,6 +4,7 @@ import { useMasterStore } from '../../stores/masterStore';
 import { useEntriesStore } from '../../stores/entriesStore';
 import { useUiStore } from '../../stores/uiStore';
 import { exportBackup, importBackup, exportCSV, importCSV } from '../../lib/backup';
+import ConfirmDialog from '../UI/ConfirmDialog';
 
 export default function ManageView() {
   const { t } = useI18n();
@@ -14,6 +15,7 @@ export default function ManageView() {
   const [editingType, setEditingType] = useState<'stakeholder' | 'project' | 'activity' | null>(null);
   const [editingName, setEditingName] = useState('');
   const [showDeleteAll, setShowDeleteAll] = useState(false);
+  const [deleteItemPending, setDeleteItemPending] = useState<{ type: 'stakeholder' | 'project' | 'activity'; name: string } | null>(null);
 
   const handleAddItem = async (type: 'stakeholder' | 'project' | 'activity', name: string) => {
     if (!name.trim()) return;
@@ -28,7 +30,7 @@ export default function ManageView() {
       }
       showToast(`${name} ${t('toast.added')}`, 'success');
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Fehler', 'error');
+      showToast(error instanceof Error ? error.message : t('toast.error'), 'error');
     }
   };
 
@@ -47,14 +49,11 @@ export default function ManageView() {
       setEditingType(null);
       setEditingName('');
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Fehler', 'error');
+      showToast(error instanceof Error ? error.message : t('toast.error'), 'error');
     }
   };
 
   const handleDeleteItem = async (type: 'stakeholder' | 'project' | 'activity', name: string) => {
-    const confirmDelete = window.confirm(`${name} ${t('confirm.deleteItem')}`);
-    if (!confirmDelete) return;
-
     try {
       if (type === 'stakeholder') {
         await removeStakeholder(name);
@@ -65,7 +64,7 @@ export default function ManageView() {
       }
       showToast(`${name} ${t('toast.deleted')}`, 'success');
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Fehler', 'error');
+      showToast(error instanceof Error ? error.message : t('toast.error'), 'error');
     }
   };
 
@@ -93,7 +92,7 @@ export default function ManageView() {
       showToast(t('toast.allDeleted'), 'success');
       setShowDeleteAll(false);
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Fehler', 'error');
+      showToast(error instanceof Error ? error.message : t('toast.error'), 'error');
     }
   };
 
@@ -116,7 +115,7 @@ export default function ManageView() {
       URL.revokeObjectURL(url);
       showToast(t('toast.backupOk'), 'success');
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Fehler', 'error');
+      showToast(error instanceof Error ? error.message : t('toast.error'), 'error');
     }
   };
 
@@ -158,7 +157,7 @@ export default function ManageView() {
         showToast(t('toast.restoreOk'), 'success');
       }
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Fehler', 'error');
+      showToast(error instanceof Error ? error.message : t('toast.error'), 'error');
     }
   };
 
@@ -174,7 +173,7 @@ export default function ManageView() {
       URL.revokeObjectURL(url);
       showToast(t('toast.csvExported'), 'success');
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Fehler', 'error');
+      showToast(error instanceof Error ? error.message : t('toast.error'), 'error');
     }
   };
 
@@ -187,7 +186,7 @@ export default function ManageView() {
       }
       showToast(t('toast.importOk'), 'success');
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Fehler', 'error');
+      showToast(error instanceof Error ? error.message : t('toast.error'), 'error');
     }
   };
 
@@ -242,15 +241,15 @@ export default function ManageView() {
                   }}
                   style={{ color: 'var(--text-secondary)' }}
                   className="px-2 py-1 hover:opacity-60 transition-colors text-sm"
-                  title="Rename"
+                  title={t('title.rename')}
                 >
                   ✏️
                 </button>
                 <button
-                  onClick={() => handleDeleteItem(type, item)}
+                  onClick={() => setDeleteItemPending({ type, name: item })}
                   style={{ color: 'var(--text-secondary)' }}
                   className="px-2 py-1 hover:opacity-60 transition-colors text-sm"
-                  title="Delete"
+                  title={t('title.delete')}
                 >
                   🗑️
                 </button>
@@ -262,7 +261,7 @@ export default function ManageView() {
         <div className="flex gap-2">
           <input
             type="text"
-            placeholder={`Neu hinzufügen...`}
+            placeholder={t('manage.addNew')}
             value={newValue}
             onChange={(e) => setNewValue(e.target.value)}
             onKeyDown={(e) => {
@@ -361,7 +360,7 @@ export default function ManageView() {
 
       {/* Delete All Data */}
       <div className="card p-4 space-y-3" style={{ borderColor: 'rgba(212, 112, 110, 0.3)' }}>
-        <h3 style={{ color: 'var(--danger)' }} className="text-lg font-semibold">Achtung</h3>
+        <h3 style={{ color: 'var(--danger)' }} className="text-lg font-semibold">{t('manage.warning')}</h3>
 
         {!showDeleteAll ? (
           <button
@@ -378,18 +377,35 @@ export default function ManageView() {
                 onClick={handleDeleteAllData}
                 className="btn btn-danger flex-1"
               >
-                Ja, alle Daten löschen
+                {t('manage.confirmDeleteAll')}
               </button>
               <button
                 onClick={() => setShowDeleteAll(false)}
                 className="btn btn-secondary"
               >
-                Abbrechen
+                {t('btn.cancel')}
               </button>
             </div>
           </div>
         )}
       </div>
+
+      {/* Delete Item Confirmation */}
+      <ConfirmDialog
+        isOpen={!!deleteItemPending}
+        onClose={() => setDeleteItemPending(null)}
+        title={t('confirm.deleteItem')}
+        message={deleteItemPending ? `${deleteItemPending.name} ${t('confirm.deleteItem')}` : ''}
+        confirmText={t('title.delete')}
+        cancelText={t('btn.cancel')}
+        onConfirm={() => {
+          if (deleteItemPending) {
+            handleDeleteItem(deleteItemPending.type, deleteItemPending.name);
+            setDeleteItemPending(null);
+          }
+        }}
+        isDanger
+      />
     </div>
   );
 }

@@ -116,7 +116,8 @@ export default function Layout() {
               <button
                 onClick={toggleLanguage}
                 className="btn-icon"
-                title={t('title.langToggle')}>
+                title={t('title.langToggle')}
+                aria-label={t('title.langToggle')}>
                 <Globe className="w-4 h-4" />
                 <span className="text-xs font-bold ml-1">
                   {language === 'de' ? 'DE' : 'FR'}
@@ -127,7 +128,8 @@ export default function Layout() {
               <button
                 onClick={toggleTheme}
                 className="btn-icon"
-                title={t('title.themeToggle')}>
+                title={t('title.themeToggle')}
+                aria-label={t('title.themeToggle')}>
                 {theme === 'cyber' ? (
                   <Sun className="w-4 h-4" />
                 ) : (
@@ -139,14 +141,17 @@ export default function Layout() {
               <button
                 onClick={() => logout()}
                 className="btn-icon hidden sm:flex"
-                title={t('auth.signOut')}>
+                title={t('auth.signOut')}
+                aria-label={t('auth.signOut')}>
                 <LogOut className="w-4 h-4" />
               </button>
 
               {/* Mobile Menu Button */}
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="md:hidden btn-icon">
+                className="md:hidden btn-icon"
+                aria-label={mobileMenuOpen ? t('btn.close') : 'Menu'}
+                aria-expanded={mobileMenuOpen}>
                 {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
               </button>
             </div>

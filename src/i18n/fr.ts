@@ -31,6 +31,8 @@ export const fr = {
     start: "Démarrer",
     stopSave: "Arrêter & enregistrer",
     removeTask: "Supprimer la tâche",
+    endDay: "Fin de journée",
+    dailyGoal: "Objectif journalier",
   },
   manual: {
     title: "Saisie manuelle",
@@ -45,6 +47,7 @@ export const fr = {
     newProjekt: "Nouveau projet...",
     newTaetigkeit: "Nouvelle activité...",
     teamName: "Votre nom (p.ex. Anne)",
+    teamNameInput: "Nom de l'équipe",
   },
   ts: {
     pause: "Pause",
@@ -91,6 +94,9 @@ export const fr = {
   // Dashboard Section
   dash: {
     today: "Aujourd'hui",
+    week: "Semaine",
+    month: "Mois",
+    year: "Année",
     thisWeek: "Cette semaine",
     thisMonth: "Ce mois",
     thisYear: "Cette année",
@@ -98,7 +104,7 @@ export const fr = {
     shxpr: "Mandant × Projet",
     byActivity: "Par activité",
     timeline: "Chronologie",
-    noData: "Aucune donnée.",
+    noData: "Aucune donnée disponible",
     noEntries: "📭 Aucune entrée pour la période sélectionnée",
   },
 
@@ -115,6 +121,9 @@ export const fr = {
     labelPr: "Projet",
     labelTa: "Activité",
     backupHint: "Avant une mise à jour : créer une sauvegarde → remplacer le fichier HTML → restaurer la sauvegarde.",
+    warning: "Attention",
+    confirmDeleteAll: "Oui, supprimer toutes les données",
+    addNew: "Ajouter...",
   },
 
   // Team Section
@@ -142,12 +151,22 @@ export const fr = {
     total: "Total",
     today: "aujourd'hui",
     avgWorkday: "⌀ / Jour ouvrable",
+    create: "Créer une équipe",
+    join: "Rejoindre",
+    disconnect: "Déconnecter",
+    nameRequired: "Nom de l'équipe requis",
+    codeRequired: "Code d'invitation et nom requis",
+    inviteCodePlaceholder: "Code d'invitation (6 caractères)",
+    yourName: "Votre nom",
   },
 
   // KPIs
   kpi: {
     today: "Aujourd'hui",
     entries: "Entrées",
+    todaySubtitle: "Saisi aujourd'hui",
+    periodSubtitle: "Dans la période",
+    entriesSubtitle: "Entrées",
   },
 
   // Edit
@@ -166,6 +185,11 @@ export const fr = {
     close: "Fermer",
     deleteAll: "🗑️ Supprimer toutes les données",
     undo: "Annuler",
+  },
+
+  // Validation
+  validation: {
+    required: "Champ obligatoire",
   },
 
   // Toasts
@@ -261,6 +285,25 @@ export const fr = {
     f: "F pour filtrer",
     q: "Q pour quitter",
     esc: "ESC pour fermer",
+  },
+
+  // Settings
+  settings: {
+    design: "Design",
+    language: "Langue",
+    profile: "Profil",
+    preview: "Aperçu :",
+    notSet: "non défini",
+    teamName: "Nom de l'équipe",
+    members: "Membres",
+    inviteCode: "Code d'invitation",
+    copied: "Copié dans le presse-papiers",
+    info: "Info",
+    appDesc: "Une application moderne de suivi du temps pour les équipes",
+    copyright: "Toutes les données sont stockées localement.",
+    dataSync: "Synchronisation des données",
+    synced: "Synchronisé",
+    confirmSignOut: "Vraiment se déconnecter ?",
   },
 
   // Titles

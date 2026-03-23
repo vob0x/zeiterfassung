@@ -31,6 +31,8 @@ export const de = {
     start: "Start",
     stopSave: "Stopp & Speichern",
     removeTask: "Task entfernen",
+    endDay: "Feierabend",
+    dailyGoal: "Tagesziel",
   },
   manual: {
     title: "Manuell eintragen",
@@ -45,6 +47,7 @@ export const de = {
     newProjekt: "Neues Projekt...",
     newTaetigkeit: "Neue Tätigkeit...",
     teamName: "Dein Name (z.B. Anna)",
+    teamNameInput: "Team-Name",
   },
   ts: {
     pause: "Pause",
@@ -91,6 +94,9 @@ export const de = {
   // Dashboard Section
   dash: {
     today: "Heute",
+    week: "Woche",
+    month: "Monat",
+    year: "Jahr",
     thisWeek: "Diese Woche",
     thisMonth: "Dieser Monat",
     thisYear: "Dieses Jahr",
@@ -98,7 +104,7 @@ export const de = {
     shxpr: "Stakeholder × Projekt",
     byActivity: "Nach Tätigkeit",
     timeline: "Zeitverlauf",
-    noData: "Keine Daten.",
+    noData: "Keine Daten verfügbar",
     noEntries: "📭 Keine Einträge im gewählten Zeitraum",
   },
 
@@ -115,6 +121,9 @@ export const de = {
     labelPr: "Projekt",
     labelTa: "Tätigkeit",
     backupHint: "Vor einem Update: Backup erstellen → HTML-Datei ersetzen → Backup wiederherstellen.",
+    warning: "Achtung",
+    confirmDeleteAll: "Ja, alle Daten löschen",
+    addNew: "Neu hinzufügen...",
   },
 
   // Team Section
@@ -142,12 +151,22 @@ export const de = {
     total: "Total",
     today: "heute",
     avgWorkday: "⌀ / Arbeitstag",
+    create: "Team erstellen",
+    join: "Beitreten",
+    disconnect: "Trennen",
+    nameRequired: "Team-Name erforderlich",
+    codeRequired: "Invite-Code und Name erforderlich",
+    inviteCodePlaceholder: "Invite-Code (6 Zeichen)",
+    yourName: "Dein Name",
   },
 
   // KPIs
   kpi: {
     today: "Heute",
     entries: "Einträge",
+    todaySubtitle: "Heute erfasst",
+    periodSubtitle: "Im Zeitraum",
+    entriesSubtitle: "Einträge",
   },
 
   // Edit
@@ -166,6 +185,11 @@ export const de = {
     close: "Schliessen",
     deleteAll: "🗑️ Alle Daten löschen",
     undo: "Rückgängig",
+  },
+
+  // Validation
+  validation: {
+    required: "Pflichtfeld",
   },
 
   // Toasts
@@ -261,6 +285,25 @@ export const de = {
     f: "F zum Filtern",
     q: "Q zum Beenden",
     esc: "ESC zum Schliessen",
+  },
+
+  // Settings
+  settings: {
+    design: "Design",
+    language: "Sprache",
+    profile: "Profil",
+    preview: "Vorschau:",
+    notSet: "nicht gesetzt",
+    teamName: "Team-Name",
+    members: "Mitglieder",
+    inviteCode: "Invite Code",
+    copied: "In Zwischenablage kopiert",
+    info: "Info",
+    appDesc: "Eine moderne Zeit-Tracking-App für Teams",
+    copyright: "Alle Daten werden lokal gespeichert.",
+    dataSync: "Datensynchronisation",
+    synced: "Synchronisiert",
+    confirmSignOut: "Wirklich abmelden?",
   },
 
   // Titles

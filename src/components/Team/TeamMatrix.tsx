@@ -1,50 +1,12 @@
 import React, { useMemo } from 'react';
 import { TimeEntry, TeamMember } from '@/types';
+import { useI18n } from '../../i18n';
+import { computeUnionMs } from '../../lib/utils';
 
 interface TeamMatrixProps {
   dimension: 'stakeholder' | 'project';
   entries: TimeEntry[];
   members: TeamMember[];
-}
-
-function computeUnionMs(dayEntries: TimeEntry[]): number {
-  const intervals: [number, number][] = [];
-
-  for (const e of dayEntries) {
-    if (!e.start_time || !e.end_time) continue;
-
-    const [sh, sm] = e.start_time.split(':').map(Number);
-    const [eh, em] = e.end_time.split(':').map(Number);
-
-    let startMin = sh * 60 + sm;
-    let endMin = eh * 60 + em;
-
-    if (endMin < startMin) {
-      endMin += 24 * 60;
-    }
-
-    if (endMin > startMin) {
-      intervals.push([startMin, endMin]);
-    }
-  }
-
-  if (!intervals.length) return 0;
-
-  intervals.sort((a, b) => a[0] - b[0]);
-
-  const merged: [number, number][] = [[...intervals[0]]];
-  for (let i = 1; i < intervals.length; i++) {
-    const [cs, ce] = intervals[i];
-    const last = merged[merged.length - 1];
-
-    if (cs <= last[1]) {
-      last[1] = Math.max(last[1], ce);
-    } else {
-      merged.push([cs, ce]);
-    }
-  }
-
-  return merged.reduce((sum, [start, end]) => sum + (end - start), 0) * 60000;
 }
 
 function getIntensityColor(hours: number): { background: string; borderColor: string } {
@@ -57,6 +19,7 @@ function getIntensityColor(hours: number): { background: string; borderColor: st
 }
 
 export function TeamMatrix({ dimension, entries, members }: TeamMatrixProps) {
+  const { t } = useI18n();
   const { items, memberIds, matrix, totals } = useMemo(() => {
     const dimensionKey = dimension === 'stakeholder' ? 'stakeholder' : 'projekt';
     const uniqueItems = [...new Set(entries.map((e) => e[dimensionKey]))].sort();
@@ -102,7 +65,7 @@ export function TeamMatrix({ dimension, entries, members }: TeamMatrixProps) {
   }, [dimension, entries, members]);
 
   if (items.length === 0 || memberIds.length === 0) {
-    return <div style={{ color: 'var(--text-muted)' }}>Keine Daten verfügbar</div>;
+    return <div style={{ color: 'var(--text-muted)' }}>{t('dash.noData')}</div>;
   }
 
   return (
@@ -111,7 +74,7 @@ export function TeamMatrix({ dimension, entries, members }: TeamMatrixProps) {
         <thead>
           <tr>
             <th className="p-2 text-left text-sm font-semibold border" style={{ color: 'var(--text-muted)', background: 'var(--surface-hover)', borderColor: 'var(--border)' }}>
-              {dimension === 'stakeholder' ? 'Stakeholder' : 'Projekt'}
+              {dimension === 'stakeholder' ? t('label.stakeholder') : t('label.projekt')}
             </th>
             {memberIds.map((memberId) => (
               <th
@@ -123,7 +86,7 @@ export function TeamMatrix({ dimension, entries, members }: TeamMatrixProps) {
               </th>
             ))}
             <th className="p-2 text-center text-sm font-semibold border" style={{ color: 'var(--neon-cyan)', background: 'var(--surface-hover)', borderColor: 'var(--border)' }}>
-              Total
+              {t('team.total')}
             </th>
           </tr>
         </thead>
@@ -152,7 +115,7 @@ export function TeamMatrix({ dimension, entries, members }: TeamMatrixProps) {
           ))}
           <tr style={{ borderTop: '2px solid var(--border)' }}>
             <td className="p-2 text-sm font-semibold border" style={{ color: 'var(--neon-cyan)', background: 'var(--surface-solid)', borderColor: 'var(--border)' }}>
-              Total
+              {t('team.total')}
             </td>
             {memberIds.map((memberId) => (
               <td

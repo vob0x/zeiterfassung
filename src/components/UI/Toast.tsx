@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { X, CheckCircle2, AlertCircle, Info, AlertTriangle } from 'lucide-react'
 import { useUiStore } from '@/stores/uiStore'
+import { useI18n } from '@/i18n'
 
 export default function Toast() {
   const { toasts, dismissToast } = useUiStore()
@@ -31,6 +32,7 @@ interface ToastItemProps {
 }
 
 function ToastItem({ toast, onClose }: ToastItemProps) {
+  const { t } = useI18n()
   useEffect(() => {
     const duration = toast.duration || 5000
     const timer = setTimeout(() => {
@@ -69,7 +71,7 @@ function ToastItem({ toast, onClose }: ToastItemProps) {
               onClose()
             }}
             className="mt-2 text-xs font-medium text-[var(--primary)] hover:opacity-80 transition-opacity">
-            Undo
+            {t('btn.undo')}
           </button>
         )}
       </div>

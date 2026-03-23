@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { TimeEntry } from '@/types';
 import { useEntriesStore } from '../../stores/entriesStore';
 import { useMasterStore } from '../../stores/masterStore';
+import { useUiStore } from '../../stores/uiStore';
 import { useI18n } from '../../i18n';
 import { Plus, X } from 'lucide-react';
 
@@ -14,6 +15,7 @@ interface EditEntryModalProps {
 const EditEntryModal: React.FC<EditEntryModalProps> = ({ entry, isOpen, onClose }) => {
   const { t } = useI18n();
   const { update: updateEntry } = useEntriesStore();
+  const { showToast } = useUiStore();
   const {
     stakeholders,
     projects,
@@ -40,6 +42,7 @@ const EditEntryModal: React.FC<EditEntryModalProps> = ({ entry, isOpen, onClose 
   const [newStakeholder, setNewStakeholder] = useState('');
   const [newProject, setNewProject] = useState('');
   const [newActivity, setNewActivity] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   // Validate form
   const validate = (): boolean => {
@@ -47,7 +50,7 @@ const EditEntryModal: React.FC<EditEntryModalProps> = ({ entry, isOpen, onClose 
 
     if (!formData.stakeholder) newErrors.stakeholder = t('toast.selectShPr');
     if (!formData.projekt) newErrors.projekt = t('toast.selectShPr');
-    if (!formData.taetigkeit) newErrors.taetigkeit = 'Required';
+    if (!formData.taetigkeit) newErrors.taetigkeit = t('validation.required');
     if (!formData.date) newErrors.date = t('toast.selectDate');
     if (!formData.start_time) newErrors.start_time = t('toast.selectTime');
     if (!formData.end_time) newErrors.end_time = t('toast.selectTime');
@@ -66,6 +69,7 @@ const EditEntryModal: React.FC<EditEntryModalProps> = ({ entry, isOpen, onClose 
 
     if (!validate()) return;
 
+    setIsSaving(true);
     try {
       await updateEntry(entry.id, {
         date: formData.date,
@@ -77,10 +81,13 @@ const EditEntryModal: React.FC<EditEntryModalProps> = ({ entry, isOpen, onClose 
         notiz: formData.notiz,
       });
 
-      alert(t('toast.entryUpdated'));
+      showToast(t('toast.entryUpdated'), 'success');
       onClose();
     } catch (error) {
       console.error('Failed to update entry:', error);
+      showToast(t('toast.error'), 'error');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -123,6 +130,25 @@ const EditEntryModal: React.FC<EditEntryModalProps> = ({ entry, isOpen, onClose 
     }
   };
 
+  // ESC key handler
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleEsc);
+    return () => document.removeEventListener('keydown', handleEsc);
+  }, [isOpen, onClose]);
+
+  // Focus trap ref
+  const modalRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (isOpen && modalRef.current) {
+      const firstInput = modalRef.current.querySelector('input, select, button');
+      if (firstInput) (firstInput as HTMLElement).focus();
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const inputStyle = {
@@ -132,8 +158,15 @@ const EditEntryModal: React.FC<EditEntryModalProps> = ({ entry, isOpen, onClose 
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="edit-modal-title"
+    >
       <div
+        ref={modalRef}
         className="rounded-lg border p-6 shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto"
         style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
       >
@@ -361,8 +394,9 @@ const EditEntryModal: React.FC<EditEntryModalProps> = ({ entry, isOpen, onClose 
             <button
               type="submit"
               className="btn btn-primary flex-1"
+              disabled={isSaving}
             >
-              {t('btn.save')}
+              {isSaving ? t('ui.loading') : t('btn.save')}
             </button>
             <button
               type="button"

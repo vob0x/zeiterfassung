@@ -1,57 +1,7 @@
 import { create } from 'zustand';
 import { TimeEntry, FilterState } from '@/types';
 import { getUserData, setUserData } from '@/lib/userStorage';
-
-// CRITICAL ALGORITHM: Compute union of overlapping time intervals per day
-// This merges overlapping time intervals to get total active time
-function computeUnionMs(dayEntries: TimeEntry[]): number {
-  const intervals: [number, number][] = [];
-
-  // Convert each entry to minutes from midnight
-  for (const e of dayEntries) {
-    if (!e.start_time || !e.end_time) continue;
-
-    const [sh, sm] = e.start_time.split(':').map(Number);
-    const [eh, em] = e.end_time.split(':').map(Number);
-
-    let startMin = sh * 60 + sm;
-    let endMin = eh * 60 + em;
-
-    // Handle midnight crossover
-    if (endMin < startMin) {
-      endMin += 24 * 60;
-    }
-
-    // Only add valid intervals
-    if (endMin > startMin) {
-      intervals.push([startMin, endMin]);
-    }
-  }
-
-  if (!intervals.length) return 0;
-
-  // Sort by start time
-  intervals.sort((a, b) => a[0] - b[0]);
-
-  // Merge overlapping intervals
-  const merged: [number, number][] = [[...intervals[0]]];
-
-  for (let i = 1; i < intervals.length; i++) {
-    const [cs, ce] = intervals[i];
-    const last = merged[merged.length - 1];
-
-    if (cs <= last[1]) {
-      // Overlapping or adjacent, merge
-      last[1] = Math.max(last[1], ce);
-    } else {
-      // No overlap, add new interval
-      merged.push([cs, ce]);
-    }
-  }
-
-  // Convert back to milliseconds
-  return merged.reduce((sum, [start, end]) => sum + (end - start), 0) * 60000;
-}
+import { computeUnionMs } from '@/lib/utils';
 
 interface EntriesState {
   entries: TimeEntry[];

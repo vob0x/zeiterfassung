@@ -791,6 +791,80 @@ a:hover {
 }
 
 /* ============================================
+   Accessibility: Focus Visible States
+   ============================================ */
+*:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.btn:focus-visible,
+.btn-icon:focus-visible,
+.nav-tab:focus-visible,
+.bottom-nav-item:focus-visible {
+  outline: 2px solid var(--neon-cyan);
+  outline-offset: 2px;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -1px;
+  box-shadow: 0 0 0 3px rgba(201, 169, 98, 0.15);
+}
+
+/* ============================================
+   Accessibility: Reduced Motion
+   ============================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ============================================
+   Light Theme: Focus ring color fix
+   ============================================ */
+[data-theme='light'] input:focus-visible,
+[data-theme='light'] select:focus-visible,
+[data-theme='light'] textarea:focus-visible {
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+/* ============================================
+   Mobile: Touch Target Sizes (44px min)
+   ============================================ */
+@media (pointer: coarse) {
+  .btn-icon,
+  .bottom-nav-item,
+  .nav-tab {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  select,
+  input[type="date"],
+  input[type="time"],
+  input[type="text"] {
+    min-height: 44px;
+  }
+
+  .btn,
+  .btn-sm {
+    min-height: 44px;
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}
+
+/* ============================================
    Print Styles
    ============================================ */
 @media print {

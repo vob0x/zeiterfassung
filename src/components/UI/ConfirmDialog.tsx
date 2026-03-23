@@ -1,4 +1,5 @@
 import Modal from './Modal'
+import { useI18n } from '@/i18n'
 
 interface ConfirmDialogProps {
   isOpen: boolean
@@ -17,12 +18,15 @@ export default function ConfirmDialog({
   onClose,
   title,
   message,
-  confirmText = 'Confirm',
-  cancelText = 'Cancel',
+  confirmText,
+  cancelText,
   onConfirm,
   onCancel,
   isDanger = false,
 }: ConfirmDialogProps) {
+  const { t } = useI18n()
+  const resolvedConfirmText = confirmText || t('btn.save')
+  const resolvedCancelText = cancelText || t('btn.cancel')
   const handleConfirm = () => {
     onConfirm()
     onClose()
@@ -43,12 +47,12 @@ export default function ConfirmDialog({
           <button
             onClick={handleCancel}
             className="btn btn-secondary btn-sm">
-            {cancelText}
+            {resolvedCancelText}
           </button>
           <button
             onClick={handleConfirm}
             className={`btn btn-sm ${isDanger ? 'btn-danger' : 'btn-primary'}`}>
-            {confirmText}
+            {resolvedConfirmText}
           </button>
         </div>
       }>

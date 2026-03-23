@@ -70,7 +70,7 @@ const TimerView: React.FC = () => {
                 }}
                 title={t('title.stopAll')}
               >
-                Feierabend
+                {t('timer.endDay')}
               </button>
             )}
           </div>

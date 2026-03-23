@@ -4,6 +4,7 @@ import { useEntriesStore } from '../../stores/entriesStore';
 import { useI18n } from '../../i18n';
 import { Edit2, Trash2 } from 'lucide-react';
 import { formatDateDE, formatDurationHM } from '../../lib/utils';
+import ConfirmDialog from '../UI/ConfirmDialog';
 
 interface EntryRowProps {
   entry: TimeEntry;
@@ -14,6 +15,7 @@ const EntryRow: React.FC<EntryRowProps> = ({ entry, onEdit }) => {
   const { t } = useI18n();
   const { delete: deleteEntry } = useEntriesStore();
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Calculate duration in milliseconds
   const [startH, startM] = entry.start_time.split(':').map(Number);
@@ -28,14 +30,12 @@ const EntryRow: React.FC<EntryRowProps> = ({ entry, onEdit }) => {
   const durationMs = (endMins - startMins) * 60000;
 
   const handleDelete = async () => {
-    if (confirm(t('confirm.delete'))) {
-      setIsDeleting(true);
-      try {
-        await deleteEntry(entry.id);
-      } catch (error) {
-        console.error('Failed to delete entry:', error);
-        setIsDeleting(false);
-      }
+    setIsDeleting(true);
+    try {
+      await deleteEntry(entry.id);
+    } catch (error) {
+      console.error('Failed to delete entry:', error);
+      setIsDeleting(false);
     }
   };
 
@@ -96,29 +96,43 @@ const EntryRow: React.FC<EntryRowProps> = ({ entry, onEdit }) => {
       </td>
 
       {/* Actions */}
-      <td className="px-4 py-3 flex gap-2">
+      <td className="px-4 py-3 flex gap-1">
         <button
           onClick={() => onEdit(entry)}
-          className="p-2 rounded transition-colors"
+          className="p-2.5 rounded transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
           style={{ color: 'var(--text-muted)' }}
           onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text)')}
           onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
           title={t('title.edit')}
+          aria-label={`${t('title.edit')} ${entry.stakeholder} ${entry.projekt} ${entry.start_time}-${entry.end_time}`}
         >
           <Edit2 className="w-4 h-4" />
         </button>
         <button
-          onClick={handleDelete}
+          onClick={() => setShowDeleteConfirm(true)}
           disabled={isDeleting}
-          className="p-2 rounded transition-colors"
+          className="p-2.5 rounded transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
           style={{ color: 'var(--text-muted)' }}
           onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--danger)')}
           onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
-          title={t('confirm.delete')}
+          title={t('title.delete')}
+          aria-label={`${t('title.delete')} ${entry.stakeholder} ${entry.projekt} ${entry.start_time}-${entry.end_time}`}
         >
           <Trash2 className="w-4 h-4" />
         </button>
       </td>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        title={t('confirm.delete')}
+        message={`${entry.stakeholder} — ${entry.projekt} (${entry.start_time}–${entry.end_time})`}
+        confirmText={t('title.delete')}
+        cancelText={t('btn.cancel')}
+        onConfirm={handleDelete}
+        isDanger
+      />
     </tr>
   );
 };

@@ -46,7 +46,7 @@ export function KpiCards({ today, period, entries }: KpiCardsProps) {
           <div className="text-4xl font-bold" style={{ color: 'var(--neon-cyan)' }}>
             <AnimatedCounter value={today} />
           </div>
-          <div className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>Heute erfasst</div>
+          <div className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>{t('kpi.todaySubtitle')}</div>
         </div>
       </div>
 
@@ -58,7 +58,7 @@ export function KpiCards({ today, period, entries }: KpiCardsProps) {
           <div className="text-4xl font-bold" style={{ color: '#60a5fa' }}>
             <AnimatedCounter value={period} />
           </div>
-          <div className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>Im Zeitraum</div>
+          <div className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>{t('kpi.periodSubtitle')}</div>
         </div>
       </div>
 
@@ -70,7 +70,7 @@ export function KpiCards({ today, period, entries }: KpiCardsProps) {
           <div className="text-4xl font-bold" style={{ color: '#c084fc' }}>
             <AnimatedCounter value={entries} decimals={0} />
           </div>
-          <div className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>Einträge</div>
+          <div className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>{t('kpi.entriesSubtitle')}</div>
         </div>
       </div>
     </div>

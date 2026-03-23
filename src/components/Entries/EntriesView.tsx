@@ -2,8 +2,9 @@ import React, { useState, useMemo } from 'react';
 import { TimeEntry } from '@/types';
 import { useEntriesStore } from '../../stores/entriesStore';
 import { useI18n } from '../../i18n';
-import { X } from 'lucide-react';
-import { formatDurationHM, computeUnionMs, cn } from '../../lib/utils';
+import { useUiStore } from '../../stores/uiStore';
+import { X, Clock, Search } from 'lucide-react';
+import { formatDurationHM, computeUnionMs } from '../../lib/utils';
 import EntryRow from './EntryRow';
 import EditEntryModal from './EditEntryModal';
 
@@ -13,6 +14,7 @@ type SortDirection = 'asc' | 'desc';
 const EntriesView: React.FC = () => {
   const { t } = useI18n();
   const { entries, filters, setFilter, clearFilters } = useEntriesStore();
+  const { setCurrentView } = useUiStore();
 
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -356,10 +358,37 @@ const EntriesView: React.FC = () => {
 
         {/* Entries Table */}
         {sortedEntries.length === 0 ? (
-          <div className="card text-center py-12">
-            <p style={{ color: 'var(--text-muted)' }}>
-              {hasActiveFilters ? t('entries.noMatch') : t('entries.nodata')}
-            </p>
+          <div className="card text-center py-16 px-6">
+            {hasActiveFilters ? (
+              <>
+                <Search className="w-12 h-12 mx-auto mb-4" style={{ color: 'var(--text-muted)', opacity: 0.5 }} />
+                <p className="text-lg font-semibold mb-2" style={{ color: 'var(--text-secondary)' }}>
+                  {t('entries.noMatch')}
+                </p>
+                <button
+                  onClick={clearFilters}
+                  className="btn btn-primary btn-sm mt-4"
+                >
+                  {t('filter.clearAll')}
+                </button>
+              </>
+            ) : (
+              <>
+                <Clock className="w-12 h-12 mx-auto mb-4" style={{ color: 'var(--text-muted)', opacity: 0.5 }} />
+                <p className="text-lg font-semibold mb-2" style={{ color: 'var(--text-secondary)' }}>
+                  {t('entries.nodata')}
+                </p>
+                <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
+                  {t('welcome.hint')}
+                </p>
+                <button
+                  onClick={() => setCurrentView('timer')}
+                  className="btn btn-primary btn-sm"
+                >
+                  {t('nav.timer')}
+                </button>
+              </>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto rounded-lg border" style={{ borderColor: 'var(--border)' }}>

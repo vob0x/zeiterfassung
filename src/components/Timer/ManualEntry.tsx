@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useEntriesStore } from '../../stores/entriesStore';
 import { useMasterStore } from '../../stores/masterStore';
+import { useUiStore } from '../../stores/uiStore';
 import { useI18n } from '../../i18n';
 import { getTodayISO } from '../../lib/utils';
 
@@ -11,6 +12,7 @@ interface ManualEntryProps {
 const ManualEntry: React.FC<ManualEntryProps> = ({ embedded = false }) => {
   const { t } = useI18n();
   const { add: addEntry } = useEntriesStore();
+  const { showToast } = useUiStore();
   const {
     stakeholders,
     projects,
@@ -37,12 +39,13 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ embedded = false }) => {
   const [newStakeholder, setNewStakeholder] = useState('');
   const [newProject, setNewProject] = useState('');
   const [newActivity, setNewActivity] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
     if (!formData.stakeholder) newErrors.stakeholder = t('toast.selectShPr');
     if (!formData.projekt) newErrors.projekt = t('toast.selectShPr');
-    if (!formData.taetigkeit) newErrors.taetigkeit = 'Required';
+    if (!formData.taetigkeit) newErrors.taetigkeit = t('validation.required');
     if (!formData.date) newErrors.date = t('toast.selectDate');
     if (!formData.startTime) newErrors.startTime = t('toast.selectTime');
     if (!formData.endTime) newErrors.endTime = t('toast.selectTime');
@@ -57,6 +60,7 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ embedded = false }) => {
     e.preventDefault();
     if (!validate()) return;
 
+    setIsSaving(true);
     try {
       const entries = [];
       const [startH, startM] = formData.startTime.split(':').map(Number);
@@ -112,9 +116,12 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ embedded = false }) => {
         notiz: '',
       });
       setErrors({});
-      alert(entries.length === 2 ? t('toast.midnight') : t('toast.manualOk'));
+      showToast(entries.length === 2 ? t('toast.midnight') : t('toast.manualOk'), 'success');
     } catch (error) {
       console.error('Failed to save entry:', error);
+      showToast(t('toast.error'), 'error');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -323,8 +330,9 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ embedded = false }) => {
               transition: 'all 0.15s',
               marginBottom: 0,
             }}
+            disabled={isSaving}
           >
-            {t('btn.save')}
+            {isSaving ? t('ui.loading') : t('btn.save')}
           </button>
         </div>
 

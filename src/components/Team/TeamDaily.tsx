@@ -1,49 +1,11 @@
 import React, { useMemo } from 'react';
 import { TimeEntry, TeamMember } from '@/types';
+import { useI18n } from '../../i18n';
+import { computeUnionMs } from '../../lib/utils';
 
 interface TeamDailyProps {
   memberEntries: Map<string, TimeEntry[]>;
   entries: TimeEntry[];
-}
-
-function computeUnionMs(dayEntries: TimeEntry[]): number {
-  const intervals: [number, number][] = [];
-
-  for (const e of dayEntries) {
-    if (!e.start_time || !e.end_time) continue;
-
-    const [sh, sm] = e.start_time.split(':').map(Number);
-    const [eh, em] = e.end_time.split(':').map(Number);
-
-    let startMin = sh * 60 + sm;
-    let endMin = eh * 60 + em;
-
-    if (endMin < startMin) {
-      endMin += 24 * 60;
-    }
-
-    if (endMin > startMin) {
-      intervals.push([startMin, endMin]);
-    }
-  }
-
-  if (!intervals.length) return 0;
-
-  intervals.sort((a, b) => a[0] - b[0]);
-
-  const merged: [number, number][] = [[...intervals[0]]];
-  for (let i = 1; i < intervals.length; i++) {
-    const [cs, ce] = intervals[i];
-    const last = merged[merged.length - 1];
-
-    if (cs <= last[1]) {
-      last[1] = Math.max(last[1], ce);
-    } else {
-      merged.push([cs, ce]);
-    }
-  }
-
-  return merged.reduce((sum, [start, end]) => sum + (end - start), 0) * 60000;
 }
 
 function getIntensityColor(hours: number): { background: string; color: string } {
@@ -55,6 +17,8 @@ function getIntensityColor(hours: number): { background: string; color: string }
 }
 
 export function TeamDaily({ memberEntries, entries }: TeamDailyProps) {
+  const { t, tArray } = useI18n();
+  const wdShort = tArray('wd.short');
   const { dates, memberIds, matrix, averages } = useMemo(() => {
     const uniqueDates = [...new Set(entries.map((e) => e.date))].sort();
     const uniqueMemberIds = Array.from(memberEntries.keys()).sort();
@@ -84,7 +48,7 @@ export function TeamDaily({ memberEntries, entries }: TeamDailyProps) {
   }, [memberEntries, entries]);
 
   if (dates.length === 0 || memberIds.length === 0) {
-    return <div style={{ color: 'var(--text-muted)' }}>Keine Daten verfügbar</div>;
+    return <div style={{ color: 'var(--text-muted)' }}>{t('dash.noData')}</div>;
   }
 
   return (
@@ -93,11 +57,11 @@ export function TeamDaily({ memberEntries, entries }: TeamDailyProps) {
         <thead>
           <tr>
             <th className="p-2 text-left font-semibold border sticky left-0 z-10" style={{ color: 'var(--text-muted)', background: 'var(--surface-solid)', borderColor: 'var(--border)' }}>
-              Person
+              {t('team.persons')}
             </th>
             {dates.map((date) => {
               const dateObj = new Date(date);
-              const dayShort = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'][dateObj.getDay()];
+              const dayShort = (wdShort.length === 7 ? wdShort : ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'])[dateObj.getDay()];
               const day = dateObj.getDate();
 
               return (

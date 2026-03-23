@@ -1,48 +1,10 @@
 import React, { useMemo } from 'react';
 import { TimeEntry } from '@/types';
+import { useI18n } from '../../i18n';
+import { computeUnionMs } from '../../lib/utils';
 
 interface HeatmapProps {
   entries: TimeEntry[];
-}
-
-function computeUnionMs(dayEntries: TimeEntry[]): number {
-  const intervals: [number, number][] = [];
-
-  for (const e of dayEntries) {
-    if (!e.start_time || !e.end_time) continue;
-
-    const [sh, sm] = e.start_time.split(':').map(Number);
-    const [eh, em] = e.end_time.split(':').map(Number);
-
-    let startMin = sh * 60 + sm;
-    let endMin = eh * 60 + em;
-
-    if (endMin < startMin) {
-      endMin += 24 * 60;
-    }
-
-    if (endMin > startMin) {
-      intervals.push([startMin, endMin]);
-    }
-  }
-
-  if (!intervals.length) return 0;
-
-  intervals.sort((a, b) => a[0] - b[0]);
-
-  const merged: [number, number][] = [[...intervals[0]]];
-  for (let i = 1; i < intervals.length; i++) {
-    const [cs, ce] = intervals[i];
-    const last = merged[merged.length - 1];
-
-    if (cs <= last[1]) {
-      last[1] = Math.max(last[1], ce);
-    } else {
-      merged.push([cs, ce]);
-    }
-  }
-
-  return merged.reduce((sum, [start, end]) => sum + (end - start), 0) * 60000;
 }
 
 function getIntensityStyle(hours: number): React.CSSProperties {
@@ -55,6 +17,7 @@ function getIntensityStyle(hours: number): React.CSSProperties {
 }
 
 export function Heatmap({ entries }: HeatmapProps) {
+  const { t } = useI18n();
   const { stakeholders, projects, matrix, totals } = useMemo(() => {
     const uniqueStakeholders = [...new Set(entries.map((e) => e.stakeholder))].sort();
     const uniqueProjects = [...new Set(entries.map((e) => e.projekt))].sort();
@@ -100,7 +63,7 @@ export function Heatmap({ entries }: HeatmapProps) {
         <thead>
           <tr>
             <th className="p-2 text-left text-sm font-semibold border" style={{ color: 'var(--text-muted)', background: 'rgba(var(--surface-rgb), 0.5)', borderColor: 'rgba(var(--border-rgb), 0.3)' }}>
-              Stakeholder
+              {t('label.stakeholder')}
             </th>
             {projects.map((pr) => (
               <th
@@ -112,7 +75,7 @@ export function Heatmap({ entries }: HeatmapProps) {
               </th>
             ))}
             <th className="p-2 text-center text-sm font-semibold border" style={{ color: 'var(--neon-cyan)', background: 'rgba(var(--surface-rgb), 0.5)', borderColor: 'rgba(var(--border-rgb), 0.3)' }}>
-              Total
+              {t('team.total')}
             </th>
           </tr>
         </thead>
@@ -141,7 +104,7 @@ export function Heatmap({ entries }: HeatmapProps) {
           ))}
           <tr style={{ borderTopColor: 'var(--surface-hover)', borderTopWidth: '2px' }}>
             <td className="p-2 text-sm font-semibold border" style={{ color: 'var(--neon-cyan)', background: 'rgba(var(--surface-rgb), 0.5)', borderColor: 'rgba(var(--border-rgb), 0.3)' }}>
-              Total
+              {t('team.total')}
             </td>
             {projects.map((pr) => (
               <td
