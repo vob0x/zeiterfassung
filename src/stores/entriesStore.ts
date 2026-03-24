@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { TimeEntry, FilterState } from '@/types';
 import { getUserData, setUserData } from '@/lib/userStorage';
 import { computeUnionMs } from '@/lib/utils';
+import { supabaseClient, isSupabaseAvailable } from '@/lib/supabase';
+import { useAuthStore } from './authStore';
 
 interface EntriesState {
   entries: TimeEntry[];
@@ -37,8 +39,68 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
   fetch: async () => {
     set({ loading: true, error: null });
     try {
-      const entries = getUserData<TimeEntry[]>('entries', []);
-      set({ entries, loading: false });
+      // Load from localStorage first (immediate)
+      const localEntries = getUserData<TimeEntry[]>('entries', []);
+      set({ entries: localEntries, loading: false });
+
+      // Then merge with Supabase data
+      const profile = useAuthStore.getState().profile;
+      if (isSupabaseAvailable() && supabaseClient && profile?.id && !profile.id.startsWith('local_')) {
+        const { data, error: sbErr } = await supabaseClient
+          .from('time_entries')
+          .select('*')
+          .eq('user_id', profile.id)
+          .order('date', { ascending: false });
+
+        if (!sbErr && data) {
+          const sbEntries: TimeEntry[] = data.map((row: any) => ({
+            id: row.id,
+            user_id: row.user_id,
+            date: typeof row.date === 'string' ? row.date : new Date(row.date).toISOString().split('T')[0],
+            stakeholder: row.stakeholder || '',
+            projekt: row.projekt || '',
+            taetigkeit: row.taetigkeit || '',
+            start_time: row.start_time || '',
+            end_time: row.end_time || '',
+            duration_ms: row.duration_ms || 0,
+            notiz: row.notiz || '',
+            created_at: row.created_at || '',
+            updated_at: row.updated_at || '',
+          }));
+
+          // Merge: use Supabase as base, add any local-only entries
+          const sbIds = new Set(sbEntries.map((e) => e.id));
+          const localOnly = localEntries.filter((e) => !sbIds.has(e.id));
+          const merged = [...sbEntries, ...localOnly];
+
+          set({ entries: merged });
+          setUserData('entries', merged);
+
+          // Push local-only entries to Supabase
+          if (localOnly.length > 0) {
+            const rows = localOnly.map((e) => ({
+              id: e.id,
+              user_id: profile.id,
+              date: e.date,
+              stakeholder: e.stakeholder,
+              projekt: e.projekt,
+              taetigkeit: e.taetigkeit,
+              start_time: e.start_time,
+              end_time: e.end_time,
+              duration_ms: e.duration_ms,
+              notiz: e.notiz || '',
+              created_at: e.created_at,
+              updated_at: e.updated_at,
+            }));
+            supabaseClient
+              .from('time_entries')
+              .upsert(rows, { onConflict: 'id' })
+              .then(({ error: pushErr }) => {
+                if (pushErr) console.warn('Supabase entry bulk sync failed:', pushErr.message);
+              });
+          }
+        }
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to fetch entries';
       set({ error: message, loading: false });
@@ -79,6 +141,32 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
       const updated = [...state.entries, newEntry];
       set({ entries: updated });
       setUserData('entries', updated);
+
+      // Sync to Supabase (non-blocking — local is source of truth)
+      if (isSupabaseAvailable() && supabaseClient) {
+        const profile = useAuthStore.getState().profile;
+        if (profile?.id && !profile.id.startsWith('local_')) {
+          supabaseClient
+            .from('time_entries')
+            .upsert({
+              id: newEntry.id,
+              user_id: profile.id,
+              date: newEntry.date,
+              stakeholder: newEntry.stakeholder,
+              projekt: newEntry.projekt,
+              taetigkeit: newEntry.taetigkeit,
+              start_time: newEntry.start_time,
+              end_time: newEntry.end_time,
+              duration_ms: newEntry.duration_ms,
+              notiz: newEntry.notiz || '',
+              created_at: newEntry.created_at,
+              updated_at: newEntry.updated_at,
+            }, { onConflict: 'id' })
+            .then(({ error: sbErr }) => {
+              if (sbErr) console.warn('Supabase entry sync failed:', sbErr.message);
+            });
+        }
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to add entry';
       set({ error: message });
@@ -90,17 +178,47 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
     set({ error: null });
     try {
       const state = get();
+      const updatedAt = new Date().toISOString();
       const updated = state.entries.map((e) =>
         e.id === id
           ? {
               ...e,
               ...updates,
-              updated_at: new Date().toISOString(),
+              updated_at: updatedAt,
             }
           : e
       );
       set({ entries: updated });
       setUserData('entries', updated);
+
+      // Sync to Supabase (non-blocking)
+      if (isSupabaseAvailable() && supabaseClient) {
+        const profile = useAuthStore.getState().profile;
+        if (profile?.id && !profile.id.startsWith('local_')) {
+          const entry = updated.find((e) => e.id === id);
+          if (entry) {
+            supabaseClient
+              .from('time_entries')
+              .upsert({
+                id: entry.id,
+                user_id: profile.id,
+                date: entry.date,
+                stakeholder: entry.stakeholder,
+                projekt: entry.projekt,
+                taetigkeit: entry.taetigkeit,
+                start_time: entry.start_time,
+                end_time: entry.end_time,
+                duration_ms: entry.duration_ms,
+                notiz: entry.notiz || '',
+                created_at: entry.created_at,
+                updated_at: updatedAt,
+              }, { onConflict: 'id' })
+              .then(({ error: sbErr }) => {
+                if (sbErr) console.warn('Supabase entry update sync failed:', sbErr.message);
+              });
+          }
+        }
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to update entry';
       set({ error: message });
@@ -115,6 +233,20 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
       const updated = state.entries.filter((e) => e.id !== id);
       set({ entries: updated });
       setUserData('entries', updated);
+
+      // Sync to Supabase (non-blocking)
+      if (isSupabaseAvailable() && supabaseClient) {
+        const profile = useAuthStore.getState().profile;
+        if (profile?.id && !profile.id.startsWith('local_')) {
+          supabaseClient
+            .from('time_entries')
+            .delete()
+            .eq('id', id)
+            .then(({ error: sbErr }) => {
+              if (sbErr) console.warn('Supabase entry delete sync failed:', sbErr.message);
+            });
+        }
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to delete entry';
       set({ error: message });

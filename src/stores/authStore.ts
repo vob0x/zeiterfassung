@@ -48,11 +48,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             .eq('id', session.user.id)
             .maybeSingle()
 
-          const profile: Profile = profileData || {
-            id: session.user.id,
-            codename: session.user.user_metadata?.codename || 'User',
-            created_at: session.user.created_at,
-            updated_at: session.user.created_at,
+          const codename = session.user.user_metadata?.codename || 'User'
+          let profile: Profile
+
+          if (profileData) {
+            profile = profileData
+          } else {
+            // Profile missing in DB — create it now
+            profile = {
+              id: session.user.id,
+              codename,
+              created_at: session.user.created_at,
+              updated_at: session.user.created_at,
+            }
+            await supabaseClient
+              .from('profiles')
+              .upsert({
+                id: session.user.id,
+                codename,
+                updated_at: new Date().toISOString(),
+              }, { onConflict: 'id' })
           }
 
           set({
@@ -101,17 +116,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         if (error) throw error
 
         if (data.user) {
-          const { data: profileData } = await supabaseClient
+          // Ensure profile exists in DB (upsert)
+          await supabaseClient
             .from('profiles')
-            .select('*')
-            .eq('id', data.user.id)
-            .maybeSingle()
+            .upsert({
+              id: data.user.id,
+              codename,
+              updated_at: new Date().toISOString(),
+            }, { onConflict: 'id' })
 
-          const profile: Profile = profileData || {
+          const profile: Profile = {
             id: data.user.id,
             codename,
             created_at: data.user.created_at,
-            updated_at: data.user.created_at,
+            updated_at: new Date().toISOString(),
           }
 
           const session: Session = {
@@ -181,6 +199,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
 
         if (data.user) {
+          // Ensure profile exists in DB (upsert)
+          await supabaseClient
+            .from('profiles')
+            .upsert({
+              id: data.user.id,
+              codename,
+              updated_at: new Date().toISOString(),
+            }, { onConflict: 'id' })
+
           const profile: Profile = {
             id: data.user.id,
             codename,

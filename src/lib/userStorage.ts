@@ -32,15 +32,28 @@ export function getUserData<T>(key: string, fallback: T): T {
       return JSON.parse(scopedData);
     }
 
-    // Migration: check if unscoped (legacy) data exists
+    // Migration 1: check if unscoped (legacy) data exists
     const legacyData = localStorage.getItem(key);
     if (legacyData !== null) {
       const parsed = JSON.parse(legacyData);
-      // Migrate to scoped key
       localStorage.setItem(scopedKey, legacyData);
-      // Don't delete legacy key yet — other users might still need it
-      // (they'll migrate on their next login)
       return parsed;
+    }
+
+    // Migration 2: check for data under a different user ID prefix (e.g. local_ → supabase UUID)
+    // Scan for any ze_*_{key} that has data
+    const suffix = `_${key}`;
+    for (let i = 0; i < localStorage.length; i++) {
+      const lsKey = localStorage.key(i);
+      if (lsKey && lsKey.startsWith('ze_') && lsKey.endsWith(suffix) && lsKey !== scopedKey) {
+        const oldData = localStorage.getItem(lsKey);
+        if (oldData !== null) {
+          const parsed = JSON.parse(oldData);
+          // Migrate to current user's scoped key
+          localStorage.setItem(scopedKey, oldData);
+          return parsed;
+        }
+      }
     }
 
     return fallback;
