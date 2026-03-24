@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { TimeEntry } from '@/types';
 import { useI18n } from '../../i18n';
 import { computeUnionMs } from '../../lib/utils';
@@ -21,11 +21,9 @@ const COLORS = [
 
 export function TeamWorkload({ memberEntries, entries }: TeamWorkloadProps) {
   const { t } = useI18n();
-  const { memberWorkload, uniqueProjects, maxHours } = useMemo(() => {
+  const { memberWorkload, uniqueProjects } = useMemo(() => {
     const uniqueProjects = [...new Set(entries.map((e) => e.projekt))].sort();
     const memberIds = Array.from(memberEntries.keys()).sort();
-
-    let maxHours = 0;
 
     const memberWorkload = memberIds.map((memberId) => {
       const memberEntries_ = memberEntries.get(memberId) || [];
@@ -44,12 +42,11 @@ export function TeamWorkload({ memberEntries, entries }: TeamWorkloadProps) {
       }
 
       const totalHours = Object.values(projectHours).reduce((a, b) => a + b, 0);
-      maxHours = Math.max(maxHours, totalHours);
 
       return { memberId, projectHours, totalHours };
     });
 
-    return { memberWorkload, uniqueProjects, maxHours };
+    return { memberWorkload, uniqueProjects };
   }, [memberEntries, entries]);
 
   if (memberWorkload.length === 0) {

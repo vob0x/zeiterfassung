@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useI18n } from '../../i18n';
 import { useMasterStore } from '../../stores/masterStore';
 import { useEntriesStore } from '../../stores/entriesStore';
@@ -7,15 +7,18 @@ import { exportBackup, importBackup, exportCSV, importCSV } from '../../lib/back
 import ConfirmDialog from '../UI/ConfirmDialog';
 
 export default function ManageView() {
-  const { t } = useI18n();
+  const { t, tArray } = useI18n();
   const { stakeholders, projects, activities, removeStakeholder, removeProject, removeActivity } = useMasterStore();
   const entries = useEntriesStore((state) => state.entries);
   const showToast = useUiStore((state) => state.showToast);
 
   const [editingType, setEditingType] = useState<'stakeholder' | 'project' | 'activity' | null>(null);
+  const [editingOriginalName, setEditingOriginalName] = useState('');
   const [editingName, setEditingName] = useState('');
   const [showDeleteAll, setShowDeleteAll] = useState(false);
   const [deleteItemPending, setDeleteItemPending] = useState<{ type: 'stakeholder' | 'project' | 'activity'; name: string } | null>(null);
+  const [pendingBackup, setPendingBackup] = useState<any>(null);
+  const [showRestoreConfirm, setShowRestoreConfirm] = useState(false);
 
   const handleAddItem = async (type: 'stakeholder' | 'project' | 'activity', name: string) => {
     if (!name.trim()) return;
@@ -47,6 +50,7 @@ export default function ManageView() {
       }
       showToast(`${t('toast.renamed')} ${newName}`, 'success');
       setEditingType(null);
+      setEditingOriginalName('');
       setEditingName('');
     } catch (error) {
       showToast(error instanceof Error ? error.message : t('toast.error'), 'error');
@@ -123,47 +127,65 @@ export default function ManageView() {
     try {
       const backup = await importBackup(file);
       if (backup) {
-        // Clear existing data
-        const masterState = useMasterStore.getState();
-        const entriesState = useEntriesStore.getState();
-
-        for (const sh of masterState.stakeholders) {
-          await removeStakeholder(sh);
-        }
-        for (const pr of masterState.projects) {
-          await removeProject(pr);
-        }
-        for (const act of masterState.activities) {
-          await removeActivity(act);
-        }
-        for (const entry of entries) {
-          await entriesState.delete(entry.id);
-        }
-
-        // Import new data
-        for (const sh of backup.masterData.stakeholders) {
-          await useMasterStore.getState().addStakeholder(sh);
-        }
-        for (const pr of backup.masterData.projects) {
-          await useMasterStore.getState().addProject(pr);
-        }
-        for (const act of backup.masterData.activities) {
-          await useMasterStore.getState().addActivity(act);
-        }
-        for (const entry of backup.entries) {
-          await entriesState.add(entry);
-        }
-
-        showToast(t('toast.restoreOk'), 'success');
+        setPendingBackup(backup);
+        setShowRestoreConfirm(true);
       }
     } catch (error) {
       showToast(error instanceof Error ? error.message : t('toast.error'), 'error');
     }
   };
 
+  const handleRestoreConfirm = async () => {
+    if (!pendingBackup) return;
+    try {
+      const backup = pendingBackup;
+      // Clear existing data
+      const masterState = useMasterStore.getState();
+      const entriesState = useEntriesStore.getState();
+
+      for (const sh of masterState.stakeholders) {
+        await removeStakeholder(sh);
+      }
+      for (const pr of masterState.projects) {
+        await removeProject(pr);
+      }
+      for (const act of masterState.activities) {
+        await removeActivity(act);
+      }
+      for (const entry of entries) {
+        await entriesState.delete(entry.id);
+      }
+
+      // Import new data
+      for (const sh of backup.masterData.stakeholders) {
+        await useMasterStore.getState().addStakeholder(sh);
+      }
+      for (const pr of backup.masterData.projects) {
+        await useMasterStore.getState().addProject(pr);
+      }
+      for (const act of backup.masterData.activities) {
+        await useMasterStore.getState().addActivity(act);
+      }
+      for (const entry of backup.entries) {
+        await entriesState.add(entry);
+      }
+
+      showToast(t('toast.restoreOk'), 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : t('toast.error'), 'error');
+    } finally {
+      setPendingBackup(null);
+    }
+  };
+
   const handleCSVExport = async () => {
     try {
-      const csv = exportCSV(entries);
+      const csvHeaders = [
+        t('csv.datum'), t('csv.stakeholder'), t('csv.projekt'), t('csv.taetigkeit'),
+        t('csv.von'), t('csv.bis'), t('csv.dauer'), t('csv.notiz'), t('csv.wochentag'),
+      ];
+      const weekdayNames = tArray('wd.long');
+      const csv = exportCSV(entries, csvHeaders, weekdayNames);
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -214,7 +236,7 @@ export default function ManageView() {
               style={{ background: 'rgba(201, 169, 98, 0.03)', borderColor: 'var(--border)' }}
               className="flex items-center justify-between p-2 rounded border transition-colors hover:opacity-80"
             >
-              {editingType === type && editingName === item ? (
+              {editingType === type && editingOriginalName === item ? (
                 <input
                   type="text"
                   value={editingName}
@@ -222,9 +244,10 @@ export default function ManageView() {
                   className="input flex-1 text-sm"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
-                      handleRenameItem(type, item, editingName);
+                      handleRenameItem(type, editingOriginalName, editingName);
                     } else if (e.key === 'Escape') {
                       setEditingType(null);
+                      setEditingOriginalName('');
                       setEditingName('');
                     }
                   }}
@@ -237,6 +260,7 @@ export default function ManageView() {
                 <button
                   onClick={() => {
                     setEditingType(type);
+                    setEditingOriginalName(item);
                     setEditingName(item);
                   }}
                   style={{ color: 'var(--text-secondary)' }}
@@ -403,6 +427,24 @@ export default function ManageView() {
             handleDeleteItem(deleteItemPending.type, deleteItemPending.name);
             setDeleteItemPending(null);
           }
+        }}
+        isDanger
+      />
+
+      {/* Backup Restore Confirmation */}
+      <ConfirmDialog
+        isOpen={showRestoreConfirm}
+        onClose={() => {
+          setShowRestoreConfirm(false);
+          setPendingBackup(null);
+        }}
+        title={t('dsb.confirmRestore')}
+        message={t('confirm.deleteAll')}
+        confirmText={t('btn.restore')}
+        cancelText={t('btn.cancel')}
+        onConfirm={() => {
+          setShowRestoreConfirm(false);
+          handleRestoreConfirm();
         }}
         isDanger
       />

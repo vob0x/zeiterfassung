@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { TimeEntry } from '@/types';
 
 interface BackupData {
@@ -28,6 +27,10 @@ export function exportBackup(
   };
 }
 
+/**
+ * Import a backup file. Returns parsed BackupData or null if invalid.
+ * Confirmation is handled by the caller (ManageView uses ConfirmDialog).
+ */
 export async function importBackup(file: File): Promise<BackupData | null> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -47,15 +50,7 @@ export async function importBackup(file: File): Promise<BackupData | null> {
           throw new Error('Invalid backup file format');
         }
 
-        const confirmed = window.confirm(
-          `Restore backup from ${new Date(backup.timestamp).toLocaleDateString()}? This will replace all current data.`
-        );
-
-        if (confirmed) {
-          resolve(backup);
-        } else {
-          resolve(null);
-        }
+        resolve(backup);
       } catch (error) {
         reject(error);
       }
@@ -69,8 +64,16 @@ export async function importBackup(file: File): Promise<BackupData | null> {
   });
 }
 
-export function exportCSV(entries: TimeEntry[]): string {
-  const headers = ['Datum', 'Stakeholder', 'Projekt', 'Tätigkeit', 'Von', 'Bis', 'Dauer', 'Notiz', 'Wochentag'];
+/**
+ * Export entries to CSV. Headers are passed from the caller for i18n support.
+ */
+export function exportCSV(
+  entries: TimeEntry[],
+  headers?: string[],
+  weekdayNames?: string[]
+): string {
+  const csvHeaders = headers || ['Datum', 'Stakeholder', 'Projekt', 'Tätigkeit', 'Von', 'Bis', 'Dauer', 'Notiz', 'Wochentag'];
+  const defaultWeekdays = weekdayNames || ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
 
   const rows = entries.map((entry) => {
     // Calculate duration in hours
@@ -85,9 +88,8 @@ export function exportCSV(entries: TimeEntry[]): string {
 
     const durationHours = ((endMin - startMin) / 60).toFixed(2);
 
-    const dateObj = new Date(entry.date);
-    const weekdayNames = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
-    const weekday = weekdayNames[dateObj.getDay()];
+    const dateObj = new Date(entry.date + 'T00:00:00');
+    const weekday = defaultWeekdays[dateObj.getDay()];
 
     return [
       entry.date,
@@ -111,7 +113,7 @@ export function exportCSV(entries: TimeEntry[]): string {
       .join(';');
   });
 
-  return [headers.join(';'), ...rows].join('\n');
+  return [csvHeaders.join(';'), ...rows].join('\n');
 }
 
 export async function importCSV(file: File): Promise<Omit<TimeEntry, 'id' | 'user_id' | 'created_at' | 'updated_at'>[]> {
@@ -133,9 +135,17 @@ export async function importCSV(file: File): Promise<Omit<TimeEntry, 'id' | 'use
 
         for (const row of rows) {
           // Simple CSV parsing (semicolon-delimited)
-          const cells = row.split(';').map((cell) => cell.replace(/^"(.*)"$/, '$1'));
+          const cells = row.split(';').map((cell) => cell.replace(/^"(.*)"$/, '$1').trim());
 
           if (cells.length < 7) continue;
+
+          // Calculate duration_ms
+          const [sh, sm] = (cells[4] || '0:0').split(':').map(Number);
+          const [eh, em] = (cells[5] || '0:0').split(':').map(Number);
+          let startMin = (sh || 0) * 60 + (sm || 0);
+          let endMin = (eh || 0) * 60 + (em || 0);
+          if (endMin < startMin) endMin += 24 * 60;
+          const duration_ms = (endMin - startMin) * 60000;
 
           const entry: Omit<TimeEntry, 'id' | 'user_id' | 'created_at' | 'updated_at'> = {
             date: cells[0],
@@ -144,6 +154,7 @@ export async function importCSV(file: File): Promise<Omit<TimeEntry, 'id' | 'use
             taetigkeit: cells[3],
             start_time: cells[4],
             end_time: cells[5],
+            duration_ms,
             notiz: cells[7] || undefined,
           };
 

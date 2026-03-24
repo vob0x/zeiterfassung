@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { TimeEntry, TeamMember } from '@/types';
 import { useI18n } from '../../i18n';
 import { computeUnionMs } from '../../lib/utils';

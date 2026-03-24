@@ -1,8 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useTimerStore } from '../../stores/timerStore';
 import { useEntriesStore } from '../../stores/entriesStore';
 import { useI18n } from '../../i18n';
-import { Pin, PinOff, X } from 'lucide-react';
+import { Pin, X } from 'lucide-react';
 import { getUserData, setUserData } from '@/lib/userStorage';
 
 interface ShortcutItem {
@@ -55,27 +55,6 @@ const QuickShortcuts: React.FC = () => {
       taetigkeit: shortcut.taetigkeit || '',
       notiz: '',
     });
-  };
-
-  // Toggle pin status
-  const handleTogglePin = (shortcut: ShortcutItem) => {
-    const isPinned = pinnedShortcuts.some(
-      (p) => p.stakeholder === shortcut.stakeholder && p.projekt === shortcut.projekt
-    );
-
-    if (isPinned) {
-      const updated = pinnedShortcuts.filter(
-        (p) => !(p.stakeholder === shortcut.stakeholder && p.projekt === shortcut.projekt)
-      );
-      setPinnedShortcuts(updated);
-      setUserData('pinnedShortcuts', updated);
-    } else {
-      if (pinnedShortcuts.length < 10) {
-        const updated = [...pinnedShortcuts, { ...shortcut, isPinned: true }];
-        setPinnedShortcuts(updated);
-        setUserData('pinnedShortcuts', updated);
-      }
-    }
   };
 
   // Delete a shortcut (remove from pinned and hide from auto)

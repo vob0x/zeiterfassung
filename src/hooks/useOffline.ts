@@ -111,8 +111,7 @@ export function useOffline() {
 
   // Listen for sync completion
   useEffect(() => {
-    const handleSyncComplete = (e: Event) => {
-      const event = e as CustomEvent;
+    const handleSyncComplete = (_e: Event) => {
       setState((prev) => ({
         ...prev,
         lastSyncTime: new Date().toISOString(),

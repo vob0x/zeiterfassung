@@ -58,9 +58,12 @@ export default function LoginScreen() {
         await signIn(codename, password)
       }
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : t('auth.errors.authFailed')
-      )
+      const msg = err instanceof Error ? err.message : ''
+      if (msg === 'CODENAME_TAKEN') {
+        setError(t('auth.codenameTaken'))
+      } else {
+        setError(msg || t('auth.errors.authFailed'))
+      }
     } finally {
       setIsLoading(false)
     }

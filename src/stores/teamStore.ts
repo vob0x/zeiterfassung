@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { Team, TeamMember, TimeEntry, PeriodType } from '@/types';
 import { getUserData, setUserData, removeUserData } from '@/lib/userStorage';
+import { useAuthStore } from './authStore';
 
 interface TeamState {
   team: Team | null;
@@ -32,11 +33,14 @@ export const useTeamStore = create<TeamState>((set, get) => ({
   createTeam: async (name: string) => {
     set({ loading: true, error: null });
     try {
+      const profile = useAuthStore.getState().profile;
+      const userId = profile?.id || 'anonymous';
+      const displayName = profile?.codename || 'User';
       const inviteCode = Math.random().toString(36).substr(2, 6).toUpperCase();
       const newTeam: Team = {
         id: `team_${Date.now()}`,
         name,
-        creator_id: 'current_user',
+        creator_id: userId,
         invite_code: inviteCode,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -46,14 +50,14 @@ export const useTeamStore = create<TeamState>((set, get) => ({
       const creatorMember: TeamMember = {
         id: `member_${Date.now()}`,
         team_id: newTeam.id,
-        user_id: 'current_user',
+        user_id: displayName,
         joined_at: new Date().toISOString(),
       };
 
       // Load current user's entries (user-scoped)
       const currentEntries = getUserData<TimeEntry[]>('entries', []);
       const memberEntriesMap = new Map<string, TimeEntry[]>();
-      memberEntriesMap.set('current_user', currentEntries);
+      memberEntriesMap.set(displayName, currentEntries);
 
       set({
         team: newTeam,
@@ -75,6 +79,8 @@ export const useTeamStore = create<TeamState>((set, get) => ({
   joinTeam: async (inviteCode: string, teamName: string) => {
     set({ loading: true, error: null });
     try {
+      const profile = useAuthStore.getState().profile;
+      const displayName = profile?.codename || 'User';
       const newTeam: Team = {
         id: `team_${Date.now()}`,
         name: teamName,
@@ -87,7 +93,7 @@ export const useTeamStore = create<TeamState>((set, get) => ({
       const newMember: TeamMember = {
         id: `member_${Date.now()}`,
         team_id: newTeam.id,
-        user_id: 'current_user',
+        user_id: displayName,
         joined_at: new Date().toISOString(),
       };
 
@@ -142,8 +148,10 @@ export const useTeamStore = create<TeamState>((set, get) => ({
         }
 
         // Also load current user's entries into the map
+        const profile = useAuthStore.getState().profile;
+        const displayName = profile?.codename || 'User';
         const currentEntries = getUserData<TimeEntry[]>('entries', []);
-        memberEntriesMap.set('current_user', currentEntries);
+        memberEntriesMap.set(displayName, currentEntries);
 
         set({
           team,

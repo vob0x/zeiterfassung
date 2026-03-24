@@ -4,11 +4,12 @@ import { useUiStore } from '@/stores/uiStore'
 import { useEntriesStore } from '@/stores/entriesStore'
 import { useMasterStore } from '@/stores/masterStore'
 import { useTeamStore } from '@/stores/teamStore'
-import { I18nProvider } from '@/i18n'
+import { I18nProvider, useI18n } from '@/i18n'
 import Layout from '@/components/Layout'
 import LoginScreen from '@/components/Auth/LoginScreen'
 
 function AppContent() {
+  const { t } = useI18n()
   const { isAuthenticated, loading, initializeAuth } = useAuthStore()
   const { theme } = useUiStore()
   const fetchEntries = useEntriesStore((s) => s.fetch)
@@ -39,7 +40,7 @@ function AppContent() {
         <div className="text-center">
           <div className="w-12 h-12 border-4 rounded-full animate-spin mx-auto mb-4"
             style={{ borderColor: 'var(--border)', borderTopColor: 'var(--neon-cyan)' }} />
-          <p style={{ color: 'var(--text-secondary)' }}>Laden...</p>
+          <p style={{ color: 'var(--text-secondary)' }}>{t('ui.loading')}</p>
         </div>
       </div>
     )

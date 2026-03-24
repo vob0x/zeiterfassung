@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useI18n } from '../../i18n';
 import { useEntriesStore } from '../../stores/entriesStore';
 import { useMasterStore } from '../../stores/masterStore';

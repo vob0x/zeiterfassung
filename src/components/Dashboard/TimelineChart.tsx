@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { TimeEntry } from '@/types';
 import { useI18n } from '../../i18n';
 import { computeUnionMs } from '../../lib/utils';
@@ -30,9 +30,6 @@ export function TimelineChart({ entries }: TimelineChartProps) {
     const chartDates = uniqueDates.slice(Math.max(0, uniqueDates.length - 14));
 
     const uniqueProjects = [...new Set(entries.map((e) => e.projekt))].sort();
-    const projectColorMap = Object.fromEntries(
-      uniqueProjects.map((p, i) => [p, PROJECT_COLORS[i % PROJECT_COLORS.length]])
-    );
 
     let maxHours = 0;
 

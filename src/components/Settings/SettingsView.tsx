@@ -2,16 +2,18 @@ import { useState } from 'react';
 import { useI18n } from '../../i18n';
 import { useUiStore } from '../../stores/uiStore';
 import { useTeamStore } from '../../stores/teamStore';
+import { useAuthStore } from '../../stores/authStore';
 import ConfirmDialog from '../UI/ConfirmDialog';
 
 export function SettingsView() {
   const { t, language, setLanguage } = useI18n();
   const { theme, toggleTheme, showToast } = useUiStore();
   const { team, members } = useTeamStore();
+  const { signOut, profile } = useAuthStore();
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
 
-  const handleSignOut = () => {
-    localStorage.clear();
+  const handleSignOut = async () => {
+    await signOut();
     window.location.reload();
   };
 
@@ -78,7 +80,7 @@ export function SettingsView() {
           <div>
             <label className="text-xs" style={{ color: 'var(--text-muted)' }}>{t('auth.codename')}</label>
             <div className="mt-1 px-3 py-2 rounded border" style={{ background: 'var(--surface-solid)', color: 'var(--text-secondary)', borderColor: 'var(--border)' }}>
-              {localStorage.getItem('userCodename') || t('settings.notSet')}
+              {profile?.codename || t('settings.notSet')}
             </div>
           </div>
 
@@ -112,7 +114,7 @@ export function SettingsView() {
               </div>
             </div>
 
-            {team.creator_id === localStorage.getItem('userId') && (
+            {team.creator_id === profile?.id && (
               <div>
                 <label className="text-xs" style={{ color: 'var(--text-muted)' }}>{t('settings.inviteCode')}</label>
                 <div className="mt-1 flex gap-2">

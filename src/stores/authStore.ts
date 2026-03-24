@@ -22,6 +22,11 @@ function codeToEmail(codename: string): string {
   return `${codename.toLowerCase().replace(/[^a-z0-9_-]/g, '_')}@zeiterfassung.local`
 }
 
+// Deterministic local user ID based on codename (stable across sessions)
+function localUserId(codename: string): string {
+  return `local_${codename.toLowerCase().replace(/[^a-z0-9_-]/g, '_')}`
+}
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   profile: null,
   session: null,
@@ -122,8 +127,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       // Offline fallback: local-only session
+      const userId = localUserId(codename)
+      // Check if this user already has a session (preserve existing ID for data continuity)
+      const existingSession = localStorage.getItem('zeiterfassung_session')
+      let existingId = userId
+      if (existingSession) {
+        try {
+          const parsed = JSON.parse(existingSession)
+          if (parsed.user?.codename?.toLowerCase() === codename.toLowerCase() && parsed.user?.id) {
+            existingId = parsed.user.id
+          }
+        } catch {}
+      }
       const profile: Profile = {
-        id: `local_${Date.now()}`,
+        id: existingId,
         codename,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -134,9 +151,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         refresh_token: 'local',
       }
       localStorage.setItem('zeiterfassung_session', JSON.stringify(session))
+      localStorage.setItem('userCodename', codename)
       set({ profile, session, loading: false, isAuthenticated: true })
     } catch (error: any) {
-      const msg = error?.message || 'Anmeldung fehlgeschlagen'
+      const msg = error?.message || 'Authentication failed'
       set({ error: msg, loading: false })
       throw error
     }
@@ -157,7 +175,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         if (error) {
           // "User already registered" → codename taken
           if (error.message?.includes('already registered')) {
-            throw new Error('Codename bereits vergeben')
+            throw new Error('CODENAME_TAKEN')
           }
           throw error
         }
@@ -184,7 +202,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       // Offline fallback
       const profile: Profile = {
-        id: `local_${Date.now()}`,
+        id: localUserId(codename),
         codename,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -195,9 +213,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         refresh_token: 'local',
       }
       localStorage.setItem('zeiterfassung_session', JSON.stringify(session))
+      localStorage.setItem('userCodename', codename)
       set({ profile, session, loading: false, isAuthenticated: true })
     } catch (error: any) {
-      const msg = error?.message || 'Registrierung fehlgeschlagen'
+      const msg = error?.message || 'Registration failed'
       set({ error: msg, loading: false })
       throw error
     }

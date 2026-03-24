@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense } from 'react'
+import { useState } from 'react'
 import {
   Clock,
   List,

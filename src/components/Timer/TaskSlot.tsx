@@ -13,7 +13,7 @@ interface TaskSlotProps {
   index: number;
 }
 
-const TaskSlot: React.FC<TaskSlotProps> = ({ slot, index }) => {
+const TaskSlot: React.FC<TaskSlotProps> = ({ slot }) => {
   const { t } = useI18n();
   const { showToast } = useUiStore();
   const {

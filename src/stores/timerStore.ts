@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { TimerSlot } from '@/types';
 import { useEntriesStore } from './entriesStore';
 import { useAuthStore } from './authStore';
-import { getUserData, setUserData } from '@/lib/userStorage';
+import { setUserData } from '@/lib/userStorage';
 
 interface TimerState {
   taskSlots: TimerSlot[];
