@@ -3,12 +3,14 @@ import { useI18n } from '../../i18n';
 import { useTeamStore } from '../../stores/teamStore';
 import { useEntriesStore } from '../../stores/entriesStore';
 import { useUiStore } from '../../stores/uiStore';
+import { isSupabaseAvailable } from '../../lib/supabase';
 import ConfirmDialog from '../UI/ConfirmDialog';
 import { PeriodType } from '@/types';
 import { TeamDaily } from './TeamDaily';
 import { TeamMatrix } from './TeamMatrix';
 import { TeamWorkload } from './TeamWorkload';
 import { TeamTimeline } from './TeamTimeline';
+import { Copy, Users, UserPlus, Wifi, WifiOff } from 'lucide-react';
 
 export default function TeamView() {
   const { t } = useI18n();
@@ -21,6 +23,10 @@ export default function TeamView() {
   const [inviteCode, setInviteCode] = useState('');
   const [setupMode, setSetupMode] = useState<'create' | 'join' | null>(null);
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
+  const [isJoining, setIsJoining] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+
+  const isOnline = isSupabaseAvailable();
 
   const handleCreateTeam = async (name: string) => {
     if (!name.trim()) {
@@ -28,6 +34,7 @@ export default function TeamView() {
       return;
     }
 
+    setIsCreating(true);
     try {
       await createTeam(name);
       showToast(`${t('toast.connected')} ${name}`, 'success');
@@ -35,23 +42,33 @@ export default function TeamView() {
       setSetupMode(null);
     } catch (error) {
       showToast(error instanceof Error ? error.message : t('toast.error'), 'error');
+    } finally {
+      setIsCreating(false);
     }
   };
 
-  const handleJoinTeam = async (code: string, name: string) => {
-    if (!code.trim() || !name.trim()) {
+  const handleJoinTeam = async (code: string) => {
+    if (!code.trim()) {
       showToast(t('team.codeRequired'), 'error');
       return;
     }
 
+    setIsJoining(true);
     try {
-      await joinTeam(code, name);
-      showToast(`${t('toast.connected')} ${name}`, 'success');
+      await joinTeam(code);
+      showToast(t('toast.syncOk'), 'success');
       setInviteCode('');
       setTeamName('');
       setSetupMode(null);
     } catch (error) {
-      showToast(error instanceof Error ? error.message : t('toast.error'), 'error');
+      const msg = error instanceof Error ? error.message : '';
+      if (msg === 'INVALID_INVITE_CODE') {
+        showToast(t('team.invalidCode'), 'error');
+      } else {
+        showToast(msg || t('toast.error'), 'error');
+      }
+    } finally {
+      setIsJoining(false);
     }
   };
 
@@ -73,6 +90,13 @@ export default function TeamView() {
     }
   };
 
+  const handleCopyInviteCode = () => {
+    if (team?.invite_code) {
+      navigator.clipboard.writeText(team.invite_code);
+      showToast(t('settings.copied'), 'success');
+    }
+  };
+
   // Compute KPIs
   const allTeamEntries = Array.from(memberEntries.values()).flat();
   const totalHours = allTeamEntries.reduce((sum, entry) => sum + (entry.duration_ms || 0) / (1000 * 60 * 60), 0);
@@ -82,31 +106,50 @@ export default function TeamView() {
   const workingDays = new Set(allTeamEntries.map((e) => e.date)).size || 1;
   const avgPerDay = workingDays > 0 ? totalHours / workingDays : 0;
 
+  // ========================================================================
+  // NOT CONNECTED — Setup Screen
+  // ========================================================================
   if (!connected) {
     return (
       <div className="w-full max-w-2xl mx-auto p-4">
         <div className="rounded-lg p-6 backdrop-blur-sm space-y-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
-          <h2 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>{t('team.setupText')}</h2>
+          <div className="flex items-center gap-3 mb-2">
+            <Users className="w-6 h-6" style={{ color: 'var(--neon-cyan)' }} />
+            <h2 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>{t('team.setupText')}</h2>
+          </div>
+
+          {/* Connection status indicator */}
+          <div className="flex items-center gap-2 text-xs px-3 py-2 rounded-md"
+            style={{
+              background: isOnline ? 'rgba(110,196,158,0.08)' : 'rgba(229,168,75,0.08)',
+              color: isOnline ? 'var(--success)' : 'var(--warning)',
+            }}>
+            {isOnline ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
+            {isOnline ? t('team.onlineMode') : t('team.offlineMode')}
+          </div>
 
           {setupMode === null && (
             <div className="flex gap-3">
               <button
                 onClick={() => setSetupMode('create')}
-                className="flex-1 px-4 py-3 rounded font-medium transition-all"
+                className="flex-1 px-4 py-3 rounded font-medium transition-all flex items-center justify-center gap-2"
                 style={{ background: 'rgba(201,169,98,0.07)', border: '1px solid rgba(201,169,98,0.18)', color: 'var(--neon-cyan)' }}
               >
+                <Users className="w-4 h-4" />
                 {t('team.create')}
               </button>
               <button
                 onClick={() => setSetupMode('join')}
-                className="flex-1 px-4 py-3 rounded font-medium transition-all"
+                className="flex-1 px-4 py-3 rounded font-medium transition-all flex items-center justify-center gap-2"
                 style={{ background: 'rgba(110,196,158,0.08)', border: '1px solid rgba(110,196,158,0.18)', color: 'var(--success)' }}
               >
+                <UserPlus className="w-4 h-4" />
                 {t('team.join')}
               </button>
             </div>
           )}
 
+          {/* CREATE TEAM */}
           {setupMode === 'create' && (
             <div className="space-y-3">
               <input
@@ -119,24 +162,21 @@ export default function TeamView() {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') handleCreateTeam(teamName);
                 }}
+                disabled={isCreating}
               />
               <div className="flex gap-2">
                 <button
                   onClick={() => handleCreateTeam(teamName)}
+                  disabled={isCreating}
                   className="flex-1 px-4 py-2 rounded font-medium transition-all"
-                  style={{ background: 'rgba(201,169,98,0.07)', border: '1px solid rgba(201,169,98,0.18)', color: 'var(--neon-cyan)' }}
+                  style={{ background: 'rgba(201,169,98,0.07)', border: '1px solid rgba(201,169,98,0.18)', color: 'var(--neon-cyan)', opacity: isCreating ? 0.6 : 1 }}
                 >
-                  {t('team.create')}
+                  {isCreating ? t('ui.loading') : t('team.create')}
                 </button>
                 <button
-                  onClick={() => {
-                    setSetupMode(null);
-                    setTeamName('');
-                  }}
+                  onClick={() => { setSetupMode(null); setTeamName(''); }}
                   className="px-4 py-2 rounded font-medium transition-colors"
                   style={{ background: 'var(--surface-solid)', color: 'var(--text)' }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-hover)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--surface-solid)')}
                 >
                   {t('btn.cancel')}
                 </button>
@@ -144,6 +184,7 @@ export default function TeamView() {
             </div>
           )}
 
+          {/* JOIN TEAM */}
           {setupMode === 'join' && (
             <div className="space-y-3">
               <input
@@ -152,38 +193,43 @@ export default function TeamView() {
                 value={inviteCode}
                 onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
                 maxLength={6}
-                className="w-full px-4 py-2 rounded border font-mono text-center focus:outline-none"
-                style={{ background: 'var(--surface-solid)', color: 'var(--text)', borderColor: 'var(--border)' }}
-              />
-              <input
-                type="text"
-                placeholder={t('team.yourName')}
-                value={teamName}
-                onChange={(e) => setTeamName(e.target.value)}
-                className="w-full px-4 py-2 rounded border focus:outline-none"
-                style={{ background: 'var(--surface-solid)', color: 'var(--text)', borderColor: 'var(--border)' }}
+                className="w-full px-4 py-3 rounded border font-mono text-center text-lg tracking-widest focus:outline-none"
+                style={{ background: 'var(--surface-solid)', color: 'var(--text)', borderColor: 'var(--border)', letterSpacing: '0.3em' }}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleJoinTeam(inviteCode, teamName);
+                  if (e.key === 'Enter' && inviteCode.length === 6) handleJoinTeam(inviteCode);
                 }}
+                disabled={isJoining}
               />
+              {/* In offline mode, also ask for a team name since we can't look it up */}
+              {!isOnline && (
+                <input
+                  type="text"
+                  placeholder={t('team.yourName')}
+                  value={teamName}
+                  onChange={(e) => setTeamName(e.target.value)}
+                  className="w-full px-4 py-2 rounded border focus:outline-none"
+                  style={{ background: 'var(--surface-solid)', color: 'var(--text)', borderColor: 'var(--border)' }}
+                  disabled={isJoining}
+                />
+              )}
               <div className="flex gap-2">
                 <button
-                  onClick={() => handleJoinTeam(inviteCode, teamName)}
+                  onClick={() => handleJoinTeam(inviteCode)}
+                  disabled={isJoining || inviteCode.length < 6}
                   className="flex-1 px-4 py-2 rounded font-medium transition-all"
-                  style={{ background: 'rgba(110,196,158,0.08)', border: '1px solid rgba(110,196,158,0.18)', color: 'var(--success)' }}
+                  style={{
+                    background: 'rgba(110,196,158,0.08)',
+                    border: '1px solid rgba(110,196,158,0.18)',
+                    color: 'var(--success)',
+                    opacity: isJoining || inviteCode.length < 6 ? 0.5 : 1,
+                  }}
                 >
-                  {t('team.join')}
+                  {isJoining ? t('ui.loading') : t('team.join')}
                 </button>
                 <button
-                  onClick={() => {
-                    setSetupMode(null);
-                    setTeamName('');
-                    setInviteCode('');
-                  }}
+                  onClick={() => { setSetupMode(null); setTeamName(''); setInviteCode(''); }}
                   className="px-4 py-2 rounded font-medium transition-colors"
                   style={{ background: 'var(--surface-solid)', color: 'var(--text)' }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-hover)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--surface-solid)')}
                 >
                   {t('btn.cancel')}
                 </button>
@@ -195,33 +241,66 @@ export default function TeamView() {
     );
   }
 
-  // Team is connected
+  // ========================================================================
+  // CONNECTED — Team Dashboard
+  // ========================================================================
   return (
     <div className="w-full max-w-7xl mx-auto p-4 space-y-6">
       {/* Team Header */}
-      <div className="rounded-lg p-4 backdrop-blur-sm flex items-center justify-between flex-wrap gap-3" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
-        <div>
-          <h2 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>{team?.name}</h2>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            {t('team.connected')} {members.length} {t('team.persons').toLowerCase()}
-          </p>
+      <div className="rounded-lg p-4 backdrop-blur-sm" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <h2 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>{team?.name}</h2>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+              {members.length} {t('team.persons')}
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={handleSync}
+              className="px-4 py-2 rounded font-medium transition-all"
+              style={{ background: 'rgba(201,169,98,0.07)', border: '1px solid rgba(201,169,98,0.18)', color: 'var(--neon-cyan)' }}
+            >
+              {t('team.sync')}
+            </button>
+            <button
+              onClick={() => setShowDisconnectConfirm(true)}
+              className="px-4 py-2 rounded font-medium transition-all"
+              style={{ background: 'rgba(212,112,110,0.08)', border: '1px solid rgba(212,112,110,0.18)', color: 'var(--danger)' }}
+            >
+              {t('team.disconnect')}
+            </button>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={handleSync}
-            className="px-4 py-2 rounded font-medium transition-all"
-            style={{ background: 'rgba(201,169,98,0.07)', border: '1px solid rgba(201,169,98,0.18)', color: 'var(--neon-cyan)' }}
-          >
-            {t('team.sync')}
-          </button>
-          <button
-            onClick={() => setShowDisconnectConfirm(true)}
-            className="px-4 py-2 rounded font-medium transition-all"
-            style={{ background: 'rgba(212,112,110,0.08)', border: '1px solid rgba(212,112,110,0.18)', color: 'var(--danger)' }}
-          >
-            {t('team.disconnect')}
-          </button>
-        </div>
+
+        {/* Invite Code Section — always visible for team members */}
+        {team?.invite_code && (
+          <div className="mt-3 pt-3 flex items-center gap-3 flex-wrap" style={{ borderTop: '1px solid var(--border)' }}>
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{t('settings.inviteCode')}:</span>
+            <code className="font-mono text-sm font-bold px-3 py-1 rounded tracking-widest"
+              style={{ background: 'rgba(201,169,98,0.08)', color: 'var(--neon-cyan)', letterSpacing: '0.15em' }}>
+              {team.invite_code}
+            </code>
+            <button
+              onClick={handleCopyInviteCode}
+              className="flex items-center gap-1 text-xs px-2 py-1 rounded transition-colors"
+              style={{ color: 'var(--text-secondary)', background: 'var(--surface-solid)' }}
+              title={t('settings.copied')}
+            >
+              <Copy className="w-3.5 h-3.5" />
+            </button>
+            {/* Member avatars */}
+            <div className="flex items-center gap-1 ml-auto">
+              {members.map((m) => (
+                <span key={m.id}
+                  className="text-xs px-2 py-1 rounded-full font-medium"
+                  style={{ background: 'rgba(155,142,196,0.1)', color: 'var(--neon-violet, #9B8EC4)' }}>
+                  {m.user_id}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Period Selector */}
@@ -235,8 +314,6 @@ export default function TeamView() {
               ? { background: 'rgba(201,169,98,0.12)', border: '1px solid rgba(201,169,98,0.25)', color: 'var(--neon-cyan)' }
               : { background: 'var(--surface-solid)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }
             }
-            onMouseEnter={(e) => period !== p && (e.currentTarget.style.background = 'var(--surface-hover)')}
-            onMouseLeave={(e) => period !== p && (e.currentTarget.style.background = 'var(--surface-solid)')}
           >
             {t(`team.${p}`)}
           </button>
@@ -271,37 +348,33 @@ export default function TeamView() {
         <div className="text-center py-12" style={{ color: 'var(--text-muted)' }}>{t('team.nodata')}</div>
       ) : (
         <>
-          {/* Daily Overview */}
           <div className="rounded-lg p-4 backdrop-blur-sm" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
             <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text)' }}>{t('team.attendance')}</h3>
             <TeamDaily memberEntries={memberEntries} entries={entries} />
           </div>
 
-          {/* Stakeholder × Person Matrix */}
           <div className="rounded-lg p-4 backdrop-blur-sm" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
             <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text)' }}>{t('team.shxperson')}</h3>
             <TeamMatrix dimension="stakeholder" entries={allTeamEntries} members={members} />
           </div>
 
-          {/* Project × Person Matrix */}
           <div className="rounded-lg p-4 backdrop-blur-sm" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
             <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text)' }}>{t('team.prxperson')}</h3>
             <TeamMatrix dimension="project" entries={allTeamEntries} members={members} />
           </div>
 
-          {/* Workload per Person */}
           <div className="rounded-lg p-4 backdrop-blur-sm" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
             <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text)' }}>{t('team.workload')}</h3>
             <TeamWorkload memberEntries={memberEntries} entries={allTeamEntries} />
           </div>
 
-          {/* Timeline */}
           <div className="rounded-lg p-4 backdrop-blur-sm" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
             <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text)' }}>{t('team.timeline')}</h3>
             <TeamTimeline memberEntries={memberEntries} members={members} />
           </div>
         </>
       )}
+
       {/* Disconnect Confirmation */}
       <ConfirmDialog
         isOpen={showDisconnectConfirm}

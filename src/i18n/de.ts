@@ -158,6 +158,9 @@ export const de = {
     codeRequired: "Invite-Code und Name erforderlich",
     inviteCodePlaceholder: "Invite-Code (6 Zeichen)",
     yourName: "Dein Name",
+    invalidCode: "Ungültiger Invite-Code",
+    onlineMode: "Supabase verbunden — Echtzeit-Sync aktiv",
+    offlineMode: "Offline-Modus — Team-Daten nur lokal",
   },
 
   // KPIs

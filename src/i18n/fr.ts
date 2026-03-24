@@ -158,6 +158,9 @@ export const fr = {
     codeRequired: "Code d'invitation et nom requis",
     inviteCodePlaceholder: "Code d'invitation (6 caractères)",
     yourName: "Votre nom",
+    invalidCode: "Code d'invitation invalide",
+    onlineMode: "Supabase connecté — synchronisation en temps réel",
+    offlineMode: "Mode hors ligne — données d'équipe locales uniquement",
   },
 
   // KPIs

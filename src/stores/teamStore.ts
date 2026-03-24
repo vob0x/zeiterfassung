@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { Team, TeamMember, TimeEntry, PeriodType } from '@/types';
 import { getUserData, setUserData, removeUserData } from '@/lib/userStorage';
 import { useAuthStore } from './authStore';
+import { supabaseClient, isSupabaseAvailable } from '@/lib/supabase';
 
 interface TeamState {
   team: Team | null;
@@ -12,13 +13,23 @@ interface TeamState {
   loading: boolean;
   error: string | null;
   createTeam: (name: string) => Promise<void>;
-  joinTeam: (inviteCode: string, teamName: string) => Promise<void>;
+  joinTeam: (inviteCode: string, displayName?: string) => Promise<void>;
   leaveTeam: () => Promise<void>;
   syncTeamData: () => Promise<void>;
   setTeamPeriod: (period: PeriodType) => void;
   getTeamMemberEntries: (memberId: string) => TimeEntry[];
   setError: (error: string | null) => void;
   clearError: () => void;
+}
+
+// Generate a unique 6-character invite code
+function generateInviteCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // No I/O/0/1 to avoid confusion
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
 }
 
 export const useTeamStore = create<TeamState>((set, get) => ({
@@ -30,13 +41,78 @@ export const useTeamStore = create<TeamState>((set, get) => ({
   loading: false,
   error: null,
 
+  // ========================================================================
+  // CREATE TEAM
+  // ========================================================================
   createTeam: async (name: string) => {
     set({ loading: true, error: null });
     try {
       const profile = useAuthStore.getState().profile;
       const userId = profile?.id || 'anonymous';
       const displayName = profile?.codename || 'User';
-      const inviteCode = Math.random().toString(36).substr(2, 6).toUpperCase();
+
+      // ── Supabase mode ──
+      if (isSupabaseAvailable() && supabaseClient) {
+        const inviteCode = generateInviteCode();
+
+        // Insert team
+        const { data: teamData, error: teamErr } = await supabaseClient
+          .from('teams')
+          .insert({
+            name,
+            creator_id: userId,
+            invite_code: inviteCode,
+          })
+          .select()
+          .single();
+
+        if (teamErr) throw new Error(teamErr.message);
+
+        // Insert creator as first member
+        const { error: memberErr } = await supabaseClient
+          .from('team_members')
+          .insert({
+            team_id: teamData.id,
+            user_id: userId,
+          });
+
+        if (memberErr) throw new Error(memberErr.message);
+
+        const team: Team = {
+          id: teamData.id,
+          name: teamData.name,
+          creator_id: teamData.creator_id,
+          invite_code: teamData.invite_code,
+          created_at: teamData.created_at,
+          updated_at: teamData.updated_at,
+        };
+
+        const member: TeamMember = {
+          id: `${teamData.id}_${userId}`,
+          team_id: teamData.id,
+          user_id: displayName,
+          joined_at: new Date().toISOString(),
+        };
+
+        const memberEntriesMap = new Map<string, TimeEntry[]>();
+        memberEntriesMap.set(displayName, []);
+
+        set({
+          team,
+          members: [member],
+          memberEntries: memberEntriesMap,
+          connected: true,
+          loading: false,
+        });
+
+        // Also persist locally for offline recovery
+        setUserData('team', team);
+        setUserData('teamMembers', [member]);
+        return;
+      }
+
+      // ── Offline/local mode ──
+      const inviteCode = generateInviteCode();
       const newTeam: Team = {
         id: `team_${Date.now()}`,
         name,
@@ -46,7 +122,6 @@ export const useTeamStore = create<TeamState>((set, get) => ({
         updated_at: new Date().toISOString(),
       };
 
-      // Add the creator as first member
       const creatorMember: TeamMember = {
         id: `member_${Date.now()}`,
         team_id: newTeam.id,
@@ -54,7 +129,6 @@ export const useTeamStore = create<TeamState>((set, get) => ({
         joined_at: new Date().toISOString(),
       };
 
-      // Load current user's entries (user-scoped)
       const currentEntries = getUserData<TimeEntry[]>('entries', []);
       const memberEntriesMap = new Map<string, TimeEntry[]>();
       memberEntriesMap.set(displayName, currentEntries);
@@ -76,15 +150,68 @@ export const useTeamStore = create<TeamState>((set, get) => ({
     }
   },
 
-  joinTeam: async (inviteCode: string, teamName: string) => {
+  // ========================================================================
+  // JOIN TEAM
+  // ========================================================================
+  joinTeam: async (inviteCode: string, displayName?: string) => {
     set({ loading: true, error: null });
     try {
       const profile = useAuthStore.getState().profile;
-      const displayName = profile?.codename || 'User';
+      const userName = displayName || profile?.codename || 'User';
+      const userId = profile?.id || 'anonymous';
+
+      // ── Supabase mode ──
+      if (isSupabaseAvailable() && supabaseClient) {
+        // Call RPC function to validate code and join
+        const { data, error: rpcError } = await supabaseClient
+          .rpc('join_team_by_code', {
+            p_invite_code: inviteCode.toUpperCase(),
+          });
+
+        if (rpcError) {
+          if (rpcError.message?.includes('INVALID_INVITE_CODE')) {
+            throw new Error('INVALID_INVITE_CODE');
+          }
+          throw new Error(rpcError.message);
+        }
+
+        const teamData = data as Record<string, any>;
+        const team: Team = {
+          id: teamData.id,
+          name: teamData.name,
+          creator_id: teamData.creator_id,
+          invite_code: teamData.invite_code,
+          created_at: teamData.created_at,
+          updated_at: teamData.updated_at,
+        };
+
+        const member: TeamMember = {
+          id: `${team.id}_${userId}`,
+          team_id: team.id,
+          user_id: userName,
+          joined_at: new Date().toISOString(),
+        };
+
+        set({
+          team,
+          members: [member],
+          connected: true,
+          loading: false,
+        });
+
+        setUserData('team', team);
+        setUserData('teamMembers', [member]);
+
+        // Immediately sync to get all members and their entries
+        await get().syncTeamData();
+        return;
+      }
+
+      // ── Offline/local mode ──
       const newTeam: Team = {
         id: `team_${Date.now()}`,
-        name: teamName,
-        invite_code: inviteCode,
+        name: userName,
+        invite_code: inviteCode.toUpperCase(),
         creator_id: 'other_user',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -93,7 +220,7 @@ export const useTeamStore = create<TeamState>((set, get) => ({
       const newMember: TeamMember = {
         id: `member_${Date.now()}`,
         team_id: newTeam.id,
-        user_id: displayName,
+        user_id: userName,
         joined_at: new Date().toISOString(),
       };
 
@@ -113,9 +240,36 @@ export const useTeamStore = create<TeamState>((set, get) => ({
     }
   },
 
+  // ========================================================================
+  // LEAVE TEAM
+  // ========================================================================
   leaveTeam: async () => {
     set({ loading: true, error: null });
     try {
+      // ── Supabase mode ──
+      if (isSupabaseAvailable() && supabaseClient) {
+        const profile = useAuthStore.getState().profile;
+        const team = get().team;
+
+        if (profile?.id && team?.id) {
+          // Delete team_member row (RLS ensures only own rows)
+          await supabaseClient
+            .from('team_members')
+            .delete()
+            .eq('team_id', team.id)
+            .eq('user_id', profile.id);
+
+          // If creator, delete the entire team
+          if (team.creator_id === profile.id) {
+            await supabaseClient
+              .from('teams')
+              .delete()
+              .eq('id', team.id);
+          }
+        }
+      }
+
+      // Clear local state
       removeUserData('team');
       removeUserData('teamMembers');
       removeUserData('memberEntries');
@@ -134,24 +288,127 @@ export const useTeamStore = create<TeamState>((set, get) => ({
     }
   },
 
+  // ========================================================================
+  // SYNC TEAM DATA
+  // ========================================================================
   syncTeamData: async () => {
     set({ loading: true, error: null });
     try {
-      const team = getUserData<Team | null>('team', null);
-      const members = getUserData<TeamMember[]>('teamMembers', []);
-      const memberEntriesData = getUserData<Record<string, TimeEntry[]>>('memberEntries', {});
+      const profile = useAuthStore.getState().profile;
+      const displayName = profile?.codename || 'User';
 
-      if (team) {
-        const memberEntriesMap = new Map<string, TimeEntry[]>();
-        for (const [memberId, entries] of Object.entries(memberEntriesData)) {
-          memberEntriesMap.set(memberId, entries as TimeEntry[]);
+      // ── Supabase mode ──
+      if (isSupabaseAvailable() && supabaseClient && profile?.id) {
+        // Check if user is in any team
+        const { data: membershipData } = await supabaseClient
+          .from('team_members')
+          .select('team_id')
+          .eq('user_id', profile.id)
+          .limit(1);
+
+        if (!membershipData || membershipData.length === 0) {
+          // Check localStorage fallback
+          const localTeam = getUserData<Team | null>('team', null);
+          if (localTeam) {
+            // We have a local team but no Supabase membership — load local data
+            await syncLocalData(set, get, displayName);
+          } else {
+            set({ loading: false, connected: false });
+          }
+          return;
         }
 
-        // Also load current user's entries into the map
-        const profile = useAuthStore.getState().profile;
-        const displayName = profile?.codename || 'User';
-        const currentEntries = getUserData<TimeEntry[]>('entries', []);
-        memberEntriesMap.set(displayName, currentEntries);
+        const teamId = membershipData[0].team_id;
+
+        // Fetch team details
+        const { data: teamData } = await supabaseClient
+          .from('teams')
+          .select('*')
+          .eq('id', teamId)
+          .single();
+
+        if (!teamData) {
+          set({ loading: false, connected: false });
+          return;
+        }
+
+        const team: Team = {
+          id: teamData.id,
+          name: teamData.name,
+          creator_id: teamData.creator_id,
+          invite_code: teamData.invite_code,
+          created_at: teamData.created_at,
+          updated_at: teamData.updated_at,
+        };
+
+        // Fetch all team members with their profiles
+        const { data: membersData } = await supabaseClient
+          .from('team_members')
+          .select(`
+            id,
+            team_id,
+            user_id,
+            joined_at
+          `)
+          .eq('team_id', teamId);
+
+        // Fetch codenames for each member
+        const memberUserIds = (membersData || []).map((m: any) => m.user_id);
+        const { data: profilesData } = await supabaseClient
+          .from('profiles')
+          .select('id, codename')
+          .in('id', memberUserIds);
+
+        const profileMap = new Map<string, string>();
+        (profilesData || []).forEach((p: any) => {
+          profileMap.set(p.id, p.codename);
+        });
+
+        const members: TeamMember[] = (membersData || []).map((m: any) => ({
+          id: m.id,
+          team_id: m.team_id,
+          user_id: profileMap.get(m.user_id) || m.user_id,
+          joined_at: m.joined_at,
+        }));
+
+        // Fetch all team entries via RPC
+        const { data: entriesData, error: entriesErr } = await supabaseClient
+          .rpc('get_team_entries', { p_team_id: teamId });
+
+        const memberEntriesMap = new Map<string, TimeEntry[]>();
+
+        if (!entriesErr && entriesData) {
+          (entriesData as any[]).forEach((row) => {
+            const codename = row.codename || 'Unknown';
+            const entry: TimeEntry = {
+              id: row.entry_id,
+              user_id: row.user_id,
+              date: typeof row.date === 'string' ? row.date : new Date(row.date).toISOString().split('T')[0],
+              stakeholder: row.stakeholder || '',
+              projekt: row.projekt || '',
+              taetigkeit: row.taetigkeit || '',
+              start_time: row.start_time || '',
+              end_time: row.end_time || '',
+              duration_ms: row.duration_ms || 0,
+              notiz: row.notiz || '',
+              created_at: '',
+              updated_at: '',
+            };
+            if (!memberEntriesMap.has(codename)) {
+              memberEntriesMap.set(codename, []);
+            }
+            memberEntriesMap.get(codename)!.push(entry);
+          });
+        }
+
+        // Also include current user's local entries if they're not in Supabase yet
+        const localEntries = getUserData<TimeEntry[]>('entries', []);
+        if (localEntries.length > 0) {
+          const existing = memberEntriesMap.get(displayName) || [];
+          const existingIds = new Set(existing.map((e) => e.id));
+          const newLocal = localEntries.filter((e) => !existingIds.has(e.id));
+          memberEntriesMap.set(displayName, [...existing, ...newLocal]);
+        }
 
         set({
           team,
@@ -160,13 +417,20 @@ export const useTeamStore = create<TeamState>((set, get) => ({
           connected: true,
           loading: false,
         });
-      } else {
-        set({ loading: false });
+
+        // Persist locally for offline recovery
+        setUserData('team', team);
+        setUserData('teamMembers', members);
+        return;
       }
+
+      // ── Offline/local mode ──
+      await syncLocalData(set, get, displayName);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to sync team data';
       set({ error: message, loading: false });
-      throw error;
+      // Don't throw — sync failures should not crash the app
+      console.error('Team sync error:', message);
     }
   },
 
@@ -187,6 +451,40 @@ export const useTeamStore = create<TeamState>((set, get) => ({
     set({ error: null });
   },
 }));
+
+// ========================================================================
+// Helper: Sync from localStorage (offline fallback)
+// ========================================================================
+async function syncLocalData(
+  set: (state: Partial<TeamState>) => void,
+  _get: () => TeamState,
+  displayName: string
+) {
+  const team = getUserData<Team | null>('team', null);
+  const members = getUserData<TeamMember[]>('teamMembers', []);
+  const memberEntriesData = getUserData<Record<string, TimeEntry[]>>('memberEntries', {});
+
+  if (team) {
+    const memberEntriesMap = new Map<string, TimeEntry[]>();
+    for (const [memberId, entries] of Object.entries(memberEntriesData)) {
+      memberEntriesMap.set(memberId, entries as TimeEntry[]);
+    }
+
+    // Load current user's entries
+    const currentEntries = getUserData<TimeEntry[]>('entries', []);
+    memberEntriesMap.set(displayName, currentEntries);
+
+    set({
+      team,
+      members,
+      memberEntries: memberEntriesMap,
+      connected: true,
+      loading: false,
+    });
+  } else {
+    set({ loading: false, connected: false });
+  }
+}
 
 // NOTE: Team sync is deferred to after auth (called from App.tsx),
 // NOT on store creation, because we need the user ID for scoped keys.
