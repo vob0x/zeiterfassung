@@ -371,17 +371,19 @@ export const useTeamStore = create<TeamState>((set, get) => ({
           joined_at: m.joined_at,
         }));
 
-        // Fetch all team entries via RPC
-        const { data: entriesData, error: entriesErr } = await supabaseClient
-          .rpc('get_team_entries', { p_team_id: teamId });
-
+        // Fetch all team members' entries directly (RLS handles visibility)
         const memberEntriesMap = new Map<string, TimeEntry[]>();
+        for (const uid of memberUserIds) {
+          const codename = profileMap.get(uid) || uid;
+          const { data: entriesData } = await supabaseClient
+            .from('time_entries')
+            .select('*')
+            .eq('user_id', uid)
+            .order('date', { ascending: false });
 
-        if (!entriesErr && entriesData) {
-          (entriesData as any[]).forEach((row) => {
-            const codename = row.codename || 'Unknown';
-            const entry: TimeEntry = {
-              id: row.entry_id,
+          if (entriesData) {
+            const entries: TimeEntry[] = entriesData.map((row: any) => ({
+              id: row.id,
               user_id: row.user_id,
               date: typeof row.date === 'string' ? row.date : new Date(row.date).toISOString().split('T')[0],
               stakeholder: row.stakeholder || '',
@@ -391,14 +393,11 @@ export const useTeamStore = create<TeamState>((set, get) => ({
               end_time: row.end_time || '',
               duration_ms: row.duration_ms || 0,
               notiz: row.notiz || '',
-              created_at: '',
-              updated_at: '',
-            };
-            if (!memberEntriesMap.has(codename)) {
-              memberEntriesMap.set(codename, []);
-            }
-            memberEntriesMap.get(codename)!.push(entry);
-          });
+              created_at: row.created_at || '',
+              updated_at: row.updated_at || '',
+            }));
+            memberEntriesMap.set(codename, entries);
+          }
         }
 
         // Also include current user's local entries if they're not in Supabase yet

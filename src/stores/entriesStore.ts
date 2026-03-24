@@ -5,6 +5,24 @@ import { computeUnionMs } from '@/lib/utils';
 import { supabaseClient, isSupabaseAvailable } from '@/lib/supabase';
 import { useAuthStore } from './authStore';
 
+// Generate a proper UUID v4 (required by Supabase)
+function generateUUID(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Fallback UUID v4
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+// Check if a string is a valid UUID
+function isValidUUID(str: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+}
+
 interface EntriesState {
   entries: TimeEntry[];
   loading: boolean;
@@ -76,9 +94,30 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
           set({ entries: merged });
           setUserData('entries', merged);
 
-          // Push local-only entries to Supabase
+          // Push local-only entries to Supabase (fix non-UUID IDs first)
           if (localOnly.length > 0) {
-            const rows = localOnly.map((e) => ({
+            let needsLocalUpdate = false;
+            const fixedEntries = localOnly.map((e) => {
+              if (!isValidUUID(e.id)) {
+                needsLocalUpdate = true;
+                return { ...e, id: generateUUID() };
+              }
+              return e;
+            });
+
+            // If we generated new UUIDs, update local storage
+            if (needsLocalUpdate) {
+              // Rebuild merged with fixed IDs
+              const oldIdMap = new Map(localOnly.map((old, i) => [old.id, fixedEntries[i].id]));
+              const updatedMerged = merged.map((e) => {
+                const newId = oldIdMap.get(e.id);
+                return newId ? { ...e, id: newId } : e;
+              });
+              set({ entries: updatedMerged });
+              setUserData('entries', updatedMerged);
+            }
+
+            const rows = fixedEntries.map((e) => ({
               id: e.id,
               user_id: profile.id,
               date: e.date,
@@ -124,7 +163,7 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
       }
 
       const newEntry: TimeEntry = {
-        id: `entry_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+        id: generateUUID(),
         user_id: (entry as any).user_id || 'local',
         date: entry.date,
         stakeholder: entry.stakeholder || '',
