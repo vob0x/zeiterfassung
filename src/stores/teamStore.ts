@@ -15,6 +15,7 @@ interface TeamState {
   createTeam: (name: string) => Promise<void>;
   joinTeam: (inviteCode: string, displayName?: string) => Promise<void>;
   leaveTeam: () => Promise<void>;
+  removeMember: (memberCodename: string) => Promise<void>;
   syncTeamData: () => Promise<void>;
   setTeamPeriod: (period: PeriodType) => void;
   getTeamMemberEntries: (memberId: string) => TimeEntry[];
@@ -284,6 +285,52 @@ export const useTeamStore = create<TeamState>((set, get) => ({
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to leave team';
       set({ error: message, loading: false });
+      throw error;
+    }
+  },
+
+  // ========================================================================
+  // REMOVE MEMBER (creator only)
+  // ========================================================================
+  removeMember: async (memberCodename: string) => {
+    set({ error: null });
+    try {
+      const profile = useAuthStore.getState().profile;
+      const team = get().team;
+
+      if (!profile?.id || !team?.id) throw new Error('Not authenticated or no team');
+      if (team.creator_id !== profile.id) throw new Error('Only the team creator can remove members');
+
+      if (isSupabaseAvailable() && supabaseClient) {
+        // Look up the user_id for this codename via profiles
+        const { data: profileData } = await supabaseClient
+          .from('profiles')
+          .select('id')
+          .eq('codename', memberCodename)
+          .maybeSingle();
+
+        if (!profileData) throw new Error('Member not found');
+
+        // Delete from team_members (SECURITY DEFINER or creator privilege needed)
+        const { error: delErr } = await supabaseClient
+          .from('team_members')
+          .delete()
+          .eq('team_id', team.id)
+          .eq('user_id', profileData.id);
+
+        if (delErr) throw new Error(delErr.message);
+      }
+
+      // Update local state
+      const members = get().members.filter((m) => m.user_id !== memberCodename);
+      const memberEntries = new Map(get().memberEntries);
+      memberEntries.delete(memberCodename);
+
+      set({ members, memberEntries });
+      setUserData('teamMembers', members);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to remove member';
+      set({ error: message });
       throw error;
     }
   },

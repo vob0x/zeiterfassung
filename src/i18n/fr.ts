@@ -161,6 +161,9 @@ export const fr = {
     invalidCode: "Code d'invitation invalide",
     onlineMode: "Supabase connecté — synchronisation en temps réel",
     offlineMode: "Mode hors ligne — données d'équipe locales uniquement",
+    removeMember: "Retirer",
+    removeMemberConfirm: "Retirer ce membre de l'équipe ?",
+    memberRemoved: "Membre retiré.",
   },
 
   // KPIs

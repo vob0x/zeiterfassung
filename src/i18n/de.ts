@@ -161,6 +161,9 @@ export const de = {
     invalidCode: "Ungültiger Invite-Code",
     onlineMode: "Supabase verbunden — Echtzeit-Sync aktiv",
     offlineMode: "Offline-Modus — Team-Daten nur lokal",
+    removeMember: "Entfernen",
+    removeMemberConfirm: "Mitglied aus dem Team entfernen?",
+    memberRemoved: "Mitglied entfernt.",
   },
 
   // KPIs

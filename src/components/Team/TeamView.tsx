@@ -10,11 +10,14 @@ import { TeamDaily } from './TeamDaily';
 import { TeamMatrix } from './TeamMatrix';
 import { TeamWorkload } from './TeamWorkload';
 import { TeamTimeline } from './TeamTimeline';
-import { Copy, Users, UserPlus, Wifi, WifiOff } from 'lucide-react';
+import { useAuthStore } from '../../stores/authStore';
+import { Copy, Users, UserPlus, UserMinus, Wifi, WifiOff } from 'lucide-react';
 
 export default function TeamView() {
   const { t } = useI18n();
-  const { team, members, memberEntries, connected, syncTeamData, leaveTeam, createTeam, joinTeam } = useTeamStore();
+  const { team, members, memberEntries, connected, syncTeamData, leaveTeam, removeMember, createTeam, joinTeam } = useTeamStore();
+  const profile = useAuthStore((s) => s.profile);
+  const isCreator = team?.creator_id === profile?.id;
   const entries = useEntriesStore((state) => state.entries);
   const showToast = useUiStore((state) => state.showToast);
   const { period, setTeamPeriod } = useTeamStore();
@@ -23,6 +26,7 @@ export default function TeamView() {
   const [inviteCode, setInviteCode] = useState('');
   const [setupMode, setSetupMode] = useState<'create' | 'join' | null>(null);
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
+  const [removingMember, setRemovingMember] = useState<string | null>(null);
   const [isJoining, setIsJoining] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
 
@@ -94,6 +98,17 @@ export default function TeamView() {
     if (team?.invite_code) {
       navigator.clipboard.writeText(team.invite_code);
       showToast(t('settings.copied'), 'success');
+    }
+  };
+
+  const handleRemoveMember = async (codename: string) => {
+    try {
+      await removeMember(codename);
+      showToast(t('team.memberRemoved'), 'success');
+      setRemovingMember(null);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : t('toast.error'), 'error');
+      setRemovingMember(null);
     }
   };
 
@@ -290,14 +305,27 @@ export default function TeamView() {
               <Copy className="w-3.5 h-3.5" />
             </button>
             {/* Member avatars */}
-            <div className="flex items-center gap-1 ml-auto">
-              {members.map((m) => (
-                <span key={m.id}
-                  className="text-xs px-2 py-1 rounded-full font-medium"
-                  style={{ background: 'rgba(155,142,196,0.1)', color: 'var(--neon-violet, #9B8EC4)' }}>
-                  {m.user_id}
-                </span>
-              ))}
+            <div className="flex items-center gap-1 ml-auto flex-wrap">
+              {members.map((m) => {
+                const isSelf = m.user_id === profile?.codename;
+                return (
+                  <span key={m.id}
+                    className="text-xs px-2 py-1 rounded-full font-medium inline-flex items-center gap-1"
+                    style={{ background: 'rgba(155,142,196,0.1)', color: 'var(--neon-violet, #9B8EC4)' }}>
+                    {m.user_id}
+                    {isCreator && !isSelf && (
+                      <button
+                        onClick={() => setRemovingMember(m.user_id)}
+                        className="ml-0.5 rounded-full hover:opacity-80 transition-opacity"
+                        style={{ color: 'var(--danger)' }}
+                        title={t('team.removeMember')}
+                      >
+                        <UserMinus className="w-3 h-3" />
+                      </button>
+                    )}
+                  </span>
+                );
+              })}
             </div>
           </div>
         )}
@@ -374,6 +402,18 @@ export default function TeamView() {
           </div>
         </>
       )}
+
+      {/* Remove Member Confirmation */}
+      <ConfirmDialog
+        isOpen={!!removingMember}
+        onClose={() => setRemovingMember(null)}
+        title={`${removingMember} ${t('team.removeMember').toLowerCase()}`}
+        message={t('team.removeMemberConfirm')}
+        confirmText={t('team.removeMember')}
+        cancelText={t('btn.cancel')}
+        onConfirm={() => removingMember && handleRemoveMember(removingMember)}
+        isDanger
+      />
 
       {/* Disconnect Confirmation */}
       <ConfirmDialog
