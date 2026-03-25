@@ -70,27 +70,10 @@ export const useMasterStore = create<MasterState>((set, get) => ({
   fetch: async () => {
     set({ loading: true, error: null });
     try {
-      // Debug: log all ze_ keys in localStorage
-      const allZeKeys: string[] = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k && (k.startsWith('ze_') || k === 'stakeholders' || k === 'projects' || k === 'activities')) {
-          allZeKeys.push(k);
-        }
-      }
-      console.log('[masterStore] All relevant localStorage keys:', allZeKeys);
-      console.log('[masterStore] Current profile:', useAuthStore.getState().profile);
-
       // Always load from localStorage first (source of truth)
       const localStakeholders = getUserData<string[]>('stakeholders', []);
       const localProjects = getUserData<string[]>('projects', []);
       const localActivities = getUserData<string[]>('activities', []);
-
-      console.log('[masterStore] localStorage data:', {
-        stakeholders: localStakeholders,
-        projects: localProjects,
-        activities: localActivities,
-      });
 
       // Show local data immediately
       set({
@@ -102,7 +85,6 @@ export const useMasterStore = create<MasterState>((set, get) => ({
 
       // Then try to merge with Supabase data (own + teammates via RLS)
       const userId = getSupabaseUserId();
-      console.log('[masterStore] Supabase userId:', userId, 'available:', isSupabaseAvailable());
 
       if (isSupabaseAvailable() && supabaseClient && userId) {
         // RLS automatically includes teammates' data if user is in a team
@@ -112,12 +94,6 @@ export const useMasterStore = create<MasterState>((set, get) => ({
           supabaseClient.from('activities').select('name').order('sort_order'),
         ]);
 
-        console.log('[masterStore] Supabase responses:', {
-          stakeholders: { data: shRes.data, error: shRes.error?.message },
-          projects: { data: prRes.data, error: prRes.error?.message },
-          activities: { data: actRes.data, error: actRes.error?.message },
-        });
-
         const sbStakeholders = (shRes.data || []).map((r: any) => r.name);
         const sbProjects = (prRes.data || []).map((r: any) => r.name);
         const sbActivities = (actRes.data || []).map((r: any) => r.name);
@@ -126,12 +102,6 @@ export const useMasterStore = create<MasterState>((set, get) => ({
         const mergedStakeholders = mergeNames(sbStakeholders, localStakeholders);
         const mergedProjects = mergeNames(sbProjects, localProjects);
         const mergedActivities = mergeNames(sbActivities, localActivities);
-
-        console.log('[masterStore] Merged result:', {
-          stakeholders: mergedStakeholders,
-          projects: mergedProjects,
-          activities: mergedActivities,
-        });
 
         set({
           stakeholders: mergedStakeholders,
@@ -150,7 +120,6 @@ export const useMasterStore = create<MasterState>((set, get) => ({
         syncListToSupabase('activities', mergedActivities, userId);
       }
     } catch (error) {
-      console.error('[masterStore] fetch error:', error);
       const message = error instanceof Error ? error.message : 'Failed to fetch master data';
       set({ error: message, loading: false });
     }
