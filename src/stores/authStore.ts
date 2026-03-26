@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { supabaseClient, isSupabaseAvailable } from '@/lib/supabase'
 import { deriveEncryptionKey, clearEncryptionKey } from '@/lib/crypto'
+import { migrateUserData, clearAllUserData } from '@/lib/userStorage'
 import type { Profile, Session } from '@/types'
 
 interface AuthState {
@@ -142,6 +143,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             refresh_token: data.session?.refresh_token || '',
           }
 
+          // Migrate data from local_ user to Supabase user (if upgrading from offline)
+          const oldLocalId = localUserId(codename)
+          if (data.user.id !== oldLocalId) {
+            migrateUserData(oldLocalId, data.user.id)
+          }
+
           localStorage.setItem('zeiterfassung_session', JSON.stringify(session))
           set({ profile, session, loading: false, isAuthenticated: true })
           return
@@ -226,6 +233,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             user: profile,
             access_token: data.session?.access_token || '',
             refresh_token: data.session?.refresh_token || '',
+          }
+
+          // Migrate data from local_ user to Supabase user (if upgrading from offline)
+          const oldLocalId = localUserId(codename)
+          if (data.user.id !== oldLocalId) {
+            migrateUserData(oldLocalId, data.user.id)
           }
 
           localStorage.setItem('zeiterfassung_session', JSON.stringify(session))

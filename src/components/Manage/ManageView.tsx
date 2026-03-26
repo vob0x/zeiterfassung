@@ -4,6 +4,7 @@ import { useMasterStore } from '../../stores/masterStore';
 import { useEntriesStore } from '../../stores/entriesStore';
 import { useUiStore } from '../../stores/uiStore';
 import { exportBackup, importBackup, exportCSV, importCSV } from '../../lib/backup';
+import { clearAllUserData } from '../../lib/userStorage';
 import ConfirmDialog from '../UI/ConfirmDialog';
 
 export default function ManageView() {
@@ -83,7 +84,7 @@ export default function ManageView() {
     const entriesState = useEntriesStore.getState();
 
     try {
-      // Delete all master data
+      // Delete all master data from Supabase
       for (const sh of state.stakeholders) {
         await removeStakeholder(sh);
       }
@@ -93,14 +94,23 @@ export default function ManageView() {
       for (const act of state.activities) {
         await removeActivity(act);
       }
+      for (const fm of state.formats) {
+        await removeFormat(fm);
+      }
 
-      // Delete all entries
+      // Delete all entries from Supabase
       for (const entry of entries) {
         await entriesState.delete(entry.id);
       }
 
+      // Clear localStorage for this user (the important part!)
+      clearAllUserData();
+
       showToast(t('toast.allDeleted'), 'success');
       setShowDeleteAll(false);
+
+      // Reload to get a clean state
+      window.location.reload();
     } catch (error) {
       showToast(error instanceof Error ? error.message : t('toast.error'), 'error');
     }

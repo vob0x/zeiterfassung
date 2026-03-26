@@ -32,29 +32,19 @@ export function getUserData<T>(key: string, fallback: T): T {
       return JSON.parse(scopedData);
     }
 
-    // Migration 1: check if unscoped (legacy) data exists
+    // Migration: check if unscoped (legacy) data exists from before user-scoping was added
     const legacyData = localStorage.getItem(key);
     if (legacyData !== null) {
       const parsed = JSON.parse(legacyData);
+      // Copy to scoped key, remove legacy key to prevent leaking to future users
       localStorage.setItem(scopedKey, legacyData);
+      localStorage.removeItem(key);
       return parsed;
     }
 
-    // Migration 2: check for data under a different user ID prefix (e.g. local_ → supabase UUID)
-    // Scan for any ze_*_{key} that has data
-    const suffix = `_${key}`;
-    for (let i = 0; i < localStorage.length; i++) {
-      const lsKey = localStorage.key(i);
-      if (lsKey && lsKey.startsWith('ze_') && lsKey.endsWith(suffix) && lsKey !== scopedKey) {
-        const oldData = localStorage.getItem(lsKey);
-        if (oldData !== null) {
-          const parsed = JSON.parse(oldData);
-          // Migrate to current user's scoped key
-          localStorage.setItem(scopedKey, oldData);
-          return parsed;
-        }
-      }
-    }
+    // NOTE: We intentionally do NOT scan ze_{otherUserId}_{key} entries.
+    // That would leak data from a previous user to a new user.
+    // The local_ → Supabase UUID migration is handled in authStore instead.
 
     return fallback;
   } catch {
@@ -80,4 +70,55 @@ export function removeUserData(key: string): void {
   } catch {
     // ignore
   }
+}
+
+// Migrate data from one user ID to another (e.g. local_ → Supabase UUID)
+export function migrateUserData(oldUserId: string, newUserId: string): void {
+  const oldPrefix = `ze_${oldUserId}_`;
+  const newPrefix = `ze_${newUserId}_`;
+  const keysToMigrate: [string, string][] = [];
+
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith(oldPrefix)) {
+      const suffix = key.slice(oldPrefix.length);
+      const newKey = newPrefix + suffix;
+      // Only migrate if new key doesn't already have data
+      if (!localStorage.getItem(newKey)) {
+        keysToMigrate.push([key, newKey]);
+      }
+    }
+  }
+
+  for (const [oldKey, newKey] of keysToMigrate) {
+    const data = localStorage.getItem(oldKey);
+    if (data) {
+      localStorage.setItem(newKey, data);
+      localStorage.removeItem(oldKey);
+    }
+  }
+
+  if (keysToMigrate.length > 0) {
+    console.log(`[UserStorage] Migrated ${keysToMigrate.length} keys from ${oldUserId} to ${newUserId}`);
+  }
+}
+
+// Clear ALL data for the current user (for "Reset data" feature)
+export function clearAllUserData(): void {
+  const userId = getUserId();
+  const prefix = `ze_${userId}_`;
+  const keysToRemove: string[] = [];
+
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith(prefix)) {
+      keysToRemove.push(key);
+    }
+  }
+
+  for (const key of keysToRemove) {
+    localStorage.removeItem(key);
+  }
+
+  console.log(`[UserStorage] Cleared ${keysToRemove.length} keys for user ${userId}`);
 }
