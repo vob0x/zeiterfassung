@@ -349,14 +349,9 @@ export const useTeamStore = create<TeamState>((set, get) => ({
           .limit(1);
 
         if (!membershipData || membershipData.length === 0) {
-          // Check localStorage fallback
-          const localTeam = getUserData<Team | null>('team', null);
-          if (localTeam) {
-            // We have a local team but no Supabase membership — load local data
-            await syncLocalData(set, get, displayName);
-          } else {
-            set({ loading: false, connected: false });
-          }
+          // Supabase is available but user has no team — not connected
+          // (ignore stale localStorage team data when online)
+          set({ loading: false, connected: false });
           return;
         }
 
