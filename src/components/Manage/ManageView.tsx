@@ -8,19 +8,19 @@ import ConfirmDialog from '../UI/ConfirmDialog';
 
 export default function ManageView() {
   const { t, tArray } = useI18n();
-  const { stakeholders, projects, activities, removeStakeholder, removeProject, removeActivity } = useMasterStore();
+  const { stakeholders, projects, activities, formats, removeStakeholder, removeProject, removeActivity, removeFormat } = useMasterStore();
   const entries = useEntriesStore((state) => state.entries);
   const showToast = useUiStore((state) => state.showToast);
 
-  const [editingType, setEditingType] = useState<'stakeholder' | 'project' | 'activity' | null>(null);
+  const [editingType, setEditingType] = useState<'stakeholder' | 'project' | 'activity' | 'format' | null>(null);
   const [editingOriginalName, setEditingOriginalName] = useState('');
   const [editingName, setEditingName] = useState('');
   const [showDeleteAll, setShowDeleteAll] = useState(false);
-  const [deleteItemPending, setDeleteItemPending] = useState<{ type: 'stakeholder' | 'project' | 'activity'; name: string } | null>(null);
+  const [deleteItemPending, setDeleteItemPending] = useState<{ type: 'stakeholder' | 'project' | 'activity' | 'format'; name: string } | null>(null);
   const [pendingBackup, setPendingBackup] = useState<any>(null);
   const [showRestoreConfirm, setShowRestoreConfirm] = useState(false);
 
-  const handleAddItem = async (type: 'stakeholder' | 'project' | 'activity', name: string) => {
+  const handleAddItem = async (type: 'stakeholder' | 'project' | 'activity' | 'format', name: string) => {
     if (!name.trim()) return;
 
     try {
@@ -28,8 +28,10 @@ export default function ManageView() {
         await useMasterStore.getState().addStakeholder(name);
       } else if (type === 'project') {
         await useMasterStore.getState().addProject(name);
-      } else {
+      } else if (type === 'activity') {
         await useMasterStore.getState().addActivity(name);
+      } else if (type === 'format') {
+        await useMasterStore.getState().addFormat(name);
       }
       showToast(`${name} ${t('toast.added')}`, 'success');
     } catch (error) {
@@ -37,7 +39,7 @@ export default function ManageView() {
     }
   };
 
-  const handleRenameItem = async (type: 'stakeholder' | 'project' | 'activity', oldName: string, newName: string) => {
+  const handleRenameItem = async (type: 'stakeholder' | 'project' | 'activity' | 'format', oldName: string, newName: string) => {
     if (!newName.trim() || newName === oldName) return;
 
     try {
@@ -45,8 +47,10 @@ export default function ManageView() {
         await useMasterStore.getState().renameStakeholder(oldName, newName);
       } else if (type === 'project') {
         await useMasterStore.getState().renameProject(oldName, newName);
-      } else {
+      } else if (type === 'activity') {
         await useMasterStore.getState().renameActivity(oldName, newName);
+      } else if (type === 'format') {
+        await useMasterStore.getState().renameFormat(oldName, newName);
       }
       showToast(`${t('toast.renamed')} ${newName}`, 'success');
       setEditingType(null);
@@ -57,14 +61,16 @@ export default function ManageView() {
     }
   };
 
-  const handleDeleteItem = async (type: 'stakeholder' | 'project' | 'activity', name: string) => {
+  const handleDeleteItem = async (type: 'stakeholder' | 'project' | 'activity' | 'format', name: string) => {
     try {
       if (type === 'stakeholder') {
         await removeStakeholder(name);
       } else if (type === 'project') {
         await removeProject(name);
-      } else {
+      } else if (type === 'activity') {
         await removeActivity(name);
+      } else if (type === 'format') {
+        await removeFormat(name);
       }
       showToast(`${name} ${t('toast.deleted')}`, 'success');
     } catch (error) {
@@ -107,6 +113,7 @@ export default function ManageView() {
           stakeholders,
           projects,
           activities,
+          formats,
         },
         entries
       );
@@ -152,6 +159,9 @@ export default function ManageView() {
       for (const act of masterState.activities) {
         await removeActivity(act);
       }
+      for (const fmt of masterState.formats) {
+        await removeFormat(fmt);
+      }
       for (const entry of entries) {
         await entriesState.delete(entry.id);
       }
@@ -165,6 +175,9 @@ export default function ManageView() {
       }
       for (const act of backup.masterData.activities) {
         await useMasterStore.getState().addActivity(act);
+      }
+      for (const fmt of (backup.masterData.formats || [])) {
+        await useMasterStore.getState().addFormat(fmt);
       }
       for (const entry of backup.entries) {
         await entriesState.add(entry);
@@ -181,7 +194,7 @@ export default function ManageView() {
   const handleCSVExport = async () => {
     try {
       const csvHeaders = [
-        t('csv.datum'), t('csv.stakeholder'), t('csv.projekt'), t('csv.taetigkeit'),
+        t('csv.datum'), t('csv.stakeholder'), t('csv.projekt'), t('csv.format'), t('csv.taetigkeit'),
         t('csv.von'), t('csv.bis'), t('csv.dauer'), t('csv.notiz'), t('csv.wochentag'),
       ];
       const weekdayNames = tArray('wd.long');
@@ -210,9 +223,18 @@ export default function ManageView() {
 
       // Extract unique dimension values from imported entries and add to masterStore
       const master = useMasterStore.getState();
-      const importedStakeholders = new Set(newEntries.map((e) => e.stakeholder).filter(Boolean));
+      const importedStakeholders = new Set<string>();
       const importedProjects = new Set(newEntries.map((e) => e.projekt).filter(Boolean));
       const importedActivities = new Set(newEntries.map((e) => e.taetigkeit).filter(Boolean));
+      const importedFormats = new Set(newEntries.map((e) => e.format).filter(Boolean));
+
+      // Handle stakeholder as string or array
+      newEntries.forEach((e) => {
+        const shArray = Array.isArray(e.stakeholder) ? e.stakeholder : [e.stakeholder];
+        shArray.forEach((sh) => {
+          if (sh) importedStakeholders.add(sh);
+        });
+      });
 
       for (const sh of importedStakeholders) {
         if (!master.stakeholders.includes(sh)) {
@@ -227,6 +249,11 @@ export default function ManageView() {
       for (const act of importedActivities) {
         if (!master.activities.includes(act)) {
           await master.addActivity(act);
+        }
+      }
+      for (const fmt of importedFormats) {
+        if (!master.formats.includes(fmt)) {
+          await master.addFormat(fmt);
         }
       }
 
@@ -244,7 +271,7 @@ export default function ManageView() {
   }: {
     title: string;
     items: string[];
-    type: 'stakeholder' | 'project' | 'activity';
+    type: 'stakeholder' | 'project' | 'activity' | 'format';
     onAdd: (name: string) => void;
   }) => {
     const [newValue, setNewValue] = useState('');
@@ -338,7 +365,7 @@ export default function ManageView() {
   return (
     <div className="w-full max-w-7xl mx-auto p-4 space-y-6">
       {/* Master Data Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <MasterDataColumn
           title={t('manage.stakeholder')}
           items={stakeholders}
@@ -350,6 +377,12 @@ export default function ManageView() {
           items={projects}
           type="project"
           onAdd={(name) => handleAddItem('project', name)}
+        />
+        <MasterDataColumn
+          title={t('manage.formate')}
+          items={formats}
+          type="format"
+          onAdd={(name) => handleAddItem('format', name)}
         />
         <MasterDataColumn
           title={t('manage.taetigkeiten')}

@@ -9,18 +9,19 @@ interface ComboResult {
   stakeholder: string;
   projekt: string;
   taetigkeit: string;
+  format?: string; // NEW: optional format (defaults to 'Einzelarbeit' if not selected)
   score: number;
   label: string;
 }
 
 interface FrecencyEntry {
-  key: string; // stakeholder|projekt|taetigkeit
+  key: string; // stakeholder|projekt|taetigkeit|format
   count: number;
   lastUsed: number;
 }
 
 interface FuzzySearchProps {
-  onSelect: (combo: { stakeholder: string; projekt: string; taetigkeit: string }) => void;
+  onSelect: (combo: { stakeholder: string; projekt: string; taetigkeit: string; format: string }) => void;
 }
 
 // Fuzzy match: does the option contain all characters of the query in order?
@@ -59,6 +60,7 @@ function searchCombos(
   stakeholders: string[],
   projects: string[],
   activities: string[],
+  formats: string[],
   frecency: FrecencyEntry[]
 ): ComboResult[] {
   const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
@@ -72,37 +74,41 @@ function searchCombos(
   for (const sh of stakeholders) {
     for (const pr of projects) {
       for (const act of ['', ...activities]) {
-        let totalScore = 0;
-        let allWordsMatch = true;
+        for (const fmt of ['', ...formats]) { // NEW: iterate formats (empty = no filter)
+          let totalScore = 0;
+          let allWordsMatch = true;
 
-        for (const word of words) {
-          const shScore = fuzzyMatch(word, sh);
-          const prScore = fuzzyMatch(word, pr);
-          const actScore = act ? fuzzyMatch(word, act) : 0;
-          const bestScore = Math.max(shScore, prScore, actScore);
+          for (const word of words) {
+            const shScore = fuzzyMatch(word, sh);
+            const prScore = fuzzyMatch(word, pr);
+            const actScore = act ? fuzzyMatch(word, act) : 0;
+            const fmtScore = fmt ? fuzzyMatch(word, fmt) : 0; // NEW
+            const bestScore = Math.max(shScore, prScore, actScore, fmtScore);
 
-          if (bestScore === 0) {
-            allWordsMatch = false;
-            break;
+            if (bestScore === 0) {
+              allWordsMatch = false;
+              break;
+            }
+            totalScore += bestScore;
           }
-          totalScore += bestScore;
+
+          if (!allWordsMatch) continue;
+
+          // Frecency boost
+          const key = `${sh}|${pr}|${act}|${fmt}`; // NEW: include format in key
+          const freq = frecencyMap.get(key);
+          if (freq) {
+            const recency = Math.max(0, 1 - (now - freq.lastUsed) / (14 * 24 * 60 * 60 * 1000)); // 14-day decay
+            totalScore += freq.count * 5 + recency * 20;
+          }
+
+          let label = act
+            ? `${sh} · ${pr} · ${act}`
+            : `${sh} · ${pr}`;
+          if (fmt) label += ` (${fmt})`; // NEW: show format in label
+
+          results.push({ stakeholder: sh, projekt: pr, taetigkeit: act, format: fmt || 'Einzelarbeit', score: totalScore, label });
         }
-
-        if (!allWordsMatch) continue;
-
-        // Frecency boost
-        const key = `${sh}|${pr}|${act}`;
-        const freq = frecencyMap.get(key);
-        if (freq) {
-          const recency = Math.max(0, 1 - (now - freq.lastUsed) / (14 * 24 * 60 * 60 * 1000)); // 14-day decay
-          totalScore += freq.count * 5 + recency * 20;
-        }
-
-        const label = act
-          ? `${sh} · ${pr} · ${act}`
-          : `${sh} · ${pr}`;
-
-        results.push({ stakeholder: sh, projekt: pr, taetigkeit: act, score: totalScore, label });
       }
     }
   }
@@ -121,7 +127,7 @@ const FuzzySearch: React.FC<FuzzySearchProps> = ({ onSelect }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
-  const { stakeholders, projects, activities } = useMasterStore();
+  const { stakeholders, projects, activities, formats } = useMasterStore(); // NEW: add formats
   // entries store used indirectly via frecency tracking
   useEntriesStore();
 
@@ -143,16 +149,18 @@ const FuzzySearch: React.FC<FuzzySearchProps> = ({ onSelect }) => {
       .sort((a, b) => b.count - a.count)
       .slice(0, 5)
       .map((f) => {
-        const [sh, pr, act] = f.key.split('|');
-        return { stakeholder: sh, projekt: pr, taetigkeit: act || '', label: act ? `${sh} · ${pr} · ${act}` : `${sh} · ${pr}` };
+        const [sh, pr, act, fmt] = f.key.split('|'); // NEW: parse format
+        let label = act ? `${sh} · ${pr} · ${act}` : `${sh} · ${pr}`;
+        if (fmt) label += ` (${fmt})`; // NEW: show format in label
+        return { stakeholder: sh, projekt: pr, taetigkeit: act || '', format: fmt || 'Einzelarbeit', label };
       });
   }, []);
 
   // Search results (uses debounced query for performance)
   const results = useMemo(() => {
     if (!debouncedQuery.trim()) return [];
-    return searchCombos(debouncedQuery, stakeholders, projects, activities, frecency);
-  }, [debouncedQuery, stakeholders, projects, activities, frecency]);
+    return searchCombos(debouncedQuery, stakeholders, projects, activities, formats, frecency); // NEW: pass formats
+  }, [debouncedQuery, stakeholders, projects, activities, formats, frecency]);
 
   // Close on outside click
   useEffect(() => {
@@ -191,9 +199,9 @@ const FuzzySearch: React.FC<FuzzySearchProps> = ({ onSelect }) => {
     return () => document.removeEventListener('keydown', handler);
   }, [updateDebouncedQuery]);
 
-  const handleSelect = (combo: { stakeholder: string; projekt: string; taetigkeit: string }) => {
+  const handleSelect = (combo: { stakeholder: string; projekt: string; taetigkeit: string; format: string }) => {
     // Update frecency
-    const key = `${combo.stakeholder}|${combo.projekt}|${combo.taetigkeit}`;
+    const key = `${combo.stakeholder}|${combo.projekt}|${combo.taetigkeit}|${combo.format}`; // NEW: include format
     const freq = getUserData<FrecencyEntry[]>('frecency', []);
     const existing = freq.find((f) => f.key === key);
     if (existing) {

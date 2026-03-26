@@ -19,7 +19,13 @@ function getIntensityStyle(hours: number): React.CSSProperties {
 export function Heatmap({ entries }: HeatmapProps) {
   const { t } = useI18n();
   const { stakeholders, projects, matrix, totals } = useMemo(() => {
-    const uniqueStakeholders = [...new Set(entries.map((e) => e.stakeholder))].sort();
+    // Handle stakeholder as array: flatten all stakeholders
+    const allStakeholders = new Set<string>();
+    entries.forEach((e) => {
+      const shArray = Array.isArray(e.stakeholder) ? e.stakeholder : [e.stakeholder];
+      shArray.forEach((sh) => allStakeholders.add(sh));
+    });
+    const uniqueStakeholders = Array.from(allStakeholders).sort();
     const uniqueProjects = [...new Set(entries.map((e) => e.projekt))].sort();
 
     const matrix: Record<string, Record<string, number>> = {};
@@ -35,12 +41,13 @@ export function Heatmap({ entries }: HeatmapProps) {
       }
     }
 
-    // Fill matrix
+    // Fill matrix - assign full duration to each stakeholder in the array
     for (const sh of uniqueStakeholders) {
       for (const pr of uniqueProjects) {
-        const dayEntries = entries.filter(
-          (e) => e.stakeholder === sh && e.projekt === pr
-        );
+        const dayEntries = entries.filter((e) => {
+          const shArray = Array.isArray(e.stakeholder) ? e.stakeholder : [e.stakeholder];
+          return shArray.includes(sh) && e.projekt === pr;
+        });
         const totalMs = dayEntries.reduce((sum, e) => sum + computeUnionMs([e]), 0);
         const hours = totalMs / (1000 * 60 * 60);
         matrix[sh][pr] = hours;

@@ -46,11 +46,12 @@ const TimerView: React.FC = () => {
   const hasActiveTimers = taskSlots.some((s) => !s.isPaused || s.pausedMs > 0);
 
   // Fuzzy search → create a new lane
-  const handleFuzzySelect = (combo: { stakeholder: string; projekt: string; taetigkeit: string }) => {
+  const handleFuzzySelect = (combo: { stakeholder: string; projekt: string; taetigkeit: string; format: string }) => {
     addSlot({
-      stakeholder: combo.stakeholder,
+      stakeholder: [combo.stakeholder], // NEW: wrap in array
       projekt: combo.projekt,
       taetigkeit: combo.taetigkeit,
+      format: combo.format || 'Einzelarbeit', // NEW: include format
       notiz: '',
     });
     // Auto-start the new timer
@@ -65,7 +66,7 @@ const TimerView: React.FC = () => {
 
   // "+" empty timer
   const handleAddEmpty = () => {
-    addSlot({ stakeholder: '', projekt: '', taetigkeit: '', notiz: '' });
+    addSlot({ stakeholder: [], projekt: '', taetigkeit: '', format: 'Einzelarbeit', notiz: '' }); // NEW: add format
     // Auto-start
     setTimeout(() => {
       const state = useTimerStore.getState();
@@ -208,7 +209,7 @@ const TimerView: React.FC = () => {
                 {taskSlots.map((slot) => {
                   const running = !slot.isPaused;
                   const elapsed = getSlotElapsed(slot.id);
-                  const label = slot.stakeholder || slot.projekt || t('stack.untitled');
+                  const label = (Array.isArray(slot.stakeholder) ? slot.stakeholder[0] : slot.stakeholder) || slot.projekt || t('stack.untitled');
                   return (
                     <div
                       key={slot.id}

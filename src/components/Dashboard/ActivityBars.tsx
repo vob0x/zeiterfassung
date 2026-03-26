@@ -5,6 +5,7 @@ import { computeUnionMs } from '../../lib/utils';
 
 interface ActivityBarsProps {
   entries: TimeEntry[];
+  isFormat?: boolean;
 }
 
 const COLORS = [
@@ -16,18 +17,22 @@ const COLORS = [
   'bg-gradient-to-r from-blue-500 to-purple-500',
 ];
 
-export function ActivityBars({ entries }: ActivityBarsProps) {
+export function ActivityBars({ entries, isFormat = false }: ActivityBarsProps) {
   const { t } = useI18n();
   const { activities, totalHours } = useMemo(() => {
-    const activityMap: Record<string, number> = {};
+    const itemMap: Record<string, number> = {};
 
     for (const entry of entries) {
-      const dayEntries = entries.filter((e) => e.taetigkeit === entry.taetigkeit && e.date === entry.date);
+      const key = isFormat ? (entry.format || 'Einzelarbeit') : entry.taetigkeit;
+      const dayEntries = entries.filter((e) => {
+        const entryKey = isFormat ? (e.format || 'Einzelarbeit') : e.taetigkeit;
+        return entryKey === key && e.date === entry.date;
+      });
       const hours = computeUnionMs(dayEntries) / (1000 * 60 * 60);
-      activityMap[entry.taetigkeit] = (activityMap[entry.taetigkeit] || 0) + hours;
+      itemMap[key] = (itemMap[key] || 0) + hours;
     }
 
-    const sorted = Object.entries(activityMap)
+    const sorted = Object.entries(itemMap)
       .map(([name, hours]) => ({ name, hours }))
       .sort((a, b) => b.hours - a.hours);
 
@@ -37,7 +42,7 @@ export function ActivityBars({ entries }: ActivityBarsProps) {
       activities: sorted,
       totalHours: total,
     };
-  }, [entries]);
+  }, [entries, isFormat]);
 
   if (activities.length === 0) {
     return <div style={{ color: 'var(--text-muted)' }}>{t('dash.noData')}</div>;

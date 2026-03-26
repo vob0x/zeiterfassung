@@ -3,18 +3,20 @@ import { TimeEntry } from '@/types';
 import { useEntriesStore } from '../../stores/entriesStore';
 import { useI18n } from '../../i18n';
 import { useUiStore } from '../../stores/uiStore';
+import { useMasterStore } from '../../stores/masterStore';
 import { X, Clock, Search } from 'lucide-react';
 import { formatDurationHM, computeUnionMs } from '../../lib/utils';
 import EntryRow from './EntryRow';
 import EditEntryModal from './EditEntryModal';
 
-type SortField = 'date' | 'stakeholder' | 'projekt' | 'taetigkeit' | 'duration';
+type SortField = 'date' | 'stakeholder' | 'projekt' | 'format' | 'taetigkeit' | 'duration';
 type SortDirection = 'asc' | 'desc';
 
 const EntriesView: React.FC = () => {
   const { t } = useI18n();
   const { entries, filters, setFilter, clearFilters } = useEntriesStore();
   const { setCurrentView } = useUiStore();
+  const { formats } = useMasterStore();
 
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -22,13 +24,22 @@ const EntriesView: React.FC = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   // Get unique values for filter dropdowns
-  const uniqueStakeholders = useMemo(
-    () => [...new Set(entries.map((e) => e.stakeholder))].sort(),
-    [entries]
-  );
+  const uniqueStakeholders = useMemo(() => {
+    const stakeholders = new Set<string>();
+    entries.forEach((e) => {
+      const shArray = Array.isArray(e.stakeholder) ? e.stakeholder : [e.stakeholder];
+      shArray.forEach((sh) => stakeholders.add(sh));
+    });
+    return Array.from(stakeholders).sort();
+  }, [entries]);
 
   const uniqueProjects = useMemo(
     () => [...new Set(entries.map((e) => e.projekt))].sort(),
+    [entries]
+  );
+
+  const uniqueFormats = useMemo(
+    () => [...new Set(entries.map((e) => e.format || 'Einzelarbeit'))].sort(),
     [entries]
   );
 
@@ -51,10 +62,16 @@ const EntriesView: React.FC = () => {
 
     // Dimension filters
     if (filters.stakeholder) {
-      result = result.filter((e) => e.stakeholder === filters.stakeholder);
+      result = result.filter((e) => {
+        const shArray = Array.isArray(e.stakeholder) ? e.stakeholder : [e.stakeholder];
+        return shArray.includes(filters.stakeholder);
+      });
     }
     if (filters.project) {
       result = result.filter((e) => e.projekt === filters.project);
+    }
+    if (filters.format) {
+      result = result.filter((e) => (e.format || 'Einzelarbeit') === filters.format);
     }
     if (filters.activity) {
       result = result.filter((e) => e.taetigkeit === filters.activity);
@@ -147,6 +164,7 @@ const EntriesView: React.FC = () => {
     filters.to ||
     filters.stakeholder ||
     filters.project ||
+    filters.format ||
     filters.activity ||
     filters.notiz;
 
@@ -220,6 +238,25 @@ const EntriesView: React.FC = () => {
                 {uniqueProjects.map((p) => (
                   <option key={p} value={p}>
                     {p}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Format */}
+            <div>
+              <label style={{ color: 'var(--text-muted)' }} className="block text-xs font-semibold mb-1">
+                {t('label.format')}
+              </label>
+              <select
+                value={filters.format}
+                onChange={(e) => setFilter('format', e.target.value)}
+                className="select text-sm"
+              >
+                <option value="">{t('all.formate')}</option>
+                {uniqueFormats.map((f) => (
+                  <option key={f} value={f}>
+                    {f}
                   </option>
                 ))}
               </select>
@@ -303,6 +340,18 @@ const EntriesView: React.FC = () => {
                   {filters.project}
                   <button
                     onClick={() => setFilter('project', '')}
+                    style={{ color: 'var(--text)' }}
+                    className="hover:opacity-80"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+              {filters.format && (
+                <span style={{ background: 'var(--surface-solid)', color: 'var(--text-secondary)' }} className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs">
+                  {filters.format}
+                  <button
+                    onClick={() => setFilter('format', '')}
                     style={{ color: 'var(--text)' }}
                     className="hover:opacity-80"
                   >
@@ -427,6 +476,18 @@ const EntriesView: React.FC = () => {
                     >
                       {t('th.projekt')}
                       {sortField === 'projekt' && (
+                        <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                      )}
+                    </button>
+                  </th>
+                  <th className="px-4 py-3 text-left">
+                    <button
+                      onClick={() => handleSort('format')}
+                      style={{ color: 'var(--text-secondary)' }}
+                      className="text-xs font-semibold hover:opacity-80 transition-colors flex items-center gap-1"
+                    >
+                      {t('th.format')}
+                      {sortField === 'format' && (
                         <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
                       )}
                     </button>

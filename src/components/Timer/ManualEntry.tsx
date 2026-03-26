@@ -18,16 +18,19 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ embedded = false }) => {
     stakeholders,
     projects,
     activities,
+    formats,
     addStakeholder: addStakeholderToStore,
     addProject: addProjectToStore,
     addActivity: addActivityToStore,
+    addFormat: addFormatToStore,
   } = useMasterStore();
 
   const [formData, setFormData] = useState({
     date: getTodayISO(),
-    stakeholder: '',
+    stakeholders: [] as string[], // NEW: array for multi-select
     projekt: '',
     taetigkeit: '',
+    format: 'Einzelarbeit', // NEW: default format
     startTime: '',
     endTime: '',
     notiz: '',
@@ -37,14 +40,16 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ embedded = false }) => {
   const [showAddStakeholder, setShowAddStakeholder] = useState(false);
   const [showAddProject, setShowAddProject] = useState(false);
   const [showAddActivity, setShowAddActivity] = useState(false);
+  const [showAddFormat, setShowAddFormat] = useState(false);
   const [newStakeholder, setNewStakeholder] = useState('');
   const [newProject, setNewProject] = useState('');
   const [newActivity, setNewActivity] = useState('');
+  const [newFormat, setNewFormat] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
-    if (!formData.stakeholder) newErrors.stakeholder = t('toast.selectShPr');
+    if (formData.stakeholders.length === 0) newErrors.stakeholders = t('toast.selectShPr'); // NEW: check array
     if (!formData.projekt) newErrors.projekt = t('toast.selectShPr');
     if (!formData.taetigkeit) newErrors.taetigkeit = t('validation.required');
     if (!formData.date) newErrors.date = t('toast.selectDate');
@@ -75,18 +80,20 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ embedded = false }) => {
         const nextDateISO = formatDateISO(nextDate);
         entries.push({
           date: formData.date,
-          stakeholder: formData.stakeholder,
+          stakeholder: formData.stakeholders, // NEW: array
           projekt: formData.projekt,
           taetigkeit: formData.taetigkeit,
+          format: formData.format, // NEW: include format
           start_time: formData.startTime,
           end_time: '23:59',
           notiz: formData.notiz,
         });
         entries.push({
           date: nextDateISO,
-          stakeholder: formData.stakeholder,
+          stakeholder: formData.stakeholders, // NEW: array
           projekt: formData.projekt,
           taetigkeit: formData.taetigkeit,
+          format: formData.format, // NEW: include format
           start_time: '00:00',
           end_time: formData.endTime,
           notiz: formData.notiz,
@@ -94,9 +101,10 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ embedded = false }) => {
       } else {
         entries.push({
           date: formData.date,
-          stakeholder: formData.stakeholder,
+          stakeholder: formData.stakeholders, // NEW: array
           projekt: formData.projekt,
           taetigkeit: formData.taetigkeit,
+          format: formData.format, // NEW: include format
           start_time: formData.startTime,
           end_time: formData.endTime,
           notiz: formData.notiz,
@@ -109,9 +117,10 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ embedded = false }) => {
 
       setFormData({
         date: getTodayISO(),
-        stakeholder: '',
+        stakeholders: [], // NEW: reset to empty array
         projekt: '',
         taetigkeit: '',
+        format: 'Einzelarbeit', // NEW: reset to default
         startTime: '',
         endTime: '',
         notiz: '',
@@ -130,10 +139,21 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ embedded = false }) => {
     if (newStakeholder.trim()) {
       try {
         await addStakeholderToStore(newStakeholder.trim());
-        setFormData({ ...formData, stakeholder: newStakeholder.trim() });
+        setFormData({ ...formData, stakeholders: [...formData.stakeholders, newStakeholder.trim()] }); // NEW: add to array
         setNewStakeholder('');
         setShowAddStakeholder(false);
       } catch (error) { console.error('Failed to add stakeholder:', error); }
+    }
+  };
+
+  const handleAddFormat = async () => {
+    if (newFormat.trim()) {
+      try {
+        await addFormatToStore(newFormat.trim());
+        setFormData({ ...formData, format: newFormat.trim() });
+        setNewFormat('');
+        setShowAddFormat(false);
+      } catch (error) { console.error('Failed to add format:', error); }
     }
   };
 
@@ -199,21 +219,33 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ embedded = false }) => {
       </div>
 
       <form onSubmit={handleSubmit}>
-        {/* V5.15: 3-column grid for dropdowns */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '8px' }}>
-          {/* Stakeholder */}
-          <div style={{ display: 'flex', gap: '4px', alignItems: 'stretch' }}>
-            <select
-              value={formData.stakeholder}
-              onChange={(e) => setFormData({ ...formData, stakeholder: e.target.value })}
-              style={{ ...selectStyle, flex: 1, minWidth: 0 }}
-            >
-              <option value="">{t('ph.stakeholder')}</option>
-              {stakeholders.map((s) => (
-                <option key={s} value={s}>{s}</option>
+        {/* V6.0: 4-column grid for dropdowns (Stakeholder multi-select, Project, Format, Activity) */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '8px', marginBottom: '8px' }}>
+          {/* Stakeholder multi-select with chips */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <div style={{ display: 'flex', gap: '4px', alignItems: 'stretch', flexWrap: 'wrap' }}>
+              {formData.stakeholders.map((sh) => (
+                <div key={sh} style={{ display: 'flex', alignItems: 'center', gap: '2px', padding: '2px 6px', borderRadius: '4px', background: 'rgba(0,200,200,0.15)', fontSize: '10px', color: 'var(--neon-cyan)', whiteSpace: 'nowrap' }}>
+                  {sh}
+                  <button type="button" onClick={() => setFormData({ ...formData, stakeholders: formData.stakeholders.filter((s) => s !== sh) })} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: '0', fontSize: '12px', lineHeight: '1' }}>×</button>
+                </div>
               ))}
-            </select>
-            <button type="button" onClick={() => setShowAddStakeholder(!showAddStakeholder)} style={inlineBtnStyle}>+</button>
+              <select
+                onChange={(e) => {
+                  if (e.target.value && !formData.stakeholders.includes(e.target.value)) {
+                    setFormData({ ...formData, stakeholders: [...formData.stakeholders, e.target.value] });
+                  }
+                  e.target.value = '';
+                }}
+                style={{ ...selectStyle, flex: formData.stakeholders.length === 0 ? 1 : 'initial', minWidth: '80px' }}
+              >
+                <option value="">{t('ph.stakeholder')}</option>
+                {stakeholders.filter((s) => !formData.stakeholders.includes(s)).map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+              <button type="button" onClick={() => setShowAddStakeholder(!showAddStakeholder)} style={inlineBtnStyle}>+</button>
+            </div>
           </div>
 
           {/* Project */}
@@ -229,6 +261,20 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ embedded = false }) => {
               ))}
             </select>
             <button type="button" onClick={() => setShowAddProject(!showAddProject)} style={inlineBtnStyle}>+</button>
+          </div>
+
+          {/* Format */}
+          <div style={{ display: 'flex', gap: '4px', alignItems: 'stretch' }}>
+            <select
+              value={formData.format}
+              onChange={(e) => setFormData({ ...formData, format: e.target.value })}
+              style={{ ...selectStyle, flex: 1, minWidth: 0 }}
+            >
+              {formats.map((f) => (
+                <option key={f} value={f}>{f}</option>
+              ))}
+            </select>
+            <button type="button" onClick={() => setShowAddFormat(!showAddFormat)} style={inlineBtnStyle}>+</button>
           </div>
 
           {/* Activity */}
@@ -264,6 +310,12 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ embedded = false }) => {
           <div className="flex gap-1 mb-2">
             <input type="text" placeholder={t('ph.newTaetigkeit')} value={newActivity} onChange={(e) => setNewActivity(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddActivity())} style={{ ...selectStyle, flex: 1 }} />
             <button type="button" onClick={handleAddActivity} style={{ padding: '4px 8px', background: 'var(--success)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}>{t('btn.save')}</button>
+          </div>
+        )}
+        {showAddFormat && (
+          <div className="flex gap-1 mb-2">
+            <input type="text" placeholder={t('ph.newFormat')} value={newFormat} onChange={(e) => setNewFormat(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddFormat())} style={{ ...selectStyle, flex: 1 }} />
+            <button type="button" onClick={handleAddFormat} style={{ padding: '4px 8px', background: 'var(--success)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}>{t('btn.save')}</button>
           </div>
         )}
 

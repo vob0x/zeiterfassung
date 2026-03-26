@@ -25,14 +25,19 @@ function isValidUUID(str: string): boolean {
 }
 
 // Fields to encrypt in time_entries
-const ENCRYPTED_ENTRY_FIELDS = ['stakeholder', 'projekt', 'taetigkeit', 'notiz'] as const;
+const ENCRYPTED_ENTRY_FIELDS = ['stakeholder', 'projekt', 'taetigkeit', 'format', 'notiz'] as const;
 
 async function encryptEntryForSupabase(row: Record<string, any>): Promise<Record<string, any>> {
   if (!hasEncryptionKey()) return row;
   const encrypted = { ...row };
   for (const field of ENCRYPTED_ENTRY_FIELDS) {
     if (encrypted[field]) {
-      encrypted[field] = await encryptField(encrypted[field]);
+      // For stakeholder (now an array), serialize before encrypting
+      let valueToEncrypt = encrypted[field];
+      if (field === 'stakeholder' && Array.isArray(valueToEncrypt)) {
+        valueToEncrypt = JSON.stringify(valueToEncrypt);
+      }
+      encrypted[field] = await encryptField(valueToEncrypt);
     }
   }
   return encrypted;
@@ -42,7 +47,17 @@ async function decryptEntryFromSupabase(row: any): Promise<any> {
   const decrypted = { ...row };
   for (const field of ENCRYPTED_ENTRY_FIELDS) {
     if (decrypted[field]) {
-      decrypted[field] = await decryptField(decrypted[field]);
+      const decryptedValue = await decryptField(decrypted[field]);
+      // For stakeholder, parse JSON array if it was serialized
+      if (field === 'stakeholder' && decryptedValue && decryptedValue.startsWith('[')) {
+        try {
+          decrypted[field] = JSON.parse(decryptedValue);
+        } catch {
+          decrypted[field] = decryptedValue;
+        }
+      } else {
+        decrypted[field] = decryptedValue;
+      }
     }
   }
   return decrypted;
@@ -77,6 +92,7 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
     stakeholder: '',
     project: '',
     activity: '',
+    format: '', // NEW: format filter
     notiz: '',
   },
 
@@ -101,13 +117,19 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
           const sbEntries: TimeEntry[] = await Promise.all(
             data.map(async (row: any) => {
               const decrypted = await decryptEntryFromSupabase(row);
+              // Migrate old string stakeholder to array
+              let stakeholder: string | string[] = decrypted.stakeholder || '';
+              if (typeof stakeholder === 'string' && stakeholder) {
+                stakeholder = [stakeholder];
+              }
               return {
                 id: decrypted.id,
                 user_id: decrypted.user_id,
                 date: typeof decrypted.date === 'string' ? decrypted.date : formatDateISO(new Date(decrypted.date)),
-                stakeholder: decrypted.stakeholder || '',
+                stakeholder: stakeholder,
                 projekt: decrypted.projekt || '',
                 taetigkeit: decrypted.taetigkeit || '',
+                format: decrypted.format || 'Einzelarbeit', // NEW: default format
                 start_time: decrypted.start_time || '',
                 end_time: decrypted.end_time || '',
                 duration_ms: decrypted.duration_ms || 0,
@@ -158,6 +180,7 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
                   date: e.date,
                   stakeholder: e.stakeholder,
                   projekt: e.projekt,
+                  format: (e as any).format || 'Einzelarbeit',
                   taetigkeit: e.taetigkeit,
                   start_time: e.start_time,
                   end_time: e.end_time,
@@ -200,13 +223,22 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
         duration_ms = (endMins - startMins) * 60000;
       }
 
+      // Normalize stakeholder to array for consistency
+      let stakeholder: string | string[] = entry.stakeholder || '';
+      if (typeof stakeholder === 'string' && stakeholder) {
+        stakeholder = [stakeholder];
+      } else if (!stakeholder || (Array.isArray(stakeholder) && stakeholder.length === 0)) {
+        stakeholder = '';
+      }
+
       const newEntry: TimeEntry = {
         id: generateUUID(),
         user_id: (entry as any).user_id || 'local',
         date: entry.date,
-        stakeholder: entry.stakeholder || '',
+        stakeholder: stakeholder,
         projekt: entry.projekt || (entry as any).project || '',
         taetigkeit: entry.taetigkeit || (entry as any).activity || '',
+        format: entry.format || (entry as any).format || 'Einzelarbeit', // NEW: default format
         start_time: entry.start_time || (entry as any).startTime || '',
         end_time: entry.end_time || (entry as any).endTime || '',
         duration_ms: duration_ms,
@@ -230,6 +262,7 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
             stakeholder: newEntry.stakeholder,
             projekt: newEntry.projekt,
             taetigkeit: newEntry.taetigkeit,
+            format: newEntry.format, // NEW: include format
             start_time: newEntry.start_time,
             end_time: newEntry.end_time,
             duration_ms: newEntry.duration_ms,
@@ -267,13 +300,21 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
           if (endMins < startMins) endMins += 24 * 60;
           duration_ms = (endMins - startMins) * 60000;
         }
+        // Normalize stakeholder to array
+        let stakeholder: string | string[] = entry.stakeholder || '';
+        if (typeof stakeholder === 'string' && stakeholder) {
+          stakeholder = [stakeholder];
+        } else if (!stakeholder || (Array.isArray(stakeholder) && stakeholder.length === 0)) {
+          stakeholder = '';
+        }
         return {
           id: generateUUID(),
           user_id: (entry as any).user_id || 'local',
           date: entry.date,
-          stakeholder: entry.stakeholder || '',
+          stakeholder: stakeholder,
           projekt: entry.projekt || (entry as any).project || '',
           taetigkeit: entry.taetigkeit || (entry as any).activity || '',
+          format: entry.format || 'Einzelarbeit', // NEW: default format
           start_time: entry.start_time || (entry as any).startTime || '',
           end_time: entry.end_time || (entry as any).endTime || '',
           duration_ms,
@@ -300,6 +341,7 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
                 stakeholder: e.stakeholder,
                 projekt: e.projekt,
                 taetigkeit: e.taetigkeit,
+                format: e.format, // NEW: include format
                 start_time: e.start_time,
                 end_time: e.end_time,
                 duration_ms: e.duration_ms,
@@ -355,6 +397,7 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
               stakeholder: entry.stakeholder,
               projekt: entry.projekt,
               taetigkeit: entry.taetigkeit,
+              format: entry.format, // NEW: include format
               start_time: entry.start_time,
               end_time: entry.end_time,
               duration_ms: entry.duration_ms,
@@ -423,6 +466,7 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
         stakeholder: '',
         project: '',
         activity: '',
+        format: '', // NEW: format filter
         notiz: '',
       },
     });
@@ -437,11 +481,16 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
       if (filters.from && entry.date < filters.from) return false;
       if (filters.to && entry.date > filters.to) return false;
 
-      // Dimension filters (case-insensitive, empty means all)
-      if (filters.stakeholder && entry.stakeholder !== filters.stakeholder)
-        return false;
+      // Stakeholder filter (handle array)
+      if (filters.stakeholder) {
+        const entryStakeholders = Array.isArray(entry.stakeholder) ? entry.stakeholder : [entry.stakeholder];
+        if (!entryStakeholders.includes(filters.stakeholder)) return false;
+      }
+
+      // Other dimension filters (case-insensitive, empty means all)
       if (filters.project && entry.projekt !== filters.project) return false;
       if (filters.activity && entry.taetigkeit !== filters.activity) return false;
+      if (filters.format && entry.format !== filters.format) return false; // NEW: format filter
 
       // Text search in notiz
       if (filters.notiz) {

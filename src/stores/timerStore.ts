@@ -9,9 +9,10 @@ import { formatDateISO } from '@/lib/utils';
 interface SerializedSlot {
   id: string;
   date: string;
-  stakeholder: string;
+  stakeholder: string[]; // NEW: array of stakeholders
   projekt: string;
   taetigkeit: string;
+  format: string; // NEW: format field
   start_time: string;
   elapsed_ms: number;
   notiz?: string;
@@ -31,14 +32,16 @@ interface TimerState {
   activeSlotId: string | null;
   tickInterval: ReturnType<typeof setInterval> | null;
   error: string | null;
-  addSlot: (slot: { stakeholder: string; projekt: string; taetigkeit: string; notiz?: string }) => void;
+  addSlot: (slot: { stakeholder: string[]; projekt: string; taetigkeit: string; format: string; notiz?: string }) => void;
   removeSlot: (id: string) => void;
   resetSlot: (id: string) => void;
   updateSlotField: (
     id: string,
-    field: 'stakeholder' | 'projekt' | 'taetigkeit' | 'notiz',
-    value: string
+    field: 'stakeholder' | 'projekt' | 'taetigkeit' | 'format' | 'notiz',
+    value: string | string[]
   ) => void;
+  addSlotStakeholder: (id: string, stakeholder: string) => void; // NEW: add stakeholder to array
+  removeSlotStakeholder: (id: string, stakeholder: string) => void; // NEW: remove stakeholder from array
   startTimer: (id: string) => void;
   pauseTimer: (id: string) => void;
   resumeTimer: (id: string) => void;
@@ -81,7 +84,11 @@ export const useTimerStore = create<TimerState>((set, get) => ({
 
     const now = new Date();
     const newSlot: TimerSlot = {
-      ...slotData,
+      stakeholder: slotData.stakeholder || [], // NEW: ensure array
+      projekt: slotData.projekt,
+      taetigkeit: slotData.taetigkeit,
+      format: slotData.format || 'Einzelarbeit', // NEW: format field (default)
+      notiz: slotData.notiz,
       id: generateId(),
       date: formatDateISO(now),
       start_time: `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
@@ -127,6 +134,28 @@ export const useTimerStore = create<TimerState>((set, get) => ({
     set((state) => ({
       taskSlots: state.taskSlots.map((slot) =>
         slot.id === id ? { ...slot, [field]: value } : slot
+      ),
+    }));
+  },
+
+  // NEW: Add stakeholder to slot's stakeholder array
+  addSlotStakeholder: (id, stakeholder) => {
+    set((state) => ({
+      taskSlots: state.taskSlots.map((slot) =>
+        slot.id === id && !slot.stakeholder.includes(stakeholder)
+          ? { ...slot, stakeholder: [...slot.stakeholder, stakeholder] }
+          : slot
+      ),
+    }));
+  },
+
+  // NEW: Remove stakeholder from slot's stakeholder array
+  removeSlotStakeholder: (id, stakeholder) => {
+    set((state) => ({
+      taskSlots: state.taskSlots.map((slot) =>
+        slot.id === id
+          ? { ...slot, stakeholder: slot.stakeholder.filter((s) => s !== stakeholder) }
+          : slot
       ),
     }));
   },
@@ -215,9 +244,10 @@ export const useTimerStore = create<TimerState>((set, get) => ({
 
     entriesStore.add({
       date: slot.date || now.toISOString().split('T')[0],
-      stakeholder: slot.stakeholder || '',
+      stakeholder: slot.stakeholder || [], // NEW: array format
       projekt: slot.projekt || '',
       taetigkeit: slot.taetigkeit || '',
+      format: slot.format || 'Einzelarbeit', // NEW: include format
       start_time: startTime,
       end_time: endTime,
       duration_ms: totalMs,
@@ -306,6 +336,7 @@ export const useTimerStore = create<TimerState>((set, get) => ({
         stakeholder: slot.stakeholder,
         projekt: slot.projekt,
         taetigkeit: slot.taetigkeit,
+        format: slot.format, // NEW: save format
         start_time: slot.start_time,
         elapsed_ms: slot.elapsed_ms,
         notiz: slot.notiz,
@@ -340,6 +371,7 @@ export const useTimerStore = create<TimerState>((set, get) => ({
           stakeholder: s.stakeholder,
           projekt: s.projekt,
           taetigkeit: s.taetigkeit,
+          format: s.format || 'Einzelarbeit', // NEW: restore format (with default)
           start_time: s.start_time,
           elapsed_ms: s.elapsed_ms,
           notiz: s.notiz,
@@ -357,6 +389,7 @@ export const useTimerStore = create<TimerState>((set, get) => ({
         stakeholder: s.stakeholder,
         projekt: s.projekt,
         taetigkeit: s.taetigkeit,
+        format: s.format || 'Einzelarbeit', // NEW: restore format (with default)
         start_time: s.start_time,
         elapsed_ms: s.elapsed_ms,
         notiz: s.notiz,

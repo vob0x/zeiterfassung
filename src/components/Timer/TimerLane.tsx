@@ -23,15 +23,19 @@ const TimerLane: React.FC<TimerLaneProps> = ({ slot }) => {
     removeSlot,
     updateSlotField,
     getSlotElapsed,
+    addSlotStakeholder,
+    removeSlotStakeholder,
   } = useTimerStore();
   const { add: addEntry } = useEntriesStore();
   const {
     stakeholders,
     projects,
     activities,
+    formats,
     addStakeholder,
     addProject,
     addActivity,
+    addFormat,
   } = useMasterStore();
 
   const elapsedMs = getSlotElapsed(slot.id);
@@ -67,6 +71,7 @@ const TimerLane: React.FC<TimerLaneProps> = ({ slot }) => {
         stakeholder: slot.stakeholder,
         projekt: slot.projekt,
         taetigkeit: slot.taetigkeit,
+        format: slot.format, // NEW: include format
         start_time: startTimeStr,
         end_time: endTime,
         duration_ms: currentElapsed,
@@ -141,15 +146,50 @@ const TimerLane: React.FC<TimerLaneProps> = ({ slot }) => {
 
       {/* Dimension pickers (inline) */}
       <div style={{ flex: 1, display: 'flex', gap: '2px', flexWrap: 'wrap', minWidth: 0, alignItems: 'center' }}>
-        <InlinePicker
-          value={slot.stakeholder}
-          options={stakeholders}
-          placeholder={t('ph.stakeholder')}
-          onSelect={(v) => updateSlotField(slot.id, 'stakeholder', v)}
-          onAdd={async (v) => { await addStakeholder(v); }}
-          addPlaceholder={t('ph.newStakeholder')}
-          color="var(--neon-cyan)"
-        />
+        {/* Stakeholder multi-select chips */}
+        <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap' }}>
+          {slot.stakeholder.map((sh) => (
+            <div
+              key={sh}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '2px 6px',
+                borderRadius: '4px',
+                background: 'rgba(0, 200, 200, 0.15)',
+                fontSize: '11px',
+                color: 'var(--neon-cyan)',
+              }}
+            >
+              <span>{sh}</span>
+              <button
+                onClick={() => removeSlotStakeholder(slot.id, sh)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--neon-cyan)',
+                  cursor: 'pointer',
+                  padding: '0',
+                  lineHeight: '1',
+                  fontSize: '12px',
+                }}
+                title={t('timer.removeStakeholder')}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+          <InlinePicker
+            value=""
+            options={stakeholders.filter((s) => !slot.stakeholder.includes(s))}
+            placeholder={t('ph.stakeholder')}
+            onSelect={(v) => addSlotStakeholder(slot.id, v)}
+            onAdd={async (v) => { await addStakeholder(v); addSlotStakeholder(slot.id, v); }}
+            addPlaceholder={t('ph.newStakeholder')}
+            color="var(--neon-cyan)"
+          />
+        </div>
         <span style={{ color: 'var(--text-muted)', fontSize: '10px', margin: '0 1px' }}>·</span>
         <InlinePicker
           value={slot.projekt}
@@ -159,6 +199,16 @@ const TimerLane: React.FC<TimerLaneProps> = ({ slot }) => {
           onAdd={async (v) => { await addProject(v); }}
           addPlaceholder={t('ph.newProjekt')}
           color="var(--text)"
+        />
+        <span style={{ color: 'var(--text-muted)', fontSize: '10px', margin: '0 1px' }}>·</span>
+        <InlinePicker
+          value={slot.format}
+          options={formats}
+          placeholder={t('ph.format')}
+          onSelect={(v) => updateSlotField(slot.id, 'format', v)}
+          onAdd={async (v) => { await addFormat(v); }}
+          addPlaceholder={t('ph.newFormat')}
+          color="var(--warning)"
         />
         <span style={{ color: 'var(--text-muted)', fontSize: '10px', margin: '0 1px' }}>·</span>
         <InlinePicker

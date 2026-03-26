@@ -8,18 +8,22 @@ interface MasterState {
   stakeholders: string[];
   projects: string[];
   activities: string[];
+  formats: string[]; // NEW: format dimension
   loading: boolean;
   error: string | null;
   fetch: () => Promise<void>;
   addStakeholder: (name: string) => Promise<void>;
   addProject: (name: string) => Promise<void>;
   addActivity: (name: string) => Promise<void>;
+  addFormat: (name: string) => Promise<void>; // NEW
   removeStakeholder: (name: string) => Promise<void>;
   removeProject: (name: string) => Promise<void>;
   removeActivity: (name: string) => Promise<void>;
+  removeFormat: (name: string) => Promise<void>; // NEW
   renameStakeholder: (oldName: string, newName: string) => Promise<void>;
   renameProject: (oldName: string, newName: string) => Promise<void>;
   renameActivity: (oldName: string, newName: string) => Promise<void>;
+  renameFormat: (oldName: string, newName: string) => Promise<void>; // NEW
   sortMasterData: () => void;
   setError: (error: string | null) => void;
   clearError: () => void;
@@ -40,7 +44,7 @@ function mergeNames(supabaseNames: string[], localNames: string[]): string[] {
 
 // Helper: sync a local list to Supabase table (non-blocking bulk upsert, encrypted)
 async function syncListToSupabase(
-  table: 'stakeholders' | 'projects' | 'activities',
+  table: 'stakeholders' | 'projects' | 'activities' | 'formats',
   names: string[],
   userId: string
 ) {
@@ -71,6 +75,7 @@ export const useMasterStore = create<MasterState>((set, get) => ({
   stakeholders: [],
   projects: [],
   activities: [],
+  formats: ['Einzelarbeit', 'Meeting', 'Telefonat', 'Workshop'], // NEW: default formats
   loading: false,
   error: null,
 
@@ -81,12 +86,14 @@ export const useMasterStore = create<MasterState>((set, get) => ({
       const localStakeholders = getUserData<string[]>('stakeholders', []);
       const localProjects = getUserData<string[]>('projects', []);
       const localActivities = getUserData<string[]>('activities', []);
+      const localFormats = getUserData<string[]>('formats', ['Einzelarbeit', 'Meeting', 'Telefonat', 'Workshop']);
 
       // Show local data immediately
       set({
         stakeholders: localStakeholders,
         projects: localProjects,
         activities: localActivities,
+        formats: localFormats,
         loading: false,
       });
 
@@ -95,10 +102,11 @@ export const useMasterStore = create<MasterState>((set, get) => ({
 
       if (isSupabaseAvailable() && supabaseClient && userId) {
         // RLS automatically includes teammates' data if user is in a team
-        const [shRes, prRes, actRes] = await Promise.all([
+        const [shRes, prRes, actRes, fmtRes] = await Promise.all([
           supabaseClient.from('stakeholders').select('name').order('sort_order'),
           supabaseClient.from('projects').select('name').order('sort_order'),
           supabaseClient.from('activities').select('name').order('sort_order'),
+          supabaseClient.from('formats').select('name').order('sort_order'),
         ]);
 
         // Decrypt names from Supabase (filter out empty/failed decryptions)
@@ -111,27 +119,34 @@ export const useMasterStore = create<MasterState>((set, get) => ({
         const sbActivities = (await Promise.all(
           (actRes.data || []).map((r: any) => decryptField(r.name))
         )).filter(Boolean);
+        const sbFormats = (await Promise.all(
+          (fmtRes.data || []).map((r: any) => decryptField(r.name))
+        )).filter(Boolean);
 
         // Merge: Supabase + local (dedup)
         const mergedStakeholders = mergeNames(sbStakeholders, localStakeholders);
         const mergedProjects = mergeNames(sbProjects, localProjects);
         const mergedActivities = mergeNames(sbActivities, localActivities);
+        const mergedFormats = mergeNames(sbFormats, localFormats);
 
         set({
           stakeholders: mergedStakeholders,
           projects: mergedProjects,
           activities: mergedActivities,
+          formats: mergedFormats,
         });
 
         // Persist merged result locally
         setUserData('stakeholders', mergedStakeholders);
         setUserData('projects', mergedProjects);
         setUserData('activities', mergedActivities);
+        setUserData('formats', mergedFormats);
 
         // Push any local-only items to Supabase
         syncListToSupabase('stakeholders', mergedStakeholders, userId);
         syncListToSupabase('projects', mergedProjects, userId);
         syncListToSupabase('activities', mergedActivities, userId);
+        syncListToSupabase('formats', mergedFormats, userId);
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to fetch master data';
@@ -317,12 +332,73 @@ export const useMasterStore = create<MasterState>((set, get) => ({
     }
   },
 
+  // NEW: Format methods (same pattern as activities/stakeholders/projects)
+  addFormat: async (name: string) => {
+    set({ error: null });
+    try {
+      const state = get();
+      if (state.formats.includes(name)) {
+        throw new Error('Format already exists');
+      }
+      const updated = [...state.formats, name].sort();
+      set({ formats: updated });
+      setUserData('formats', updated);
+
+      const userId = getSupabaseUserId();
+      if (userId) syncListToSupabase('formats', updated, userId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to add format';
+      set({ error: message });
+      throw error;
+    }
+  },
+
+  removeFormat: async (name: string) => {
+    set({ error: null });
+    try {
+      const state = get();
+      const updated = state.formats.filter((f) => f !== name);
+      set({ formats: updated });
+      setUserData('formats', updated);
+
+      const userId = getSupabaseUserId();
+      if (userId) syncListToSupabase('formats', updated, userId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to remove format';
+      set({ error: message });
+      throw error;
+    }
+  },
+
+  renameFormat: async (oldName: string, newName: string) => {
+    set({ error: null });
+    try {
+      const state = get();
+      if (state.formats.includes(newName)) {
+        throw new Error('Format name already exists');
+      }
+      const updated = state.formats
+        .map((f) => (f === oldName ? newName : f))
+        .sort();
+      set({ formats: updated });
+      setUserData('formats', updated);
+
+      const userId = getSupabaseUserId();
+      if (userId) syncListToSupabase('formats', updated, userId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to rename format';
+      set({ error: message });
+      throw error;
+    }
+  },
+
   sortMasterData: () => {
     const state = get();
     set({
       stakeholders: [...state.stakeholders].sort(),
       projects: [...state.projects].sort(),
       activities: [...state.activities].sort(),
+      formats: [...state.formats].sort(),
     });
   },
 

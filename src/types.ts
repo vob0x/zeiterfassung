@@ -77,9 +77,10 @@ export interface TimeEntry {
   id: string;
   user_id: string;
   date: string; // YYYY-MM-DD format
-  stakeholder: string;
+  stakeholder: string | string[]; // Backward compat: accept both
   projekt: string;
   taetigkeit: string;
+  format?: string; // NEW: format dimension (default 'Einzelarbeit')
   start_time: string; // HH:MM format
   end_time: string; // HH:MM format
   duration_ms: number;
@@ -90,9 +91,10 @@ export interface TimeEntry {
 
 export interface TimeEntryInput {
   date: string;
-  stakeholder: string;
+  stakeholder: string | string[];
   projekt: string;
   taetigkeit: string;
+  format?: string; // NEW: format dimension
   start_time: string;
   end_time: string;
   duration_ms: number;
@@ -124,9 +126,10 @@ export interface UserSettings {
 export interface TimerSlot {
   id: string;
   date: string; // YYYY-MM-DD format
-  stakeholder: string;
+  stakeholder: string[]; // NEW: array of stakeholders
   projekt: string;
   taetigkeit: string;
+  format: string; // NEW: format dimension (default 'Einzelarbeit')
   start_time: string; // HH:MM format
   elapsed_ms: number;
   notiz?: string;
@@ -236,9 +239,10 @@ export interface JoinTeamFormData {
 
 export interface TimeEntryFormData {
   date: string;
-  stakeholder: string;
+  stakeholder: string | string[];
   projekt: string;
   taetigkeit: string;
+  format: string; // NEW: format dimension
   start_time: string;
   end_time: string;
   notiz?: string;
@@ -397,6 +401,7 @@ export interface FilterState {
   stakeholder: string;
   project: string;
   activity: string;
+  format: string; // NEW: format filter
   notiz: string;
 }
 

@@ -13,7 +13,7 @@ export default function DashboardView() {
   const { t } = useI18n();
   const entries = useEntriesStore((state) => state.entries);
   const { setFilter, clearFilters, filters } = useEntriesStore();
-  const { stakeholders, projects, activities } = useMasterStore();
+  const { stakeholders, projects, activities, formats } = useMasterStore();
   const [period, setPeriod] = useState<PeriodType>('week');
 
   // Compute date range based on period
@@ -51,9 +51,14 @@ export default function DashboardView() {
       if (dateRange.start && entry.date < dateRange.start) return false;
       if (dateRange.end && entry.date > dateRange.end) return false;
 
-      if (filters.stakeholder && entry.stakeholder !== filters.stakeholder) return false;
+      // Handle stakeholder as array
+      if (filters.stakeholder) {
+        const stakeholderArray = Array.isArray(entry.stakeholder) ? entry.stakeholder : [entry.stakeholder];
+        if (!stakeholderArray.includes(filters.stakeholder)) return false;
+      }
       if (filters.project && entry.projekt !== filters.project) return false;
       if (filters.activity && entry.taetigkeit !== filters.activity) return false;
+      if (filters.format && entry.format !== filters.format) return false;
 
       if (filters.notiz) {
         const searchTerm = filters.notiz.toLowerCase();
@@ -141,6 +146,19 @@ export default function DashboardView() {
           </select>
 
           <select
+            value={filters.format}
+            onChange={(e) => setFilter('format', e.target.value)}
+            className="select"
+          >
+            <option value="">{t('all.formate')}</option>
+            {formats.map((f) => (
+              <option key={f} value={f}>
+                {f}
+              </option>
+            ))}
+          </select>
+
+          <select
             value={filters.activity}
             onChange={(e) => setFilter('activity', e.target.value)}
             className="select"
@@ -201,6 +219,12 @@ export default function DashboardView() {
           <div className="card p-4">
             <h2 style={{ color: 'var(--text)' }} className="text-lg font-semibold mb-4">{t('dash.byActivity')}</h2>
             <ActivityBars entries={filteredEntries} />
+          </div>
+
+          {/* Format Breakdown */}
+          <div className="card p-4">
+            <h2 style={{ color: 'var(--text)' }} className="text-lg font-semibold mb-4">{t('dash.byFormat')}</h2>
+            <ActivityBars entries={filteredEntries} isFormat />
           </div>
 
           {/* Timeline Chart */}

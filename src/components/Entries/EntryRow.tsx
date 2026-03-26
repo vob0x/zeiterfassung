@@ -55,7 +55,7 @@ const EntryRow: React.FC<EntryRowProps> = ({ entry, onEdit }) => {
           className="inline-block px-2 py-0.5 rounded-xl text-xs font-semibold max-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap"
           style={{ background: 'rgba(201, 169, 98, 0.07)', color: 'var(--neon-cyan)', border: '1px solid rgba(201, 169, 98, 0.08)' }}
         >
-          {entry.stakeholder}
+          {Array.isArray(entry.stakeholder) ? entry.stakeholder.join(', ') : entry.stakeholder}
         </span>
       </td>
 
@@ -66,6 +66,16 @@ const EntryRow: React.FC<EntryRowProps> = ({ entry, onEdit }) => {
           style={{ background: 'rgba(155, 142, 196, 0.07)', color: 'var(--neon-violet, #9B8EC4)', border: '1px solid rgba(155, 142, 196, 0.08)' }}
         >
           {entry.projekt}
+        </span>
+      </td>
+
+      {/* Format Badge - NEW */}
+      <td className="px-4 py-3">
+        <span
+          className="inline-block px-2 py-0.5 rounded-xl text-xs font-semibold max-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap"
+          style={{ background: 'rgba(168, 162, 198, 0.08)', color: '#B8ACDC', border: '1px solid rgba(168, 162, 198, 0.08)' }}
+        >
+          {entry.format || 'Einzelarbeit'}
         </span>
       </td>
 
