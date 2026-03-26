@@ -20,6 +20,9 @@ const QuickShortcuts: React.FC = () => {
   const [pinnedShortcuts, setPinnedShortcuts] = useState<ShortcutItem[]>(() => {
     return getUserData<ShortcutItem[]>('pinnedShortcuts', []);
   });
+  const [hiddenShortcuts, setHiddenShortcuts] = useState<string[]>(() => {
+    return getUserData<string[]>('hiddenShortcuts', []);
+  });
 
   // Calculate frequency of stakeholder+project combinations from actual entries
   const autoShortcuts = useMemo(() => {
@@ -41,10 +44,11 @@ const QuickShortcuts: React.FC = () => {
       });
   }, [entries]);
 
-  // Deduplicate: filter out auto shortcuts that are already pinned
+  // Deduplicate: filter out auto shortcuts that are already pinned or hidden
   const dedupedAutoShortcuts = autoShortcuts.filter(
     (auto) =>
-      !pinnedShortcuts.some((p) => p.stakeholder === auto.stakeholder && p.projekt === auto.projekt)
+      !pinnedShortcuts.some((p) => p.stakeholder === auto.stakeholder && p.projekt === auto.projekt) &&
+      !hiddenShortcuts.includes(`${auto.stakeholder}|${auto.projekt}`)
   );
 
   // Handle shortcut click
@@ -57,13 +61,25 @@ const QuickShortcuts: React.FC = () => {
     });
   };
 
-  // Delete a shortcut (remove from pinned and hide from auto)
+  // Delete a shortcut (remove from pinned, hide auto-generated ones)
   const handleDelete = (shortcut: ShortcutItem) => {
-    const updated = pinnedShortcuts.filter(
-      (p) => !(p.stakeholder === shortcut.stakeholder && p.projekt === shortcut.projekt)
+    const isPinned = pinnedShortcuts.some(
+      (p) => p.stakeholder === shortcut.stakeholder && p.projekt === shortcut.projekt
     );
-    setPinnedShortcuts(updated);
-    setUserData('pinnedShortcuts', updated);
+    if (isPinned) {
+      const updated = pinnedShortcuts.filter(
+        (p) => !(p.stakeholder === shortcut.stakeholder && p.projekt === shortcut.projekt)
+      );
+      setPinnedShortcuts(updated);
+      setUserData('pinnedShortcuts', updated);
+    }
+    // Always add to hidden list so auto-generated shortcuts stay hidden
+    const key = `${shortcut.stakeholder}|${shortcut.projekt}`;
+    if (!hiddenShortcuts.includes(key)) {
+      const updatedHidden = [...hiddenShortcuts, key];
+      setHiddenShortcuts(updatedHidden);
+      setUserData('hiddenShortcuts', updatedHidden);
+    }
   };
 
   const allShortcuts = [...pinnedShortcuts, ...dedupedAutoShortcuts];
