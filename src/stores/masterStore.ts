@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { getUserData, setUserData } from '@/lib/userStorage';
 import { supabaseClient, isSupabaseAvailable } from '@/lib/supabase';
 import { useAuthStore } from './authStore';
+import { encryptField, decryptField, hasEncryptionKey } from '@/lib/crypto';
 
 interface MasterState {
   stakeholders: string[];
@@ -37,27 +38,33 @@ function mergeNames(supabaseNames: string[], localNames: string[]): string[] {
   return Array.from(set).sort();
 }
 
-// Helper: sync a local list to Supabase table (non-blocking bulk upsert)
-function syncListToSupabase(
+// Helper: sync a local list to Supabase table (non-blocking bulk upsert, encrypted)
+async function syncListToSupabase(
   table: 'stakeholders' | 'projects' | 'activities',
   names: string[],
   userId: string
 ) {
-  if (!isSupabaseAvailable() || !supabaseClient) return;
-  // Upsert all names (ignore conflicts on user_id+name unique constraint)
-  const rows = names.map((name, idx) => ({
-    user_id: userId,
-    name,
-    sort_order: idx,
-  }));
-  if (rows.length > 0) {
-    supabaseClient
-      .from(table)
-      .upsert(rows, { onConflict: 'user_id,name' })
-      .then(({ error }) => {
-        if (error) console.warn(`Supabase ${table} sync failed:`, error.message);
-      });
-  }
+  if (!isSupabaseAvailable() || !supabaseClient || names.length === 0) return;
+
+  // Encrypt names before sending to Supabase
+  const encryptedRows = await Promise.all(
+    names.map(async (name, idx) => ({
+      user_id: userId,
+      name: hasEncryptionKey() ? await encryptField(name) : name,
+      sort_order: idx,
+    }))
+  );
+
+  // Delete existing rows first (encrypted values differ each time due to random IV)
+  await supabaseClient.from(table).delete().eq('user_id', userId);
+
+  // Insert fresh
+  supabaseClient
+    .from(table)
+    .insert(encryptedRows)
+    .then(({ error }) => {
+      if (error) console.warn(`Supabase ${table} sync failed:`, error.message);
+    });
 }
 
 export const useMasterStore = create<MasterState>((set, get) => ({
@@ -94,9 +101,16 @@ export const useMasterStore = create<MasterState>((set, get) => ({
           supabaseClient.from('activities').select('name').order('sort_order'),
         ]);
 
-        const sbStakeholders = (shRes.data || []).map((r: any) => r.name);
-        const sbProjects = (prRes.data || []).map((r: any) => r.name);
-        const sbActivities = (actRes.data || []).map((r: any) => r.name);
+        // Decrypt names from Supabase
+        const sbStakeholders = await Promise.all(
+          (shRes.data || []).map((r: any) => decryptField(r.name))
+        );
+        const sbProjects = await Promise.all(
+          (prRes.data || []).map((r: any) => decryptField(r.name))
+        );
+        const sbActivities = await Promise.all(
+          (actRes.data || []).map((r: any) => decryptField(r.name))
+        );
 
         // Merge: Supabase + local (dedup)
         const mergedStakeholders = mergeNames(sbStakeholders, localStakeholders);
@@ -136,16 +150,9 @@ export const useMasterStore = create<MasterState>((set, get) => ({
       set({ stakeholders: updated });
       setUserData('stakeholders', updated);
 
-      // Sync to Supabase
+      // Sync full list to Supabase (encrypted)
       const userId = getSupabaseUserId();
-      if (isSupabaseAvailable() && supabaseClient && userId) {
-        supabaseClient
-          .from('stakeholders')
-          .upsert({ user_id: userId, name, sort_order: updated.indexOf(name) }, { onConflict: 'user_id,name' })
-          .then(({ error: err }) => {
-            if (err) console.warn('Supabase stakeholder add failed:', err.message);
-          });
-      }
+      if (userId) syncListToSupabase('stakeholders', updated, userId);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to add stakeholder';
       set({ error: message });
@@ -165,14 +172,7 @@ export const useMasterStore = create<MasterState>((set, get) => ({
       setUserData('projects', updated);
 
       const userId = getSupabaseUserId();
-      if (isSupabaseAvailable() && supabaseClient && userId) {
-        supabaseClient
-          .from('projects')
-          .upsert({ user_id: userId, name, sort_order: updated.indexOf(name) }, { onConflict: 'user_id,name' })
-          .then(({ error: err }) => {
-            if (err) console.warn('Supabase project add failed:', err.message);
-          });
-      }
+      if (userId) syncListToSupabase('projects', updated, userId);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to add project';
       set({ error: message });
@@ -192,14 +192,7 @@ export const useMasterStore = create<MasterState>((set, get) => ({
       setUserData('activities', updated);
 
       const userId = getSupabaseUserId();
-      if (isSupabaseAvailable() && supabaseClient && userId) {
-        supabaseClient
-          .from('activities')
-          .upsert({ user_id: userId, name, sort_order: updated.indexOf(name) }, { onConflict: 'user_id,name' })
-          .then(({ error: err }) => {
-            if (err) console.warn('Supabase activity add failed:', err.message);
-          });
-      }
+      if (userId) syncListToSupabase('activities', updated, userId);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to add activity';
       set({ error: message });
@@ -216,16 +209,7 @@ export const useMasterStore = create<MasterState>((set, get) => ({
       setUserData('stakeholders', updated);
 
       const userId = getSupabaseUserId();
-      if (isSupabaseAvailable() && supabaseClient && userId) {
-        supabaseClient
-          .from('stakeholders')
-          .delete()
-          .eq('user_id', userId)
-          .eq('name', name)
-          .then(({ error: err }) => {
-            if (err) console.warn('Supabase stakeholder delete failed:', err.message);
-          });
-      }
+      if (userId) syncListToSupabase('stakeholders', updated, userId);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to remove stakeholder';
       set({ error: message });
@@ -242,16 +226,7 @@ export const useMasterStore = create<MasterState>((set, get) => ({
       setUserData('projects', updated);
 
       const userId = getSupabaseUserId();
-      if (isSupabaseAvailable() && supabaseClient && userId) {
-        supabaseClient
-          .from('projects')
-          .delete()
-          .eq('user_id', userId)
-          .eq('name', name)
-          .then(({ error: err }) => {
-            if (err) console.warn('Supabase project delete failed:', err.message);
-          });
-      }
+      if (userId) syncListToSupabase('projects', updated, userId);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to remove project';
       set({ error: message });
@@ -268,16 +243,7 @@ export const useMasterStore = create<MasterState>((set, get) => ({
       setUserData('activities', updated);
 
       const userId = getSupabaseUserId();
-      if (isSupabaseAvailable() && supabaseClient && userId) {
-        supabaseClient
-          .from('activities')
-          .delete()
-          .eq('user_id', userId)
-          .eq('name', name)
-          .then(({ error: err }) => {
-            if (err) console.warn('Supabase activity delete failed:', err.message);
-          });
-      }
+      if (userId) syncListToSupabase('activities', updated, userId);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to remove activity';
       set({ error: message });
@@ -299,16 +265,7 @@ export const useMasterStore = create<MasterState>((set, get) => ({
       setUserData('stakeholders', updated);
 
       const userId = getSupabaseUserId();
-      if (isSupabaseAvailable() && supabaseClient && userId) {
-        supabaseClient
-          .from('stakeholders')
-          .update({ name: newName, updated_at: new Date().toISOString() })
-          .eq('user_id', userId)
-          .eq('name', oldName)
-          .then(({ error: err }) => {
-            if (err) console.warn('Supabase stakeholder rename failed:', err.message);
-          });
-      }
+      if (userId) syncListToSupabase('stakeholders', updated, userId);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to rename stakeholder';
       set({ error: message });
@@ -330,16 +287,7 @@ export const useMasterStore = create<MasterState>((set, get) => ({
       setUserData('projects', updated);
 
       const userId = getSupabaseUserId();
-      if (isSupabaseAvailable() && supabaseClient && userId) {
-        supabaseClient
-          .from('projects')
-          .update({ name: newName, updated_at: new Date().toISOString() })
-          .eq('user_id', userId)
-          .eq('name', oldName)
-          .then(({ error: err }) => {
-            if (err) console.warn('Supabase project rename failed:', err.message);
-          });
-      }
+      if (userId) syncListToSupabase('projects', updated, userId);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to rename project';
       set({ error: message });
@@ -361,16 +309,7 @@ export const useMasterStore = create<MasterState>((set, get) => ({
       setUserData('activities', updated);
 
       const userId = getSupabaseUserId();
-      if (isSupabaseAvailable() && supabaseClient && userId) {
-        supabaseClient
-          .from('activities')
-          .update({ name: newName, updated_at: new Date().toISOString() })
-          .eq('user_id', userId)
-          .eq('name', oldName)
-          .then(({ error: err }) => {
-            if (err) console.warn('Supabase activity rename failed:', err.message);
-          });
-      }
+      if (userId) syncListToSupabase('activities', updated, userId);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to rename activity';
       set({ error: message });

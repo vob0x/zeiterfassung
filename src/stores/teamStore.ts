@@ -3,6 +3,7 @@ import { Team, TeamMember, TimeEntry, PeriodType } from '@/types';
 import { getUserData, setUserData, removeUserData } from '@/lib/userStorage';
 import { useAuthStore } from './authStore';
 import { supabaseClient, isSupabaseAvailable } from '@/lib/supabase';
+import { decryptField } from '@/lib/crypto';
 
 interface TeamState {
   team: Team | null;
@@ -429,20 +430,22 @@ export const useTeamStore = create<TeamState>((set, get) => ({
             .order('date', { ascending: false });
 
           if (entriesData) {
-            const entries: TimeEntry[] = entriesData.map((row: any) => ({
-              id: row.id,
-              user_id: row.user_id,
-              date: typeof row.date === 'string' ? row.date : new Date(row.date).toISOString().split('T')[0],
-              stakeholder: row.stakeholder || '',
-              projekt: row.projekt || '',
-              taetigkeit: row.taetigkeit || '',
-              start_time: row.start_time || '',
-              end_time: row.end_time || '',
-              duration_ms: row.duration_ms || 0,
-              notiz: row.notiz || '',
-              created_at: row.created_at || '',
-              updated_at: row.updated_at || '',
-            }));
+            const entries: TimeEntry[] = await Promise.all(
+              entriesData.map(async (row: any) => ({
+                id: row.id,
+                user_id: row.user_id,
+                date: typeof row.date === 'string' ? row.date : new Date(row.date).toISOString().split('T')[0],
+                stakeholder: await decryptField(row.stakeholder || ''),
+                projekt: await decryptField(row.projekt || ''),
+                taetigkeit: await decryptField(row.taetigkeit || ''),
+                start_time: row.start_time || '',
+                end_time: row.end_time || '',
+                duration_ms: row.duration_ms || 0,
+                notiz: await decryptField(row.notiz || ''),
+                created_at: row.created_at || '',
+                updated_at: row.updated_at || '',
+              }))
+            );
             memberEntriesMap.set(codename, entries);
           }
         }

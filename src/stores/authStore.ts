@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { supabaseClient, isSupabaseAvailable } from '@/lib/supabase'
+import { deriveEncryptionKey, clearEncryptionKey } from '@/lib/crypto'
 import type { Profile, Session } from '@/types'
 
 interface AuthState {
@@ -139,6 +140,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           }
 
           localStorage.setItem('zeiterfassung_session', JSON.stringify(session))
+          // Derive encryption key from password + userId
+          await deriveEncryptionKey(password, data.user.id)
           set({ profile, session, loading: false, isAuthenticated: true })
           return
         }
@@ -222,6 +225,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           }
 
           localStorage.setItem('zeiterfassung_session', JSON.stringify(session))
+          // Derive encryption key from password + userId
+          await deriveEncryptionKey(password, data.user.id)
           set({ profile, session, loading: false, isAuthenticated: true })
           return
         }
@@ -258,6 +263,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       console.warn('Supabase signOut error:', e)
     }
     localStorage.removeItem('zeiterfassung_session')
+    clearEncryptionKey()
     set({ profile: null, session: null, isAuthenticated: false, loading: false })
   },
 

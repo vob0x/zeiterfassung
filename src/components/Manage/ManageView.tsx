@@ -202,11 +202,12 @@ export default function ManageView() {
   const handleCSVImport = async (file: File) => {
     try {
       const newEntries = await importCSV(file);
-      const entriesState = useEntriesStore.getState();
-      for (const entry of newEntries) {
-        await entriesState.add(entry);
+      if (newEntries.length === 0) {
+        showToast(t('toast.error'), 'error');
+        return;
       }
-      showToast(t('toast.importOk'), 'success');
+      await useEntriesStore.getState().bulkAdd(newEntries);
+      showToast(`${t('toast.importOk')} (${newEntries.length})`, 'success');
     } catch (error) {
       showToast(error instanceof Error ? error.message : t('toast.error'), 'error');
     }

@@ -4,6 +4,7 @@ import { getUserData, setUserData } from '@/lib/userStorage';
 import { computeUnionMs } from '@/lib/utils';
 import { supabaseClient, isSupabaseAvailable } from '@/lib/supabase';
 import { useAuthStore } from './authStore';
+import { encryptField, decryptField, hasEncryptionKey } from '@/lib/crypto';
 
 // Generate a proper UUID v4 (required by Supabase)
 function generateUUID(): string {
@@ -23,6 +24,30 @@ function isValidUUID(str: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
 }
 
+// Fields to encrypt in time_entries
+const ENCRYPTED_ENTRY_FIELDS = ['stakeholder', 'projekt', 'taetigkeit', 'notiz'] as const;
+
+async function encryptEntryForSupabase(row: Record<string, any>): Promise<Record<string, any>> {
+  if (!hasEncryptionKey()) return row;
+  const encrypted = { ...row };
+  for (const field of ENCRYPTED_ENTRY_FIELDS) {
+    if (encrypted[field]) {
+      encrypted[field] = await encryptField(encrypted[field]);
+    }
+  }
+  return encrypted;
+}
+
+async function decryptEntryFromSupabase(row: any): Promise<any> {
+  const decrypted = { ...row };
+  for (const field of ENCRYPTED_ENTRY_FIELDS) {
+    if (decrypted[field]) {
+      decrypted[field] = await decryptField(decrypted[field]);
+    }
+  }
+  return decrypted;
+}
+
 interface EntriesState {
   entries: TimeEntry[];
   loading: boolean;
@@ -30,6 +55,7 @@ interface EntriesState {
   filters: FilterState;
   fetch: () => Promise<void>;
   add: (entry: Record<string, any>) => Promise<void>;
+  bulkAdd: (entries: Record<string, any>[]) => Promise<void>;
   update: (id: string, updates: Partial<TimeEntry>) => Promise<void>;
   delete: (id: string) => Promise<void>;
   setFilter: (key: keyof FilterState, value: string) => void;
@@ -71,20 +97,26 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
           .order('date', { ascending: false });
 
         if (!sbErr && data) {
-          const sbEntries: TimeEntry[] = data.map((row: any) => ({
-            id: row.id,
-            user_id: row.user_id,
-            date: typeof row.date === 'string' ? row.date : new Date(row.date).toISOString().split('T')[0],
-            stakeholder: row.stakeholder || '',
-            projekt: row.projekt || '',
-            taetigkeit: row.taetigkeit || '',
-            start_time: row.start_time || '',
-            end_time: row.end_time || '',
-            duration_ms: row.duration_ms || 0,
-            notiz: row.notiz || '',
-            created_at: row.created_at || '',
-            updated_at: row.updated_at || '',
-          }));
+          // Decrypt entries from Supabase
+          const sbEntries: TimeEntry[] = await Promise.all(
+            data.map(async (row: any) => {
+              const decrypted = await decryptEntryFromSupabase(row);
+              return {
+                id: decrypted.id,
+                user_id: decrypted.user_id,
+                date: typeof decrypted.date === 'string' ? decrypted.date : new Date(decrypted.date).toISOString().split('T')[0],
+                stakeholder: decrypted.stakeholder || '',
+                projekt: decrypted.projekt || '',
+                taetigkeit: decrypted.taetigkeit || '',
+                start_time: decrypted.start_time || '',
+                end_time: decrypted.end_time || '',
+                duration_ms: decrypted.duration_ms || 0,
+                notiz: decrypted.notiz || '',
+                created_at: decrypted.created_at || '',
+                updated_at: decrypted.updated_at || '',
+              };
+            })
+          );
 
           // Merge: use Supabase as base, add any local-only entries
           const sbIds = new Set(sbEntries.map((e) => e.id));
@@ -117,20 +149,26 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
               setUserData('entries', updatedMerged);
             }
 
-            const rows = fixedEntries.map((e) => ({
-              id: e.id,
-              user_id: profile.id,
-              date: e.date,
-              stakeholder: e.stakeholder,
-              projekt: e.projekt,
-              taetigkeit: e.taetigkeit,
-              start_time: e.start_time,
-              end_time: e.end_time,
-              duration_ms: e.duration_ms,
-              notiz: e.notiz || '',
-              created_at: e.created_at,
-              updated_at: e.updated_at,
-            }));
+            // Encrypt before pushing to Supabase
+            const rows = await Promise.all(
+              fixedEntries.map(async (e) => {
+                const row = {
+                  id: e.id,
+                  user_id: profile.id,
+                  date: e.date,
+                  stakeholder: e.stakeholder,
+                  projekt: e.projekt,
+                  taetigkeit: e.taetigkeit,
+                  start_time: e.start_time,
+                  end_time: e.end_time,
+                  duration_ms: e.duration_ms,
+                  notiz: e.notiz || '',
+                  created_at: e.created_at,
+                  updated_at: e.updated_at,
+                };
+                return encryptEntryForSupabase(row);
+              })
+            );
             supabaseClient
               .from('time_entries')
               .upsert(rows, { onConflict: 'id' })
@@ -185,22 +223,23 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
       if (isSupabaseAvailable() && supabaseClient) {
         const profile = useAuthStore.getState().profile;
         if (profile?.id && !profile.id.startsWith('local_')) {
+          const row = await encryptEntryForSupabase({
+            id: newEntry.id,
+            user_id: profile.id,
+            date: newEntry.date,
+            stakeholder: newEntry.stakeholder,
+            projekt: newEntry.projekt,
+            taetigkeit: newEntry.taetigkeit,
+            start_time: newEntry.start_time,
+            end_time: newEntry.end_time,
+            duration_ms: newEntry.duration_ms,
+            notiz: newEntry.notiz || '',
+            created_at: newEntry.created_at,
+            updated_at: newEntry.updated_at,
+          });
           supabaseClient
             .from('time_entries')
-            .upsert({
-              id: newEntry.id,
-              user_id: profile.id,
-              date: newEntry.date,
-              stakeholder: newEntry.stakeholder,
-              projekt: newEntry.projekt,
-              taetigkeit: newEntry.taetigkeit,
-              start_time: newEntry.start_time,
-              end_time: newEntry.end_time,
-              duration_ms: newEntry.duration_ms,
-              notiz: newEntry.notiz || '',
-              created_at: newEntry.created_at,
-              updated_at: newEntry.updated_at,
-            }, { onConflict: 'id' })
+            .upsert(row, { onConflict: 'id' })
             .then(({ error: sbErr }) => {
               if (sbErr) console.warn('Supabase entry sync failed:', sbErr.message);
             });
@@ -208,6 +247,79 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to add entry';
+      set({ error: message });
+      throw error;
+    }
+  },
+
+  bulkAdd: async (rawEntries: Record<string, any>[]) => {
+    set({ error: null });
+    try {
+      const state = get();
+      const now = new Date().toISOString();
+      const newEntries: TimeEntry[] = rawEntries.map((entry) => {
+        let duration_ms = (entry as any).duration_ms || 0;
+        if (!duration_ms && entry.start_time && entry.end_time) {
+          const [sh, sm] = entry.start_time.split(':').map(Number);
+          const [eh, em] = entry.end_time.split(':').map(Number);
+          let startMins = sh * 60 + sm;
+          let endMins = eh * 60 + em;
+          if (endMins < startMins) endMins += 24 * 60;
+          duration_ms = (endMins - startMins) * 60000;
+        }
+        return {
+          id: generateUUID(),
+          user_id: (entry as any).user_id || 'local',
+          date: entry.date,
+          stakeholder: entry.stakeholder || '',
+          projekt: entry.projekt || (entry as any).project || '',
+          taetigkeit: entry.taetigkeit || (entry as any).activity || '',
+          start_time: entry.start_time || (entry as any).startTime || '',
+          end_time: entry.end_time || (entry as any).endTime || '',
+          duration_ms,
+          notiz: entry.notiz || '',
+          created_at: (entry as any).created_at || now,
+          updated_at: (entry as any).updated_at || now,
+        };
+      });
+
+      const updated = [...state.entries, ...newEntries];
+      set({ entries: updated });
+      setUserData('entries', updated);
+
+      // Bulk sync to Supabase (encrypted)
+      if (isSupabaseAvailable() && supabaseClient) {
+        const profile = useAuthStore.getState().profile;
+        if (profile?.id && !profile.id.startsWith('local_')) {
+          const rows = await Promise.all(
+            newEntries.map(async (e) => {
+              const row = {
+                id: e.id,
+                user_id: profile.id,
+                date: e.date,
+                stakeholder: e.stakeholder,
+                projekt: e.projekt,
+                taetigkeit: e.taetigkeit,
+                start_time: e.start_time,
+                end_time: e.end_time,
+                duration_ms: e.duration_ms,
+                notiz: e.notiz || '',
+                created_at: e.created_at,
+                updated_at: e.updated_at,
+              };
+              return encryptEntryForSupabase(row);
+            })
+          );
+          supabaseClient
+            .from('time_entries')
+            .upsert(rows, { onConflict: 'id' })
+            .then(({ error: sbErr }) => {
+              if (sbErr) console.warn('Supabase bulk entry sync failed:', sbErr.message);
+            });
+        }
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to bulk add entries';
       set({ error: message });
       throw error;
     }
@@ -236,22 +348,23 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
         if (profile?.id && !profile.id.startsWith('local_')) {
           const entry = updated.find((e) => e.id === id);
           if (entry) {
+            const row = await encryptEntryForSupabase({
+              id: entry.id,
+              user_id: profile.id,
+              date: entry.date,
+              stakeholder: entry.stakeholder,
+              projekt: entry.projekt,
+              taetigkeit: entry.taetigkeit,
+              start_time: entry.start_time,
+              end_time: entry.end_time,
+              duration_ms: entry.duration_ms,
+              notiz: entry.notiz || '',
+              created_at: entry.created_at,
+              updated_at: updatedAt,
+            });
             supabaseClient
               .from('time_entries')
-              .upsert({
-                id: entry.id,
-                user_id: profile.id,
-                date: entry.date,
-                stakeholder: entry.stakeholder,
-                projekt: entry.projekt,
-                taetigkeit: entry.taetigkeit,
-                start_time: entry.start_time,
-                end_time: entry.end_time,
-                duration_ms: entry.duration_ms,
-                notiz: entry.notiz || '',
-                created_at: entry.created_at,
-                updated_at: updatedAt,
-              }, { onConflict: 'id' })
+              .upsert(row, { onConflict: 'id' })
               .then(({ error: sbErr }) => {
                 if (sbErr) console.warn('Supabase entry update sync failed:', sbErr.message);
               });
