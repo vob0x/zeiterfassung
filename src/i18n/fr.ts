@@ -164,6 +164,7 @@ export const fr = {
     removeMember: "Retirer",
     removeMemberConfirm: "Retirer ce membre de l'équipe ?",
     memberRemoved: "Membre retiré.",
+    scanToJoin: "Scanner le QR code pour rejoindre",
   },
 
   // KPIs

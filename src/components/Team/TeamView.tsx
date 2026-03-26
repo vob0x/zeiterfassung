@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useI18n } from '../../i18n';
 import { useTeamStore } from '../../stores/teamStore';
 import { useEntriesStore } from '../../stores/entriesStore';
@@ -11,7 +11,7 @@ import { TeamMatrix } from './TeamMatrix';
 import { TeamWorkload } from './TeamWorkload';
 import { TeamTimeline } from './TeamTimeline';
 import { useAuthStore } from '../../stores/authStore';
-import { Copy, Users, UserPlus, UserMinus, Wifi, WifiOff } from 'lucide-react';
+import { Copy, Users, UserPlus, UserMinus, Wifi, WifiOff, QrCode } from 'lucide-react';
 
 export default function TeamView() {
   const { t } = useI18n();
@@ -29,8 +29,21 @@ export default function TeamView() {
   const [removingMember, setRemovingMember] = useState<string | null>(null);
   const [isJoining, setIsJoining] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [showQR, setShowQR] = useState(false);
 
   const isOnline = isSupabaseAvailable();
+
+  // Auto-detect ?join=CODE in URL (from QR scan)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const joinCode = params.get('join');
+    if (joinCode && !connected) {
+      setInviteCode(joinCode.toUpperCase());
+      setSetupMode('join');
+      // Clean URL without reload
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [connected]);
 
   const handleCreateTeam = async (name: string) => {
     if (!name.trim()) {
@@ -290,22 +303,31 @@ export default function TeamView() {
 
         {/* Invite Code Section — always visible for team members */}
         {team?.invite_code && (
-          <div className="mt-3 pt-3 flex items-center gap-3 flex-wrap" style={{ borderTop: '1px solid var(--border)' }}>
-            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{t('settings.inviteCode')}:</span>
-            <code className="font-mono text-sm font-bold px-3 py-1 rounded tracking-widest"
-              style={{ background: 'rgba(201,169,98,0.08)', color: 'var(--neon-cyan)', letterSpacing: '0.15em' }}>
-              {team.invite_code}
-            </code>
-            <button
-              onClick={handleCopyInviteCode}
-              className="flex items-center gap-1 text-xs px-2 py-1 rounded transition-colors"
-              style={{ color: 'var(--text-secondary)', background: 'var(--surface-solid)' }}
-              title={t('settings.copied')}
-            >
-              <Copy className="w-3.5 h-3.5" />
-            </button>
-            {/* Member avatars */}
-            <div className="flex items-center gap-1 ml-auto flex-wrap">
+          <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{t('settings.inviteCode')}:</span>
+              <code className="font-mono text-sm font-bold px-3 py-1 rounded tracking-widest"
+                style={{ background: 'rgba(201,169,98,0.08)', color: 'var(--neon-cyan)', letterSpacing: '0.15em' }}>
+                {team.invite_code}
+              </code>
+              <button
+                onClick={handleCopyInviteCode}
+                className="flex items-center gap-1 text-xs px-2 py-1 rounded transition-colors"
+                style={{ color: 'var(--text-secondary)', background: 'var(--surface-solid)' }}
+                title={t('settings.copied')}
+              >
+                <Copy className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => setShowQR(!showQR)}
+                className="flex items-center gap-1 text-xs px-2 py-1 rounded transition-colors"
+                style={{ color: showQR ? 'var(--neon-cyan)' : 'var(--text-secondary)', background: 'var(--surface-solid)' }}
+                title="QR Code"
+              >
+                <QrCode className="w-3.5 h-3.5" />
+              </button>
+              {/* Member avatars */}
+              <div className="flex items-center gap-1 ml-auto flex-wrap">
               {members.map((m) => {
                 const isSelf = m.user_id === profile?.id;
                 return (
@@ -327,6 +349,25 @@ export default function TeamView() {
                 );
               })}
             </div>
+          </div>
+
+            {/* QR Code */}
+            {showQR && (
+              <div className="mt-3 flex flex-col items-center gap-2">
+                <div className="rounded-lg p-3" style={{ background: '#ffffff' }}>
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(`${window.location.origin}${window.location.pathname}?join=${team.invite_code}`)}`}
+                    alt="Team QR Code"
+                    width={180}
+                    height={180}
+                    style={{ display: 'block' }}
+                  />
+                </div>
+                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                  {t('team.scanToJoin')}
+                </span>
+              </div>
+            )}
           </div>
         )}
       </div>
