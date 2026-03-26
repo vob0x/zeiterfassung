@@ -3,7 +3,7 @@ import { useI18n } from '../../i18n';
 import { useEntriesStore } from '../../stores/entriesStore';
 import { useMasterStore } from '../../stores/masterStore';
 import { PeriodType } from '@/types';
-import { computeUnionMs } from '../../lib/utils';
+import { computeUnionMs, formatDateISO } from '../../lib/utils';
 import { KpiCards } from './KpiCards';
 import { Heatmap } from './Heatmap';
 import { ActivityBars } from './ActivityBars';
@@ -17,28 +17,32 @@ export default function DashboardView() {
   const [period, setPeriod] = useState<PeriodType>('week');
 
   // Compute date range based on period
+  // Uses formatDateISO (local time) — NOT toISOString (UTC) to avoid
+  // date shift issues in CET/CEST timezone (Switzerland)
   const dateRange = useMemo(() => {
     const today = new Date();
-    const start = new Date();
+    const todayISO = formatDateISO(today); // Local YYYY-MM-DD
 
     switch (period) {
-      case 'week':
-        start.setDate(today.getDate() - today.getDay());
-        break;
-      case 'month':
-        start.setDate(1);
-        break;
-      case 'year':
-        start.setFullYear(today.getFullYear(), 0, 1);
-        break;
+      case 'week': {
+        // European week: Monday = start (ISO 8601)
+        const day = today.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+        const diff = day === 0 ? 6 : day - 1;
+        const monday = new Date(today);
+        monday.setDate(today.getDate() - diff);
+        return { start: formatDateISO(monday), end: todayISO };
+      }
+      case 'month': {
+        const first = new Date(today.getFullYear(), today.getMonth(), 1);
+        return { start: formatDateISO(first), end: todayISO };
+      }
+      case 'year': {
+        const jan1 = new Date(today.getFullYear(), 0, 1);
+        return { start: formatDateISO(jan1), end: todayISO };
+      }
       case 'all':
         return { start: null, end: null };
     }
-
-    return {
-      start: start.toISOString().split('T')[0],
-      end: today.toISOString().split('T')[0],
-    };
   }, [period]);
 
   // Filter entries by period
@@ -61,9 +65,9 @@ export default function DashboardView() {
     });
   }, [entries, dateRange, filters]);
 
-  // Compute today's entries
-  const today = new Date().toISOString().split('T')[0];
-  const todayEntries = entries.filter((e) => e.date === today);
+  // Compute today's entries (using local date, not UTC)
+  const todayStr = formatDateISO(new Date());
+  const todayEntries = entries.filter((e) => e.date === todayStr);
 
   const kpiToday = computeUnionMs(todayEntries) / (1000 * 60 * 60);
 

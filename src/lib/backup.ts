@@ -155,7 +155,7 @@ export async function importCSV(file: File): Promise<Omit<TimeEntry, 'id' | 'use
             start_time: cells[4],
             end_time: cells[5],
             duration_ms,
-            notiz: cells[7] || undefined,
+            notiz: cells[7] || '',
           };
 
           entries.push(entry);

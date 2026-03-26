@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { TimeEntry, FilterState } from '@/types';
 import { getUserData, setUserData } from '@/lib/userStorage';
-import { computeUnionMs } from '@/lib/utils';
+import { computeUnionMs, formatDateISO } from '@/lib/utils';
 import { supabaseClient, isSupabaseAvailable } from '@/lib/supabase';
 import { useAuthStore } from './authStore';
 import { encryptField, decryptField, hasEncryptionKey } from '@/lib/crypto';
@@ -104,7 +104,7 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
               return {
                 id: decrypted.id,
                 user_id: decrypted.user_id,
-                date: typeof decrypted.date === 'string' ? decrypted.date : new Date(decrypted.date).toISOString().split('T')[0],
+                date: typeof decrypted.date === 'string' ? decrypted.date : formatDateISO(new Date(decrypted.date)),
                 stakeholder: decrypted.stakeholder || '',
                 projekt: decrypted.projekt || '',
                 taetigkeit: decrypted.taetigkeit || '',

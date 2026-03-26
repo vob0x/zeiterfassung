@@ -3,6 +3,7 @@ import { Team, TeamMember, TimeEntry, PeriodType } from '@/types';
 import { getUserData, setUserData, removeUserData } from '@/lib/userStorage';
 import { useAuthStore } from './authStore';
 import { supabaseClient, isSupabaseAvailable } from '@/lib/supabase';
+import { formatDateISO } from '@/lib/utils';
 import { decryptField } from '@/lib/crypto';
 
 interface TeamState {
@@ -424,7 +425,7 @@ export const useTeamStore = create<TeamState>((set, get) => ({
               entriesData.map(async (row: any) => ({
                 id: row.id,
                 user_id: row.user_id,
-                date: typeof row.date === 'string' ? row.date : new Date(row.date).toISOString().split('T')[0],
+                date: typeof row.date === 'string' ? row.date : formatDateISO(new Date(row.date)),
                 stakeholder: await decryptField(row.stakeholder || ''),
                 projekt: await decryptField(row.projekt || ''),
                 taetigkeit: await decryptField(row.taetigkeit || ''),

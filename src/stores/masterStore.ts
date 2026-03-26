@@ -101,16 +101,16 @@ export const useMasterStore = create<MasterState>((set, get) => ({
           supabaseClient.from('activities').select('name').order('sort_order'),
         ]);
 
-        // Decrypt names from Supabase
-        const sbStakeholders = await Promise.all(
+        // Decrypt names from Supabase (filter out empty/failed decryptions)
+        const sbStakeholders = (await Promise.all(
           (shRes.data || []).map((r: any) => decryptField(r.name))
-        );
-        const sbProjects = await Promise.all(
+        )).filter(Boolean);
+        const sbProjects = (await Promise.all(
           (prRes.data || []).map((r: any) => decryptField(r.name))
-        );
-        const sbActivities = await Promise.all(
+        )).filter(Boolean);
+        const sbActivities = (await Promise.all(
           (actRes.data || []).map((r: any) => decryptField(r.name))
-        );
+        )).filter(Boolean);
 
         // Merge: Supabase + local (dedup)
         const mergedStakeholders = mergeNames(sbStakeholders, localStakeholders);

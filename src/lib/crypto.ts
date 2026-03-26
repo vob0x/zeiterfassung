@@ -108,11 +108,14 @@ export async function encryptField(plaintext: string): Promise<string> {
 /**
  * Decrypt an encrypted string. If the string doesn't start with `enc:`,
  * it's treated as unencrypted plaintext and returned as-is.
+ *
+ * IMPORTANT: Never returns ciphertext to the UI. If decryption fails
+ * (no key, wrong key), returns a placeholder instead of the raw `enc:` blob.
  */
 export async function decryptField(ciphertext: string): Promise<string> {
   if (!ciphertext || !ciphertext.startsWith(ENC_PREFIX)) return ciphertext;
   const key = await getKey();
-  if (!key) return ciphertext; // Can't decrypt without key
+  if (!key) return ''; // No key available — return empty rather than ciphertext
 
   try {
     const b64 = ciphertext.slice(ENC_PREFIX.length);
@@ -126,7 +129,8 @@ export async function decryptField(ciphertext: string): Promise<string> {
     );
     return new TextDecoder().decode(decrypted);
   } catch {
-    return ciphertext; // Decryption failed — return as-is
+    console.warn('Decryption failed for field — key mismatch or corrupted data');
+    return ''; // Decryption failed — return empty rather than raw ciphertext
   }
 }
 

@@ -3,6 +3,7 @@ import { useEntriesStore } from '../../stores/entriesStore';
 import { useMasterStore } from '../../stores/masterStore';
 import { useUiStore } from '../../stores/uiStore';
 import { useI18n } from '../../i18n';
+import { formatDateISO } from '../../lib/utils';
 import { getTodayISO } from '../../lib/utils';
 
 interface ManualEntryProps {
@@ -71,7 +72,7 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ embedded = false }) => {
       if (endMins < startMins) {
         const nextDate = new Date(formData.date);
         nextDate.setDate(nextDate.getDate() + 1);
-        const nextDateISO = nextDate.toISOString().split('T')[0];
+        const nextDateISO = formatDateISO(nextDate);
         entries.push({
           date: formData.date,
           stakeholder: formData.stakeholder,

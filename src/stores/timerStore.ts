@@ -3,6 +3,7 @@ import { TimerSlot } from '@/types';
 import { useEntriesStore } from './entriesStore';
 import { useAuthStore } from './authStore';
 import { getUserData, setUserData, removeUserData } from '@/lib/userStorage';
+import { formatDateISO } from '@/lib/utils';
 
 // Serializable version for localStorage (Date → ISO string)
 interface SerializedSlot {
@@ -82,7 +83,7 @@ export const useTimerStore = create<TimerState>((set, get) => ({
     const newSlot: TimerSlot = {
       ...slotData,
       id: generateId(),
-      date: now.toISOString().split('T')[0],
+      date: formatDateISO(now),
       start_time: `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
       elapsed_ms: 0,
       is_running: false,

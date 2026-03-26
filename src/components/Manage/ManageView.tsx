@@ -207,6 +207,29 @@ export default function ManageView() {
         return;
       }
       await useEntriesStore.getState().bulkAdd(newEntries);
+
+      // Extract unique dimension values from imported entries and add to masterStore
+      const master = useMasterStore.getState();
+      const importedStakeholders = new Set(newEntries.map((e) => e.stakeholder).filter(Boolean));
+      const importedProjects = new Set(newEntries.map((e) => e.projekt).filter(Boolean));
+      const importedActivities = new Set(newEntries.map((e) => e.taetigkeit).filter(Boolean));
+
+      for (const sh of importedStakeholders) {
+        if (!master.stakeholders.includes(sh)) {
+          await master.addStakeholder(sh);
+        }
+      }
+      for (const pr of importedProjects) {
+        if (!master.projects.includes(pr)) {
+          await master.addProject(pr);
+        }
+      }
+      for (const act of importedActivities) {
+        if (!master.activities.includes(act)) {
+          await master.addActivity(act);
+        }
+      }
+
       showToast(`${t('toast.importOk')} (${newEntries.length})`, 'success');
     } catch (error) {
       showToast(error instanceof Error ? error.message : t('toast.error'), 'error');

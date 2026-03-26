@@ -6,7 +6,7 @@ import { useMasterStore } from '../../stores/masterStore';
 import { useI18n } from '../../i18n';
 import { useUiStore } from '../../stores/uiStore';
 import { Square, X } from 'lucide-react';
-import { formatDuration } from '../../lib/utils';
+import { formatDuration, formatDateISO } from '../../lib/utils';
 import InlinePicker from './InlinePicker';
 
 interface TimerLaneProps {
@@ -63,7 +63,7 @@ const TimerLane: React.FC<TimerLaneProps> = ({ slot }) => {
 
     try {
       await addEntry({
-        date: slot.date || now.toISOString().split('T')[0],
+        date: slot.date || formatDateISO(now),
         stakeholder: slot.stakeholder,
         projekt: slot.projekt,
         taetigkeit: slot.taetigkeit,
