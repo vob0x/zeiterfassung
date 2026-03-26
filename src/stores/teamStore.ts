@@ -397,10 +397,9 @@ export const useTeamStore = create<TeamState>((set, get) => ({
           .in('id', memberUserIds);
 
         const profileMap = new Map<string, string>();
-        for (const p of (profilesData || [])) {
-          const decrypted = await decryptField(p.codename || p.id);
-          profileMap.set(p.id, decrypted);
-        }
+        (profilesData || []).forEach((p: any) => {
+          profileMap.set(p.id, p.codename || p.id);
+        });
 
         const members: TeamMember[] = (membersData || []).map((m: any) => ({
           id: m.id,

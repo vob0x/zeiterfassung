@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { supabaseClient, isSupabaseAvailable } from '@/lib/supabase'
-import { deriveEncryptionKey, clearEncryptionKey, encryptField, decryptField } from '@/lib/crypto'
+import { deriveEncryptionKey, clearEncryptionKey } from '@/lib/crypto'
 import type { Profile, Session } from '@/types'
 
 interface AuthState {
@@ -53,12 +53,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           let profile: Profile
 
           if (profileData) {
-            // Decrypt codename from DB
-            const decrypted = await decryptField(profileData.codename || rawCodename)
-            profile = { ...profileData, codename: decrypted }
+            profile = profileData
           } else {
-            // Profile missing in DB — create it now (encrypted)
-            const encCodename = await encryptField(rawCodename)
+            // Profile missing in DB — create it now
             profile = {
               id: session.user.id,
               codename: rawCodename,
@@ -69,7 +66,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               .from('profiles')
               .upsert({
                 id: session.user.id,
-                codename: encCodename,
+                codename: rawCodename,
                 updated_at: new Date().toISOString(),
               }, { onConflict: 'id' })
           }
@@ -120,22 +117,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         if (error) throw error
 
         if (data.user) {
-          // Derive encryption key FIRST so we can encrypt the codename
+          // Derive encryption key for business data encryption
           await deriveEncryptionKey(password, data.user.id)
 
-          // Ensure profile exists in DB (upsert) — codename encrypted
-          const encCodename = await encryptField(codename)
+          // Ensure profile exists in DB (upsert) — codename stays plaintext (it's a pseudonym)
           await supabaseClient
             .from('profiles')
             .upsert({
               id: data.user.id,
-              codename: encCodename,
+              codename,
               updated_at: new Date().toISOString(),
             }, { onConflict: 'id' })
 
           const profile: Profile = {
             id: data.user.id,
-            codename, // Local profile keeps plaintext
+            codename,
             created_at: data.user.created_at,
             updated_at: new Date().toISOString(),
           }
@@ -207,22 +203,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
 
         if (data.user) {
-          // Derive encryption key FIRST so we can encrypt the codename
+          // Derive encryption key for business data encryption
           await deriveEncryptionKey(password, data.user.id)
 
-          // Ensure profile exists in DB (upsert) — codename encrypted
-          const encCodename = await encryptField(codename)
+          // Ensure profile exists in DB (upsert) — codename stays plaintext (it's a pseudonym)
           await supabaseClient
             .from('profiles')
             .upsert({
               id: data.user.id,
-              codename: encCodename,
+              codename,
               updated_at: new Date().toISOString(),
             }, { onConflict: 'id' })
 
           const profile: Profile = {
             id: data.user.id,
-            codename, // Local profile keeps plaintext
+            codename,
             created_at: data.user.created_at || new Date().toISOString(),
             updated_at: new Date().toISOString(),
           }
