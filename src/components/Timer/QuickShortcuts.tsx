@@ -1,9 +1,12 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useTimerStore } from '../../stores/timerStore';
 import { useEntriesStore } from '../../stores/entriesStore';
+import { useAuthStore } from '../../stores/authStore';
 import { useI18n } from '../../i18n';
 import { Pin, X } from 'lucide-react';
 import { getUserData, setUserData } from '@/lib/userStorage';
+import { supabaseClient, isSupabaseAvailable } from '@/lib/supabase';
+import { encryptField, decryptField } from '@/lib/crypto';
 
 interface ShortcutItem {
   stakeholder: string;
@@ -12,6 +15,70 @@ interface ShortcutItem {
   frequency?: number;
   isPinned?: boolean;
 }
+
+// ── Supabase sync helpers ──────────────────────────────────────────────
+
+async function pushPrefsToSupabase(pinned: ShortcutItem[], hidden: string[]) {
+  if (!isSupabaseAvailable() || !supabaseClient) return;
+  const userId = useAuthStore.getState().profile?.id;
+  if (!userId) return;
+
+  const encPinned = await encryptField(JSON.stringify(pinned));
+  const encHidden = await encryptField(JSON.stringify(hidden));
+
+  supabaseClient
+    .from('user_preferences')
+    .upsert(
+      {
+        user_id: userId,
+        pinned_shortcuts: encPinned,
+        hidden_shortcuts: encHidden,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id' }
+    )
+    .then(({ error }) => {
+      if (error) console.warn('Prefs sync failed:', error.message);
+    });
+}
+
+async function pullPrefsFromSupabase(): Promise<{
+  pinned: ShortcutItem[] | null;
+  hidden: string[] | null;
+}> {
+  if (!isSupabaseAvailable() || !supabaseClient) return { pinned: null, hidden: null };
+  const userId = useAuthStore.getState().profile?.id;
+  if (!userId) return { pinned: null, hidden: null };
+
+  const { data } = await supabaseClient
+    .from('user_preferences')
+    .select('pinned_shortcuts, hidden_shortcuts')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (!data) return { pinned: null, hidden: null };
+
+  let pinned: ShortcutItem[] | null = null;
+  let hidden: string[] | null = null;
+
+  if (data.pinned_shortcuts) {
+    try {
+      const dec = await decryptField(data.pinned_shortcuts);
+      pinned = JSON.parse(dec);
+    } catch { /* ignore */ }
+  }
+
+  if (data.hidden_shortcuts) {
+    try {
+      const dec = await decryptField(data.hidden_shortcuts);
+      hidden = JSON.parse(dec);
+    } catch { /* ignore */ }
+  }
+
+  return { pinned, hidden };
+}
+
+// ── Component ──────────────────────────────────────────────────────────
 
 const QuickShortcuts: React.FC = () => {
   const { t } = useI18n();
@@ -23,6 +90,33 @@ const QuickShortcuts: React.FC = () => {
   const [hiddenShortcuts, setHiddenShortcuts] = useState<string[]>(() => {
     return getUserData<string[]>('hiddenShortcuts', []);
   });
+  const hasFetchedRef = useRef(false);
+
+  // On mount: pull from Supabase and merge
+  useEffect(() => {
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
+
+    pullPrefsFromSupabase().then(({ pinned, hidden }) => {
+      if (pinned && pinned.length > 0) {
+        // Merge: Supabase is source of truth, but keep any local-only items
+        const merged = [...pinned];
+        const localOnly = getUserData<ShortcutItem[]>('pinnedShortcuts', []).filter(
+          (local) => !pinned.some((p) => p.stakeholder === local.stakeholder && p.projekt === local.projekt)
+        );
+        merged.push(...localOnly);
+        setPinnedShortcuts(merged);
+        setUserData('pinnedShortcuts', merged);
+      }
+
+      if (hidden && hidden.length > 0) {
+        const localHidden = getUserData<string[]>('hiddenShortcuts', []);
+        const mergedHidden = [...new Set([...hidden, ...localHidden])];
+        setHiddenShortcuts(mergedHidden);
+        setUserData('hiddenShortcuts', mergedHidden);
+      }
+    });
+  }, []);
 
   // Calculate frequency of stakeholder+project combinations from actual entries
   const autoShortcuts = useMemo(() => {
@@ -63,23 +157,29 @@ const QuickShortcuts: React.FC = () => {
 
   // Delete a shortcut (remove from pinned, hide auto-generated ones)
   const handleDelete = (shortcut: ShortcutItem) => {
-    const isPinned = pinnedShortcuts.some(
+    let updatedPinned = pinnedShortcuts;
+    const wasPinned = pinnedShortcuts.some(
       (p) => p.stakeholder === shortcut.stakeholder && p.projekt === shortcut.projekt
     );
-    if (isPinned) {
-      const updated = pinnedShortcuts.filter(
+    if (wasPinned) {
+      updatedPinned = pinnedShortcuts.filter(
         (p) => !(p.stakeholder === shortcut.stakeholder && p.projekt === shortcut.projekt)
       );
-      setPinnedShortcuts(updated);
-      setUserData('pinnedShortcuts', updated);
+      setPinnedShortcuts(updatedPinned);
+      setUserData('pinnedShortcuts', updatedPinned);
     }
+
     // Always add to hidden list so auto-generated shortcuts stay hidden
     const key = `${shortcut.stakeholder}|${shortcut.projekt}`;
+    let updatedHidden = hiddenShortcuts;
     if (!hiddenShortcuts.includes(key)) {
-      const updatedHidden = [...hiddenShortcuts, key];
+      updatedHidden = [...hiddenShortcuts, key];
       setHiddenShortcuts(updatedHidden);
       setUserData('hiddenShortcuts', updatedHidden);
     }
+
+    // Push to Supabase
+    pushPrefsToSupabase(wasPinned ? updatedPinned : pinnedShortcuts, updatedHidden);
   };
 
   const allShortcuts = [...pinnedShortcuts, ...dedupedAutoShortcuts];
