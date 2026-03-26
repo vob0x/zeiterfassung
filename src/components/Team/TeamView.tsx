@@ -101,9 +101,9 @@ export default function TeamView() {
     }
   };
 
-  const handleRemoveMember = async (codename: string) => {
+  const handleRemoveMember = async (userId: string) => {
     try {
-      await removeMember(codename);
+      await removeMember(userId);
       showToast(t('team.memberRemoved'), 'success');
       setRemovingMember(null);
     } catch (error) {
@@ -307,12 +307,12 @@ export default function TeamView() {
             {/* Member avatars */}
             <div className="flex items-center gap-1 ml-auto flex-wrap">
               {members.map((m) => {
-                const isSelf = m.user_id === profile?.codename;
+                const isSelf = m.user_id === profile?.id;
                 return (
                   <span key={m.id}
                     className="text-xs px-2 py-1 rounded-full font-medium inline-flex items-center gap-1"
                     style={{ background: 'rgba(155,142,196,0.1)', color: 'var(--neon-violet, #9B8EC4)' }}>
-                    {m.user_id}
+                    {m.display_name || m.user_id}
                     {isCreator && !isSelf && (
                       <button
                         onClick={() => setRemovingMember(m.user_id)}
@@ -407,7 +407,7 @@ export default function TeamView() {
       <ConfirmDialog
         isOpen={!!removingMember}
         onClose={() => setRemovingMember(null)}
-        title={`${removingMember} ${t('team.removeMember').toLowerCase()}`}
+        title={`${members.find(m => m.user_id === removingMember)?.display_name || removingMember} ${t('team.removeMember').toLowerCase()}`}
         message={t('team.removeMemberConfirm')}
         confirmText={t('team.removeMember')}
         cancelText={t('btn.cancel')}

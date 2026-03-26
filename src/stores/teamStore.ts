@@ -16,7 +16,7 @@ interface TeamState {
   createTeam: (name: string) => Promise<void>;
   joinTeam: (inviteCode: string, displayName?: string) => Promise<void>;
   leaveTeam: () => Promise<void>;
-  removeMember: (memberCodename: string) => Promise<void>;
+  removeMember: (memberUserId: string) => Promise<void>;
   syncTeamData: () => Promise<void>;
   setTeamPeriod: (period: PeriodType) => void;
   getTeamMemberEntries: (memberId: string) => TimeEntry[];
@@ -293,7 +293,7 @@ export const useTeamStore = create<TeamState>((set, get) => ({
   // ========================================================================
   // REMOVE MEMBER (creator only)
   // ========================================================================
-  removeMember: async (memberCodename: string) => {
+  removeMember: async (memberUserId: string) => {
     set({ error: null });
     try {
       const profile = useAuthStore.getState().profile;
@@ -303,29 +303,23 @@ export const useTeamStore = create<TeamState>((set, get) => ({
       if (team.creator_id !== profile.id) throw new Error('Only the team creator can remove members');
 
       if (isSupabaseAvailable() && supabaseClient) {
-        // Look up the user_id for this codename via profiles
-        const { data: profileData } = await supabaseClient
-          .from('profiles')
-          .select('id')
-          .eq('codename', memberCodename)
-          .maybeSingle();
-
-        if (!profileData) throw new Error('Member not found');
-
-        // Delete from team_members (SECURITY DEFINER or creator privilege needed)
+        // Delete from team_members directly by user_id (no codename lookup needed)
         const { error: delErr } = await supabaseClient
           .from('team_members')
           .delete()
           .eq('team_id', team.id)
-          .eq('user_id', profileData.id);
+          .eq('user_id', memberUserId);
 
         if (delErr) throw new Error(delErr.message);
       }
 
-      // Update local state
-      const members = get().members.filter((m) => m.user_id !== memberCodename);
+      // Update local state — find display_name for memberEntries cleanup
+      const removedMember = get().members.find((m) => m.user_id === memberUserId);
+      const members = get().members.filter((m) => m.user_id !== memberUserId);
       const memberEntries = new Map(get().memberEntries);
-      memberEntries.delete(memberCodename);
+      if (removedMember?.display_name) {
+        memberEntries.delete(removedMember.display_name);
+      }
 
       set({ members, memberEntries });
       setUserData('teamMembers', members);
@@ -400,7 +394,7 @@ export const useTeamStore = create<TeamState>((set, get) => ({
           `)
           .eq('team_id', teamId);
 
-        // Fetch codenames for each member
+        // Fetch codenames for each member (decrypt from DB)
         const memberUserIds = (membersData || []).map((m: any) => m.user_id);
         const { data: profilesData } = await supabaseClient
           .from('profiles')
@@ -408,21 +402,23 @@ export const useTeamStore = create<TeamState>((set, get) => ({
           .in('id', memberUserIds);
 
         const profileMap = new Map<string, string>();
-        (profilesData || []).forEach((p: any) => {
-          profileMap.set(p.id, p.codename);
-        });
+        for (const p of (profilesData || [])) {
+          const decrypted = await decryptField(p.codename || p.id);
+          profileMap.set(p.id, decrypted);
+        }
 
         const members: TeamMember[] = (membersData || []).map((m: any) => ({
           id: m.id,
           team_id: m.team_id,
-          user_id: profileMap.get(m.user_id) || m.user_id,
+          user_id: m.user_id, // Keep real UUID
+          display_name: profileMap.get(m.user_id) || m.user_id,
           joined_at: m.joined_at,
         }));
 
         // Fetch all team members' entries directly (RLS handles visibility)
         const memberEntriesMap = new Map<string, TimeEntry[]>();
         for (const uid of memberUserIds) {
-          const codename = profileMap.get(uid) || uid;
+          const displayName_member = profileMap.get(uid) || uid;
           const { data: entriesData } = await supabaseClient
             .from('time_entries')
             .select('*')
@@ -446,7 +442,7 @@ export const useTeamStore = create<TeamState>((set, get) => ({
                 updated_at: row.updated_at || '',
               }))
             );
-            memberEntriesMap.set(codename, entries);
+            memberEntriesMap.set(displayName_member, entries);
           }
         }
 

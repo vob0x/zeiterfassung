@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { supabaseClient, isSupabaseAvailable } from '@/lib/supabase'
-import { deriveEncryptionKey, clearEncryptionKey } from '@/lib/crypto'
+import { deriveEncryptionKey, clearEncryptionKey, encryptField, decryptField } from '@/lib/crypto'
 import type { Profile, Session } from '@/types'
 
 interface AuthState {
@@ -49,16 +49,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             .eq('id', session.user.id)
             .maybeSingle()
 
-          const codename = session.user.user_metadata?.codename || 'User'
+          const rawCodename = session.user.user_metadata?.codename || 'User'
           let profile: Profile
 
           if (profileData) {
-            profile = profileData
+            // Decrypt codename from DB
+            const decrypted = await decryptField(profileData.codename || rawCodename)
+            profile = { ...profileData, codename: decrypted }
           } else {
-            // Profile missing in DB — create it now
+            // Profile missing in DB — create it now (encrypted)
+            const encCodename = await encryptField(rawCodename)
             profile = {
               id: session.user.id,
-              codename,
+              codename: rawCodename,
               created_at: session.user.created_at,
               updated_at: session.user.created_at,
             }
@@ -66,7 +69,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               .from('profiles')
               .upsert({
                 id: session.user.id,
-                codename,
+                codename: encCodename,
                 updated_at: new Date().toISOString(),
               }, { onConflict: 'id' })
           }
@@ -117,18 +120,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         if (error) throw error
 
         if (data.user) {
-          // Ensure profile exists in DB (upsert)
+          // Derive encryption key FIRST so we can encrypt the codename
+          await deriveEncryptionKey(password, data.user.id)
+
+          // Ensure profile exists in DB (upsert) — codename encrypted
+          const encCodename = await encryptField(codename)
           await supabaseClient
             .from('profiles')
             .upsert({
               id: data.user.id,
-              codename,
+              codename: encCodename,
               updated_at: new Date().toISOString(),
             }, { onConflict: 'id' })
 
           const profile: Profile = {
             id: data.user.id,
-            codename,
+            codename, // Local profile keeps plaintext
             created_at: data.user.created_at,
             updated_at: new Date().toISOString(),
           }
@@ -140,8 +147,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           }
 
           localStorage.setItem('zeiterfassung_session', JSON.stringify(session))
-          // Derive encryption key from password + userId
-          await deriveEncryptionKey(password, data.user.id)
           set({ profile, session, loading: false, isAuthenticated: true })
           return
         }
@@ -202,18 +207,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
 
         if (data.user) {
-          // Ensure profile exists in DB (upsert)
+          // Derive encryption key FIRST so we can encrypt the codename
+          await deriveEncryptionKey(password, data.user.id)
+
+          // Ensure profile exists in DB (upsert) — codename encrypted
+          const encCodename = await encryptField(codename)
           await supabaseClient
             .from('profiles')
             .upsert({
               id: data.user.id,
-              codename,
+              codename: encCodename,
               updated_at: new Date().toISOString(),
             }, { onConflict: 'id' })
 
           const profile: Profile = {
             id: data.user.id,
-            codename,
+            codename, // Local profile keeps plaintext
             created_at: data.user.created_at || new Date().toISOString(),
             updated_at: new Date().toISOString(),
           }
@@ -225,8 +234,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           }
 
           localStorage.setItem('zeiterfassung_session', JSON.stringify(session))
-          // Derive encryption key from password + userId
-          await deriveEncryptionKey(password, data.user.id)
           set({ profile, session, loading: false, isAuthenticated: true })
           return
         }
