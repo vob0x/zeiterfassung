@@ -354,6 +354,18 @@ export const de = {
     wochentag: "Wochentag",
   },
 
+  // Stack Timer V3
+  stack: {
+    searchOrPlus: "Suche oben oder drücke + für leeren Timer",
+    searchPlaceholder: "Tippe los... z.B. \"Bundes medien\"",
+    startEmpty: "Timer starten",
+    untitled: "Ohne Titel",
+    frequent: "Häufig verwendet",
+    search: "Suche...",
+    noMatch: "Kein Treffer",
+    addNew: "Neu hinzufügen",
+  },
+
   // Miscellaneous
   of: "von",
   date: "Datum",

@@ -354,6 +354,18 @@ export const fr = {
     wochentag: "Jour de la semaine",
   },
 
+  // Stack Timer V3
+  stack: {
+    searchOrPlus: "Cherchez ci-dessus ou appuyez + pour un chrono vide",
+    searchPlaceholder: "Tapez... p.ex. \"Bundes medien\"",
+    startEmpty: "Démarrer un chrono",
+    untitled: "Sans titre",
+    frequent: "Fréquemment utilisé",
+    search: "Recherche...",
+    noMatch: "Aucun résultat",
+    addNew: "Ajouter",
+  },
+
   // Miscellaneous
   of: "de",
   date: "Date",

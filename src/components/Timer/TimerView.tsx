@@ -2,48 +2,86 @@ import React, { useMemo } from 'react';
 import { useTimerStore } from '../../stores/timerStore';
 import { useEntriesStore } from '../../stores/entriesStore';
 import { useI18n } from '../../i18n';
-import { formatDurationHM, getTodayISO, computeUnionMs } from '../../lib/utils';
-import TimerCircle from './TimerCircle';
-import TaskSlot from './TaskSlot';
-import QuickShortcuts from './QuickShortcuts';
+import { formatDurationHM, formatDuration, getTodayISO, computeUnionMs } from '../../lib/utils';
+import { Plus } from 'lucide-react';
+import TimerLane from './TimerLane';
+import FuzzySearch from './FuzzySearch';
 import ManualEntry from './ManualEntry';
+
+// Breathing orb keyframe animation (injected once)
+const styleId = 'stack-timer-breathe';
+if (typeof document !== 'undefined' && !document.getElementById(styleId)) {
+  const style = document.createElement('style');
+  style.id = styleId;
+  style.textContent = `
+    @keyframes breathe {
+      0%, 100% { box-shadow: 0 0 8px rgba(201,169,98,0.15), 0 0 2px rgba(201,169,98,0.1); transform: scale(1); }
+      50% { box-shadow: 0 0 16px rgba(201,169,98,0.3), 0 0 6px rgba(201,169,98,0.2); transform: scale(1.06); }
+    }
+  `;
+  document.head.appendChild(style);
+}
 
 const TimerView: React.FC = () => {
   const { t } = useI18n();
-  const { taskSlots, addSlot, stopAllTimers } = useTimerStore();
+  const { taskSlots, addSlot, stopAllTimers, getSlotElapsed } = useTimerStore();
   const { entries } = useEntriesStore();
 
-  // Get today's entries for total calculation
+  // Today's entries for total
   const todayEntries = useMemo(() => {
     const todayISO = getTodayISO();
     return entries.filter((e) => e.date === todayISO);
   }, [entries]);
 
-  // Calculate today's total using union algorithm
-  const todayTotalMs = useMemo(() => {
-    return computeUnionMs(todayEntries);
-  }, [todayEntries]);
+  const todayTotalMs = useMemo(() => computeUnionMs(todayEntries), [todayEntries]);
 
-  // Daily goal: 8:24 (504 minutes)
+  // Running timers total (live)
+  const runningTotalMs = taskSlots.reduce((sum, slot) => sum + getSlotElapsed(slot.id), 0);
+
+  // Daily goal: 8:24
   const dailyGoalMs = 8 * 3600 * 1000 + 24 * 60 * 1000;
+  const combinedMs = todayTotalMs + runningTotalMs;
+  const progressPercent = Math.min((combinedMs / dailyGoalMs) * 100, 100);
 
-  // Progress percentage
-  const progressPercent = Math.min((todayTotalMs / dailyGoalMs) * 100, 100);
+  const hasActiveTimers = taskSlots.some((s) => !s.isPaused || s.pausedMs > 0);
 
-  // Handle "Stop All" button
-  const handleStopAll = () => {
-    if (taskSlots.length > 0) {
-      stopAllTimers();
-    }
+  // Fuzzy search → create a new lane
+  const handleFuzzySelect = (combo: { stakeholder: string; projekt: string; taetigkeit: string }) => {
+    addSlot({
+      stakeholder: combo.stakeholder,
+      projekt: combo.projekt,
+      taetigkeit: combo.taetigkeit,
+      notiz: '',
+    });
+    // Auto-start the new timer
+    setTimeout(() => {
+      const state = useTimerStore.getState();
+      const newest = state.taskSlots[state.taskSlots.length - 1];
+      if (newest) {
+        useTimerStore.getState().resumeTimer(newest.id);
+      }
+    }, 50);
+  };
+
+  // "+" empty timer
+  const handleAddEmpty = () => {
+    addSlot({ stakeholder: '', projekt: '', taetigkeit: '', notiz: '' });
+    // Auto-start
+    setTimeout(() => {
+      const state = useTimerStore.getState();
+      const newest = state.taskSlots[state.taskSlots.length - 1];
+      if (newest) {
+        useTimerStore.getState().resumeTimer(newest.id);
+      }
+    }, 50);
   };
 
   return (
     <div className="py-4">
-      {/* V5.15: Two-column grid layout (1:1) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" style={{ alignItems: 'start' }}>
-        {/* Left Column: Tasks Card */}
+        {/* ── Left Column: Stack Timer ── */}
         <div className="card" style={{ padding: '20px' }}>
-          {/* Card Title + Feierabend */}
+          {/* Header */}
           <div className="flex items-center justify-between mb-3">
             <div
               className="font-display text-xs font-semibold tracking-wide uppercase"
@@ -51,9 +89,9 @@ const TimerView: React.FC = () => {
             >
               {t('timer.tasks')}
             </div>
-            {taskSlots.some((s) => !s.isPaused || s.pausedMs > 0) && (
+            {hasActiveTimers && (
               <button
-                onClick={handleStopAll}
+                onClick={stopAllTimers}
                 className="px-3 py-1 text-xs font-semibold rounded transition-all"
                 style={{
                   background: 'rgba(212, 112, 110, 0.08)',
@@ -62,49 +100,44 @@ const TimerView: React.FC = () => {
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.background = 'rgba(212, 112, 110, 0.15)';
-                  e.currentTarget.style.borderColor = 'rgba(212, 112, 110, 0.3)';
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.background = 'rgba(212, 112, 110, 0.08)';
-                  e.currentTarget.style.borderColor = 'rgba(212, 112, 110, 0.18)';
                 }}
-                title={t('title.stopAll')}
               >
                 {t('timer.endDay')}
               </button>
             )}
           </div>
 
-          {/* Quick Shortcuts */}
-          <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '12px', marginBottom: '12px' }}>
-            <QuickShortcuts />
+          {/* Fuzzy Search */}
+          <div style={{ marginBottom: '14px' }}>
+            <FuzzySearch onSelect={handleFuzzySelect} />
           </div>
 
-          {/* Task Slots */}
-          <div className="space-y-3 mb-4">
+          {/* Timer Lanes */}
+          <div className="space-y-2 mb-3">
             {taskSlots.length === 0 && (
               <div className="text-center py-6">
-                <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>{t('timer.startHint')}</p>
+                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                  {t('timer.startHint')}
+                </p>
+                <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                  {t('stack.searchOrPlus')}
+                </p>
               </div>
             )}
 
-            {taskSlots.map((slot, index) => (
-              <TaskSlot key={slot.id} slot={slot} index={index} />
+            {taskSlots.map((slot) => (
+              <TimerLane key={slot.id} slot={slot} />
             ))}
           </div>
 
-          {/* Add Task Button */}
+          {/* "+" Button — start empty timer */}
           {taskSlots.length < 8 && (
             <button
-              onClick={() => {
-                addSlot({
-                  stakeholder: '',
-                  projekt: '',
-                  taetigkeit: '',
-                  notiz: '',
-                });
-              }}
-              className="w-full py-3 text-sm font-medium rounded-lg transition-all"
+              onClick={handleAddEmpty}
+              className="w-full flex items-center justify-center gap-2 py-2.5 text-sm font-medium rounded-lg transition-all"
               style={{
                 background: 'transparent',
                 border: '1px dashed var(--border)',
@@ -112,25 +145,28 @@ const TimerView: React.FC = () => {
                 cursor: 'pointer',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = 'var(--border-hover)';
+                e.currentTarget.style.borderColor = 'var(--neon-cyan)';
                 e.currentTarget.style.color = 'var(--neon-cyan)';
+                e.currentTarget.style.borderStyle = 'solid';
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.borderColor = 'var(--border)';
                 e.currentTarget.style.color = 'var(--text-secondary)';
+                e.currentTarget.style.borderStyle = 'dashed';
               }}
             >
-              + {t('timer.addTask')}
+              <Plus className="w-4 h-4" />
+              {t('stack.startEmpty')}
             </button>
           )}
 
-          {/* Manual Entry Section - inside the same card like V5.15 */}
+          {/* Manual Entry */}
           <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid var(--border)' }}>
             <ManualEntry embedded />
           </div>
         </div>
 
-        {/* Right Column: Timer Circle + Today Total + Daily Goal */}
+        {/* ── Right Column: Live Overview ── */}
         <div className="lg:sticky lg:top-20">
           <div
             className="card"
@@ -142,32 +178,74 @@ const TimerView: React.FC = () => {
               padding: '24px',
             }}
           >
-            <TimerCircle />
-
-            {/* Today Total - V5.15 style */}
-            <div
-              style={{
-                marginTop: '20px',
-                textAlign: 'center',
-                width: '100%',
-              }}
-            >
+            {/* Live combined time (saved + running) */}
+            <div style={{ textAlign: 'center', marginBottom: '16px' }}>
               <div
-                className="text-xs font-semibold uppercase tracking-wide"
-                style={{ color: 'var(--text-muted)', marginBottom: '4px' }}
+                className="font-mono font-bold"
+                style={{
+                  fontSize: '48px',
+                  color: 'var(--neon-cyan)',
+                  lineHeight: 1,
+                  textShadow: taskSlots.some((s) => !s.isPaused) ? '0 0 20px rgba(201,169,98,0.2)' : 'none',
+                }}
               >
-                {t('timer.todayTotal')}
+                {formatDuration(combinedMs)}
               </div>
-              <div
-                className="text-3xl font-mono font-bold"
-                style={{ color: 'var(--success)', lineHeight: 1.2 }}
-              >
-                {formatDurationHM(todayTotalMs)}
+              <div className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+                {t('timer.todayTotal')}
               </div>
             </div>
 
-            {/* Daily Goal Progress Bar - V5.15 style */}
-            <div style={{ width: '100%', marginTop: '16px' }}>
+            {/* Active lanes summary — mini orbs */}
+            {taskSlots.length > 0 && (
+              <div style={{
+                display: 'flex',
+                gap: '8px',
+                justifyContent: 'center',
+                flexWrap: 'wrap',
+                marginBottom: '16px',
+              }}>
+                {taskSlots.map((slot) => {
+                  const running = !slot.isPaused;
+                  const elapsed = getSlotElapsed(slot.id);
+                  const label = slot.stakeholder || slot.projekt || t('stack.untitled');
+                  return (
+                    <div
+                      key={slot.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        padding: '3px 8px',
+                        borderRadius: '12px',
+                        background: running ? 'rgba(201,169,98,0.06)' : 'rgba(255,255,255,0.03)',
+                        border: `1px solid ${running ? 'rgba(201,169,98,0.2)' : 'var(--border)'}`,
+                        fontSize: '11px',
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: '50%',
+                          background: running ? 'var(--neon-cyan)' : elapsed > 0 ? 'var(--warning)' : 'var(--text-muted)',
+                          animation: running ? 'breathe 2s ease-in-out infinite' : 'none',
+                        }}
+                      />
+                      <span style={{ color: 'var(--text-secondary)', maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {label}
+                      </span>
+                      <span className="font-mono" style={{ color: running ? 'var(--neon-cyan)' : 'var(--text-muted)', fontSize: '10px' }}>
+                        {formatDuration(elapsed)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Daily Goal Progress */}
+            <div style={{ width: '100%' }}>
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
                   {t('timer.dailyGoal')}
@@ -199,7 +277,6 @@ const TimerView: React.FC = () => {
                           : 'var(--neon-cyan)',
                   }}
                 />
-                {/* 100% marker */}
                 <div
                   style={{
                     position: 'absolute',
@@ -214,7 +291,7 @@ const TimerView: React.FC = () => {
                 />
               </div>
               <div className="text-xs mt-1 text-right" style={{ color: 'var(--text-muted)' }}>
-                {formatDurationHM(todayTotalMs)} / {formatDurationHM(dailyGoalMs)}
+                {formatDurationHM(combinedMs)} / {formatDurationHM(dailyGoalMs)}
               </div>
             </div>
           </div>
