@@ -4,6 +4,7 @@ import { useUiStore } from '@/stores/uiStore'
 import { useEntriesStore } from '@/stores/entriesStore'
 import { useMasterStore } from '@/stores/masterStore'
 import { useTeamStore } from '@/stores/teamStore'
+import { useTimerStore } from '@/stores/timerStore'
 import { I18nProvider, useI18n } from '@/i18n'
 import Layout from '@/components/Layout'
 import LoginScreen from '@/components/Auth/LoginScreen'
@@ -15,6 +16,7 @@ function AppContent() {
   const fetchEntries = useEntriesStore((s) => s.fetch)
   const fetchMaster = useMasterStore((s) => s.fetch)
   const syncTeam = useTeamStore((s) => s.syncTeamData)
+  const restoreTimers = useTimerStore((s) => s.restoreTimers)
 
   useEffect(() => {
     initializeAuth()
@@ -26,8 +28,9 @@ function AppContent() {
       fetchEntries()
       fetchMaster()
       syncTeam()
+      restoreTimers()
     }
-  }, [isAuthenticated, fetchEntries, fetchMaster, syncTeam])
+  }, [isAuthenticated, fetchEntries, fetchMaster, syncTeam, restoreTimers])
 
   useEffect(() => {
     const html = document.documentElement

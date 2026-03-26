@@ -2,7 +2,28 @@ import { create } from 'zustand';
 import { TimerSlot } from '@/types';
 import { useEntriesStore } from './entriesStore';
 import { useAuthStore } from './authStore';
-import { setUserData } from '@/lib/userStorage';
+import { getUserData, setUserData, removeUserData } from '@/lib/userStorage';
+
+// Serializable version for localStorage (Date → ISO string)
+interface SerializedSlot {
+  id: string;
+  date: string;
+  stakeholder: string;
+  projekt: string;
+  taetigkeit: string;
+  start_time: string;
+  elapsed_ms: number;
+  notiz?: string;
+  is_running: boolean;
+  pausedMs: number;
+  isPaused: boolean;
+  wasRunning: boolean; // was this timer actively running at save time?
+}
+
+interface SavedTimerState {
+  slots: SerializedSlot[];
+  savedAt: number; // Date.now() at save time
+}
 
 interface TimerState {
   taskSlots: TimerSlot[];
@@ -24,13 +45,24 @@ interface TimerState {
   stopAllTimers: () => void;
   getSlotElapsed: (id: string) => number;
   tick: () => void;
-  saveRunningTimers: () => void;
+  saveTimers: () => void;
+  restoreTimers: () => void;
   setError: (error: string | null) => void;
   clearError: () => void;
 }
 
 function generateId(): string {
   return `slot_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
+function ensureTickInterval(get: () => TimerState, set: (partial: Partial<TimerState>) => void) {
+  const state = get();
+  if (!state.tickInterval) {
+    const interval = setInterval(() => {
+      get().tick();
+    }, 500);
+    set({ tickInterval: interval });
+  }
 }
 
 export const useTimerStore = create<TimerState>((set, get) => ({
@@ -114,14 +146,7 @@ export const useTimerStore = create<TimerState>((set, get) => ({
       activeSlotId: id,
     }));
 
-    // Start tick interval if not already running
-    const state = get();
-    if (!state.tickInterval) {
-      const interval = setInterval(() => {
-        get().tick();
-      }, 500);
-      set({ tickInterval: interval });
-    }
+    ensureTickInterval(get, set);
   },
 
   pauseTimer: (id: string) => {
@@ -158,14 +183,7 @@ export const useTimerStore = create<TimerState>((set, get) => ({
       activeSlotId: id,
     }));
 
-    // Ensure tick interval is running
-    const state = get();
-    if (!state.tickInterval) {
-      const interval = setInterval(() => {
-        get().tick();
-      }, 500);
-      set({ tickInterval: interval });
-    }
+    ensureTickInterval(get, set);
   },
 
   stopTimer: (id: string) => {
@@ -264,12 +282,99 @@ export const useTimerStore = create<TimerState>((set, get) => ({
     }
   },
 
-  saveRunningTimers: () => {
+  // ── Persistence ────────────────────────────────────────────────────
+
+  saveTimers: () => {
     const state = get();
-    const running = state.taskSlots.filter((s) => !s.isPaused);
-    if (running.length > 0) {
-      setUserData('runningTimers', running);
+    if (state.taskSlots.length === 0) {
+      removeUserData('timerSlots');
+      return;
     }
+
+    const now = Date.now();
+    const serialized: SerializedSlot[] = state.taskSlots.map((slot) => {
+      const wasRunning = !slot.isPaused;
+      // For running timers: accumulate all elapsed into pausedMs
+      const totalPaused = wasRunning
+        ? slot.pausedMs + (now - slot.startTime.getTime())
+        : slot.pausedMs;
+
+      return {
+        id: slot.id,
+        date: slot.date,
+        stakeholder: slot.stakeholder,
+        projekt: slot.projekt,
+        taetigkeit: slot.taetigkeit,
+        start_time: slot.start_time,
+        elapsed_ms: slot.elapsed_ms,
+        notiz: slot.notiz,
+        is_running: slot.is_running,
+        pausedMs: totalPaused,
+        isPaused: true, // All saved as paused
+        wasRunning,
+      };
+    });
+
+    const saved: SavedTimerState = { slots: serialized, savedAt: now };
+    setUserData('timerSlots', saved);
+  },
+
+  restoreTimers: () => {
+    const saved = getUserData<SavedTimerState | null>('timerSlots', null);
+    if (!saved || !saved.slots || saved.slots.length === 0) return;
+
+    const now = Date.now();
+    const elapsed = now - saved.savedAt; // Time passed during refresh
+    let hasRunning = false;
+
+    const restored: TimerSlot[] = saved.slots.map((s) => {
+      const wasRunning = s.wasRunning;
+
+      if (wasRunning) {
+        hasRunning = true;
+        // Timer was running: add elapsed time since save, resume
+        return {
+          id: s.id,
+          date: s.date,
+          stakeholder: s.stakeholder,
+          projekt: s.projekt,
+          taetigkeit: s.taetigkeit,
+          start_time: s.start_time,
+          elapsed_ms: s.elapsed_ms,
+          notiz: s.notiz,
+          is_running: true,
+          startTime: new Date(), // Fresh start reference
+          pausedMs: s.pausedMs + elapsed, // Include time during refresh
+          isPaused: false,
+        };
+      }
+
+      // Paused timer: restore as-is
+      return {
+        id: s.id,
+        date: s.date,
+        stakeholder: s.stakeholder,
+        projekt: s.projekt,
+        taetigkeit: s.taetigkeit,
+        start_time: s.start_time,
+        elapsed_ms: s.elapsed_ms,
+        notiz: s.notiz,
+        is_running: false,
+        startTime: new Date(),
+        pausedMs: s.pausedMs,
+        isPaused: true,
+      };
+    });
+
+    set({ taskSlots: restored });
+
+    // Restart tick interval if any timers are running
+    if (hasRunning) {
+      ensureTickInterval(get, set);
+    }
+
+    // Clean up saved state
+    removeUserData('timerSlots');
   },
 
   setError: (error: string | null) => {
@@ -281,9 +386,9 @@ export const useTimerStore = create<TimerState>((set, get) => ({
   },
 }));
 
-// Save running timers before unload
+// Save timers before unload (all slots, not just running)
 if (typeof window !== 'undefined') {
   window.addEventListener('beforeunload', () => {
-    useTimerStore.getState().saveRunningTimers();
+    useTimerStore.getState().saveTimers();
   });
 }
