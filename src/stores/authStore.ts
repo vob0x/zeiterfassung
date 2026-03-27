@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { supabaseClient, isSupabaseAvailable } from '@/lib/supabase'
-import { deriveEncryptionKey, clearEncryptionKey } from '@/lib/crypto'
+import { deriveEncryptionKey, clearEncryptionKey, hasEncryptionKey } from '@/lib/crypto'
 import { migrateUserData, clearAllUserData } from '@/lib/userStorage'
 import type { Profile, Session } from '@/types'
 
@@ -10,11 +10,13 @@ interface AuthState {
   loading: boolean
   error: string | null
   isAuthenticated: boolean
+  needsPassword: boolean // Session exists but encryption key missing (e.g. new device / tab closed)
   signIn: (codename: string, password: string) => Promise<void>
   signUp: (codename: string, password: string) => Promise<void>
   signOut: () => Promise<void>
   logout: () => Promise<void>
   initializeAuth: () => Promise<void>
+  unlockWithPassword: (password: string) => Promise<void>
   setError: (error: string | null) => void
   clearError: () => void
 }
@@ -35,6 +37,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   loading: true,
   error: null,
   isAuthenticated: false,
+  needsPassword: false,
 
   initializeAuth: async () => {
     set({ loading: true })
@@ -72,6 +75,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               }, { onConflict: 'id' })
           }
 
+          // Check if encryption key is available (sessionStorage survives refresh but not tab/app close)
+          const keyAvailable = hasEncryptionKey()
+
           set({
             session: {
               user: profile,
@@ -81,20 +87,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             profile,
             loading: false,
             isAuthenticated: true,
+            needsPassword: !keyAvailable, // Prompt for password if key is missing
           })
           return
         }
       }
 
-      // Fallback: check localStorage
+      // Fallback: check localStorage session
       const stored = localStorage.getItem('zeiterfassung_session')
       if (stored) {
         const parsed = JSON.parse(stored)
+        const isLocalUser = parsed.user?.id?.startsWith('local_')
         set({
           session: parsed,
           profile: parsed.user,
           loading: false,
           isAuthenticated: true,
+          // Local users don't need encryption key; Supabase users do
+          needsPassword: !isLocalUser && !hasEncryptionKey(),
         })
         return
       }
@@ -150,7 +160,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           }
 
           localStorage.setItem('zeiterfassung_session', JSON.stringify(session))
-          set({ profile, session, loading: false, isAuthenticated: true })
+          set({ profile, session, loading: false, isAuthenticated: true, needsPassword: false })
           return
         }
       }
@@ -181,7 +191,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
       localStorage.setItem('zeiterfassung_session', JSON.stringify(session))
       localStorage.setItem('userCodename', codename)
-      set({ profile, session, loading: false, isAuthenticated: true })
+      set({ profile, session, loading: false, isAuthenticated: true, needsPassword: false })
     } catch (error: any) {
       const msg = error?.message || 'Authentication failed'
       set({ error: msg, loading: false })
@@ -242,7 +252,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           }
 
           localStorage.setItem('zeiterfassung_session', JSON.stringify(session))
-          set({ profile, session, loading: false, isAuthenticated: true })
+          set({ profile, session, loading: false, isAuthenticated: true, needsPassword: false })
           return
         }
       }
@@ -261,7 +271,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
       localStorage.setItem('zeiterfassung_session', JSON.stringify(session))
       localStorage.setItem('userCodename', codename)
-      set({ profile, session, loading: false, isAuthenticated: true })
+      set({ profile, session, loading: false, isAuthenticated: true, needsPassword: false })
     } catch (error: any) {
       const msg = error?.message || 'Registration failed'
       set({ error: msg, loading: false })
@@ -279,11 +289,39 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
     localStorage.removeItem('zeiterfassung_session')
     clearEncryptionKey()
-    set({ profile: null, session: null, isAuthenticated: false, loading: false })
+    set({ profile: null, session: null, isAuthenticated: false, loading: false, needsPassword: false })
   },
 
   logout: async () => {
     await get().signOut()
+  },
+
+  unlockWithPassword: async (password: string) => {
+    const state = get()
+    if (!state.profile?.id) {
+      set({ error: 'No profile available' })
+      return
+    }
+    set({ loading: true, error: null })
+    try {
+      // Verify password by attempting sign-in with Supabase
+      if (isSupabaseAvailable() && supabaseClient) {
+        const email = codeToEmail(state.profile.codename)
+        const { error } = await supabaseClient.auth.signInWithPassword({
+          email,
+          password,
+        })
+        if (error) throw new Error('Falsches Passwort')
+      }
+
+      // Derive encryption key
+      await deriveEncryptionKey(password, state.profile.id)
+      set({ needsPassword: false, loading: false })
+    } catch (error: any) {
+      const msg = error?.message || 'Unlock failed'
+      set({ error: msg, loading: false })
+      throw error
+    }
   },
 
   setError: (error) => set({ error }),

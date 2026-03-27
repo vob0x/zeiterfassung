@@ -423,6 +423,12 @@ export const fr = {
     disclaimer: "Suivi du temps pseudonyme. Votre vie privée est importante.",
     codenameExample: "p.ex. alex, sophie",
     confirmPassword: "Confirmer le mot de passe",
+    unlock: {
+      title: "Déverrouiller la session",
+      subtitle: "Connecté en tant que {{codename}} — le mot de passe est nécessaire pour le déchiffrement.",
+      button: "Déverrouiller",
+      switchAccount: "Utiliser un autre compte",
+    },
     errors: {
       codenameRequired: "Le codename est requis",
       passwordRequired: "Le mot de passe est requis",

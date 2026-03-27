@@ -8,10 +8,11 @@ import { useTimerStore } from '@/stores/timerStore'
 import { I18nProvider, useI18n } from '@/i18n'
 import Layout from '@/components/Layout'
 import LoginScreen from '@/components/Auth/LoginScreen'
+import UnlockScreen from '@/components/Auth/UnlockScreen'
 
 function AppContent() {
   const { t } = useI18n()
-  const { isAuthenticated, loading, initializeAuth } = useAuthStore()
+  const { isAuthenticated, loading, needsPassword, initializeAuth } = useAuthStore()
   const { theme } = useUiStore()
   const fetchEntries = useEntriesStore((s) => s.fetch)
   const fetchMaster = useMasterStore((s) => s.fetch)
@@ -22,15 +23,16 @@ function AppContent() {
     initializeAuth()
   }, [initializeAuth])
 
-  // Load user-scoped data once authenticated
+  // Load user-scoped data once authenticated AND encryption key is available
+  // (needsPassword=false means key is ready → safe to decrypt Supabase data)
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && !needsPassword) {
       fetchEntries()
       fetchMaster()
       syncTeam()
       restoreTimers()
     }
-  }, [isAuthenticated, fetchEntries, fetchMaster, syncTeam, restoreTimers])
+  }, [isAuthenticated, needsPassword, fetchEntries, fetchMaster, syncTeam, restoreTimers])
 
   useEffect(() => {
     const html = document.documentElement
@@ -51,6 +53,11 @@ function AppContent() {
 
   if (!isAuthenticated) {
     return <LoginScreen />
+  }
+
+  // Session exists but encryption key is missing → prompt for password
+  if (needsPassword) {
+    return <UnlockScreen />
   }
 
   return <Layout />

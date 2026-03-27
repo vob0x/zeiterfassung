@@ -423,6 +423,12 @@ export const de = {
     disclaimer: "Pseudonyme Zeiterfassung. Ihre Privatsphäre ist wichtig.",
     codenameExample: "z.B. alex, sophie",
     confirmPassword: "Passwort bestätigen",
+    unlock: {
+      title: "Sitzung entsperren",
+      subtitle: "Eingeloggt als {{codename}} — Passwort wird für die Entschlüsselung benötigt.",
+      button: "Entsperren",
+      switchAccount: "Anderes Konto verwenden",
+    },
     errors: {
       codenameRequired: "Codename ist erforderlich",
       passwordRequired: "Passwort ist erforderlich",

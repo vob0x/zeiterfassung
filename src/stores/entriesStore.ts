@@ -103,9 +103,9 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
       const localEntries = getUserData<TimeEntry[]>('entries', []);
       set({ entries: localEntries, loading: false });
 
-      // Then merge with Supabase data
+      // Then merge with Supabase data (only if encryption key is available for decryption)
       const profile = useAuthStore.getState().profile;
-      if (isSupabaseAvailable() && supabaseClient && profile?.id && !profile.id.startsWith('local_')) {
+      if (isSupabaseAvailable() && supabaseClient && hasEncryptionKey() && profile?.id && !profile.id.startsWith('local_')) {
         const { data, error: sbErr } = await supabaseClient
           .from('time_entries')
           .select('*')
@@ -149,7 +149,7 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
           setUserData('entries', merged);
 
           // Push local-only entries to Supabase (fix non-UUID IDs first)
-          if (localOnly.length > 0) {
+          if (localOnly.length > 0 && hasEncryptionKey()) {
             let needsLocalUpdate = false;
             const fixedEntries = localOnly.map((e) => {
               if (!isValidUUID(e.id)) {
@@ -161,7 +161,6 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
 
             // If we generated new UUIDs, update local storage
             if (needsLocalUpdate) {
-              // Rebuild merged with fixed IDs
               const oldIdMap = new Map(localOnly.map((old, i) => [old.id, fixedEntries[i].id]));
               const updatedMerged = merged.map((e) => {
                 const newId = oldIdMap.get(e.id);
@@ -192,12 +191,12 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
                 return encryptEntryForSupabase(row);
               })
             );
-            supabaseClient
+            const { error: pushErr } = await supabaseClient
               .from('time_entries')
-              .upsert(rows, { onConflict: 'id' })
-              .then(({ error: pushErr }) => {
-                if (pushErr) console.warn('Supabase entry bulk sync failed:', pushErr.message);
-              });
+              .upsert(rows, { onConflict: 'id' });
+            if (pushErr) {
+              console.error('[Sync] Local→Supabase push failed:', pushErr.message, pushErr.details);
+            }
           }
         }
       }
@@ -251,8 +250,8 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
       set({ entries: updated });
       setUserData('entries', updated);
 
-      // Sync to Supabase (non-blocking — local is source of truth)
-      if (isSupabaseAvailable() && supabaseClient) {
+      // Sync to Supabase (non-blocking — local is source of truth, but log errors visibly)
+      if (isSupabaseAvailable() && supabaseClient && hasEncryptionKey()) {
         const profile = useAuthStore.getState().profile;
         if (profile?.id && !profile.id.startsWith('local_')) {
           const row = await encryptEntryForSupabase({
@@ -262,7 +261,7 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
             stakeholder: newEntry.stakeholder,
             projekt: newEntry.projekt,
             taetigkeit: newEntry.taetigkeit,
-            format: newEntry.format, // NEW: include format
+            format: newEntry.format,
             start_time: newEntry.start_time,
             end_time: newEntry.end_time,
             duration_ms: newEntry.duration_ms,
@@ -270,12 +269,12 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
             created_at: newEntry.created_at,
             updated_at: newEntry.updated_at,
           });
-          supabaseClient
+          const { error: sbErr } = await supabaseClient
             .from('time_entries')
-            .upsert(row, { onConflict: 'id' })
-            .then(({ error: sbErr }) => {
-              if (sbErr) console.warn('Supabase entry sync failed:', sbErr.message);
-            });
+            .upsert(row, { onConflict: 'id' });
+          if (sbErr) {
+            console.error('[Sync] Entry upsert failed:', sbErr.message, sbErr.details);
+          }
         }
       }
     } catch (error) {
@@ -329,7 +328,7 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
       setUserData('entries', updated);
 
       // Bulk sync to Supabase (encrypted)
-      if (isSupabaseAvailable() && supabaseClient) {
+      if (isSupabaseAvailable() && supabaseClient && hasEncryptionKey()) {
         const profile = useAuthStore.getState().profile;
         if (profile?.id && !profile.id.startsWith('local_')) {
           const rows = await Promise.all(
@@ -341,7 +340,7 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
                 stakeholder: e.stakeholder,
                 projekt: e.projekt,
                 taetigkeit: e.taetigkeit,
-                format: e.format, // NEW: include format
+                format: e.format,
                 start_time: e.start_time,
                 end_time: e.end_time,
                 duration_ms: e.duration_ms,
@@ -352,12 +351,12 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
               return encryptEntryForSupabase(row);
             })
           );
-          supabaseClient
+          const { error: sbErr } = await supabaseClient
             .from('time_entries')
-            .upsert(rows, { onConflict: 'id' })
-            .then(({ error: sbErr }) => {
-              if (sbErr) console.warn('Supabase bulk entry sync failed:', sbErr.message);
-            });
+            .upsert(rows, { onConflict: 'id' });
+          if (sbErr) {
+            console.error('[Sync] Bulk entry sync failed:', sbErr.message, sbErr.details);
+          }
         }
       }
     } catch (error) {
@@ -385,7 +384,7 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
       setUserData('entries', updated);
 
       // Sync to Supabase (non-blocking)
-      if (isSupabaseAvailable() && supabaseClient) {
+      if (isSupabaseAvailable() && supabaseClient && hasEncryptionKey()) {
         const profile = useAuthStore.getState().profile;
         if (profile?.id && !profile.id.startsWith('local_')) {
           const entry = updated.find((e) => e.id === id);
@@ -397,7 +396,7 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
               stakeholder: entry.stakeholder,
               projekt: entry.projekt,
               taetigkeit: entry.taetigkeit,
-              format: entry.format, // NEW: include format
+              format: entry.format,
               start_time: entry.start_time,
               end_time: entry.end_time,
               duration_ms: entry.duration_ms,
@@ -405,12 +404,12 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
               created_at: entry.created_at,
               updated_at: updatedAt,
             });
-            supabaseClient
+            const { error: sbErr } = await supabaseClient
               .from('time_entries')
-              .upsert(row, { onConflict: 'id' })
-              .then(({ error: sbErr }) => {
-                if (sbErr) console.warn('Supabase entry update sync failed:', sbErr.message);
-              });
+              .upsert(row, { onConflict: 'id' });
+            if (sbErr) {
+              console.error('[Sync] Entry update failed:', sbErr.message, sbErr.details);
+            }
           }
         }
       }
@@ -429,17 +428,17 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
       set({ entries: updated });
       setUserData('entries', updated);
 
-      // Sync to Supabase (non-blocking)
+      // Sync delete to Supabase
       if (isSupabaseAvailable() && supabaseClient) {
         const profile = useAuthStore.getState().profile;
         if (profile?.id && !profile.id.startsWith('local_')) {
-          supabaseClient
+          const { error: sbErr } = await supabaseClient
             .from('time_entries')
             .delete()
-            .eq('id', id)
-            .then(({ error: sbErr }) => {
-              if (sbErr) console.warn('Supabase entry delete sync failed:', sbErr.message);
-            });
+            .eq('id', id);
+          if (sbErr) {
+            console.error('[Sync] Entry delete failed:', sbErr.message, sbErr.details);
+          }
         }
       }
     } catch (error) {
