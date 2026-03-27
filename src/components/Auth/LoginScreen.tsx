@@ -90,9 +90,6 @@ export default function LoginScreen() {
             <h1 className="font-display text-2xl font-bold text-[var(--text)] text-center">
               ZEITERFASSUNG
             </h1>
-            <p className="text-[var(--text-secondary)] text-sm mt-2 text-center">
-              {t('auth.subtitle')}
-            </p>
           </div>
 
           {/* Toggle Buttons */}
