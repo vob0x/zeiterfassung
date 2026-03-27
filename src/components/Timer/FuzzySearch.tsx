@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { Search, Zap } from 'lucide-react';
+import { Zap } from 'lucide-react';
 import { useMasterStore } from '../../stores/masterStore';
 import { useEntriesStore } from '../../stores/entriesStore';
 import { useI18n } from '../../i18n';
@@ -248,14 +248,15 @@ const FuzzySearch: React.FC<FuzzySearchProps> = ({ onSelect }) => {
           display: 'flex',
           alignItems: 'center',
           gap: '8px',
-          padding: '8px 12px',
-          borderRadius: '10px',
-          border: `1px solid ${isOpen ? 'var(--neon-cyan)' : 'var(--border)'}`,
-          background: isOpen ? 'rgba(201,169,98,0.03)' : 'transparent',
-          transition: 'all 0.2s',
+          padding: '10px 16px',
+          borderRadius: '12px',
+          border: `1.5px solid ${isOpen ? 'rgba(201,169,98,0.25)' : 'var(--border)'}`,
+          background: isOpen ? 'rgba(201,169,98,0.03)' : 'rgba(255,255,255,0.02)',
+          backdropFilter: 'blur(8px)',
+          transition: 'all 0.25s',
         }}
       >
-        <Search className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-muted)' }} />
+        <span style={{ fontSize: '14px', opacity: isOpen ? 0.8 : 0.3, transition: 'opacity 0.2s' }}>⚡</span>
         <input
           ref={inputRef}
           type="text"
@@ -307,8 +308,8 @@ const FuzzySearch: React.FC<FuzzySearchProps> = ({ onSelect }) => {
             marginTop: '4px',
             background: 'var(--surface-solid, #1a1a2e)',
             border: '1px solid var(--border)',
-            borderRadius: '10px',
-            boxShadow: '0 12px 32px rgba(0,0,0,0.35)',
+            borderRadius: '12px',
+            boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
             zIndex: 50,
             overflow: 'hidden',
           }}

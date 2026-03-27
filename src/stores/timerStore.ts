@@ -9,17 +9,18 @@ import { formatDateISO } from '@/lib/utils';
 interface SerializedSlot {
   id: string;
   date: string;
-  stakeholder: string[]; // NEW: array of stakeholders
+  stakeholder: string[];
   projekt: string;
   taetigkeit: string;
-  format: string; // NEW: format field
+  format: string;
   start_time: string;
   elapsed_ms: number;
   notiz?: string;
   is_running: boolean;
+  color: string;
   pausedMs: number;
   isPaused: boolean;
-  wasRunning: boolean; // was this timer actively running at save time?
+  wasRunning: boolean;
 }
 
 interface SavedTimerState {
@@ -55,6 +56,19 @@ interface TimerState {
   clearError: () => void;
 }
 
+// Color palette for timer lanes — each new slot gets the next color
+const TIMER_PALETTE = ['#C9A962', '#6EC49E', '#9B8EC4', '#D4706E', '#5BA4D9', '#E5A84B', '#7ECFCF', '#C97B9B'];
+let colorCounter = 0;
+
+function assignColor(existingColors: string[]): string {
+  // Find the first palette color not in use
+  for (const c of TIMER_PALETTE) {
+    if (!existingColors.includes(c)) return c;
+  }
+  // Fallback: cycle
+  return TIMER_PALETTE[colorCounter++ % TIMER_PALETTE.length];
+}
+
 function generateId(): string {
   return `slot_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 }
@@ -83,17 +97,19 @@ export const useTimerStore = create<TimerState>((set, get) => ({
     }
 
     const now = new Date();
+    const existingColors = state.taskSlots.map((s) => s.color);
     const newSlot: TimerSlot = {
-      stakeholder: slotData.stakeholder || [], // NEW: ensure array
+      stakeholder: slotData.stakeholder || [],
       projekt: slotData.projekt,
       taetigkeit: slotData.taetigkeit,
-      format: slotData.format || 'Einzelarbeit', // NEW: format field (default)
+      format: slotData.format || 'Einzelarbeit',
       notiz: slotData.notiz,
       id: generateId(),
       date: formatDateISO(now),
       start_time: `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
       elapsed_ms: 0,
       is_running: false,
+      color: assignColor(existingColors),
       startTime: now,
       pausedMs: 0,
       isPaused: true,
@@ -336,13 +352,14 @@ export const useTimerStore = create<TimerState>((set, get) => ({
         stakeholder: slot.stakeholder,
         projekt: slot.projekt,
         taetigkeit: slot.taetigkeit,
-        format: slot.format, // NEW: save format
+        format: slot.format,
         start_time: slot.start_time,
         elapsed_ms: slot.elapsed_ms,
         notiz: slot.notiz,
         is_running: slot.is_running,
+        color: slot.color,
         pausedMs: totalPaused,
-        isPaused: true, // All saved as paused
+        isPaused: true,
         wasRunning,
       };
     });
@@ -359,41 +376,41 @@ export const useTimerStore = create<TimerState>((set, get) => ({
     const elapsed = now - saved.savedAt; // Time passed during refresh
     let hasRunning = false;
 
-    const restored: TimerSlot[] = saved.slots.map((s) => {
+    const restored: TimerSlot[] = saved.slots.map((s, idx) => {
       const wasRunning = s.wasRunning;
 
       if (wasRunning) {
         hasRunning = true;
-        // Timer was running: add elapsed time since save, resume
         return {
           id: s.id,
           date: s.date,
           stakeholder: s.stakeholder,
           projekt: s.projekt,
           taetigkeit: s.taetigkeit,
-          format: s.format || 'Einzelarbeit', // NEW: restore format (with default)
+          format: s.format || 'Einzelarbeit',
           start_time: s.start_time,
           elapsed_ms: s.elapsed_ms,
           notiz: s.notiz,
           is_running: true,
-          startTime: new Date(), // Fresh start reference
-          pausedMs: s.pausedMs + elapsed, // Include time during refresh
+          color: s.color || TIMER_PALETTE[idx % TIMER_PALETTE.length],
+          startTime: new Date(),
+          pausedMs: s.pausedMs + elapsed,
           isPaused: false,
         };
       }
 
-      // Paused timer: restore as-is
       return {
         id: s.id,
         date: s.date,
         stakeholder: s.stakeholder,
         projekt: s.projekt,
         taetigkeit: s.taetigkeit,
-        format: s.format || 'Einzelarbeit', // NEW: restore format (with default)
+        format: s.format || 'Einzelarbeit',
         start_time: s.start_time,
         elapsed_ms: s.elapsed_ms,
         notiz: s.notiz,
         is_running: false,
+        color: s.color || TIMER_PALETTE[idx % TIMER_PALETTE.length],
         startTime: new Date(),
         pausedMs: s.pausedMs,
         isPaused: true,

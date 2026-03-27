@@ -5,9 +5,10 @@ import { useEntriesStore } from '../../stores/entriesStore';
 import { useMasterStore } from '../../stores/masterStore';
 import { useI18n } from '../../i18n';
 import { useUiStore } from '../../stores/uiStore';
-import { Square, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { formatDuration, formatDateISO } from '../../lib/utils';
 import InlinePicker from './InlinePicker';
+import Orb from './Orb';
 
 interface TimerLaneProps {
   slot: TimerSlot;
@@ -39,9 +40,12 @@ const TimerLane: React.FC<TimerLaneProps> = ({ slot }) => {
   } = useMasterStore();
 
   const elapsedMs = getSlotElapsed(slot.id);
-  const isRunning = !slot.isPaused && elapsedMs > 0;
-  const isPaused = slot.isPaused && elapsedMs > 0;
+  const isRunning = !slot.isPaused;
   const hasTime = elapsedMs > 0;
+  const c = slot.color;
+
+  // Progress within 1h (visual feedback)
+  const progressPct = Math.min((elapsedMs / 3600000) * 100, 100);
 
   // Orb click toggles play/pause
   const handleOrbClick = () => {
@@ -71,7 +75,7 @@ const TimerLane: React.FC<TimerLaneProps> = ({ slot }) => {
         stakeholder: slot.stakeholder,
         projekt: slot.projekt,
         taetigkeit: slot.taetigkeit,
-        format: slot.format, // NEW: include format
+        format: slot.format,
         start_time: startTimeStr,
         end_time: endTime,
         duration_ms: currentElapsed,
@@ -83,69 +87,59 @@ const TimerLane: React.FC<TimerLaneProps> = ({ slot }) => {
     }
   };
 
-  // Breathing orb animation
-  const orbSize = 32;
-  const orbColor = isRunning
-    ? 'var(--neon-cyan)'
-    : isPaused
-      ? 'var(--warning)'
-      : 'var(--text-muted)';
-
   return (
     <div
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: '10px',
-        padding: '10px 14px',
-        borderRadius: '12px',
-        border: `1px solid ${isRunning ? 'rgba(201,169,98,0.25)' : isPaused ? 'rgba(251,191,36,0.2)' : 'var(--border)'}`,
-        background: isRunning
-          ? 'rgba(201,169,98,0.025)'
-          : isPaused
-            ? 'rgba(251,191,36,0.015)'
-            : 'rgba(0,0,0,0.04)',
-        transition: 'all 0.25s',
+        gap: isRunning ? '14px' : '10px',
+        padding: isRunning ? '14px 18px' : '10px 14px',
+        borderRadius: '14px',
+        background: isRunning ? `${c}08` : 'rgba(255,255,255,0.02)',
+        border: `1px solid ${isRunning ? c + '25' : 'var(--border)'}`,
+        transition: 'all 0.35s ease',
+        position: 'relative',
+        overflow: 'hidden',
       }}
     >
-      {/* Breathing Orb — play/pause toggle */}
-      <button
-        onClick={handleOrbClick}
-        style={{
-          width: orbSize,
-          height: orbSize,
-          minWidth: orbSize,
-          borderRadius: '50%',
-          border: `2px solid ${orbColor}`,
-          background: isRunning ? 'rgba(201,169,98,0.12)' : 'transparent',
-          cursor: 'pointer',
-          position: 'relative',
-          transition: 'all 0.3s',
-          boxShadow: isRunning
-            ? `0 0 12px rgba(201,169,98,0.25), 0 0 4px rgba(201,169,98,0.15)`
-            : 'none',
-          animation: isRunning ? 'breathe 2s ease-in-out infinite' : 'none',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-        title={slot.isPaused ? t('timer.start') : t('timer.pause')}
-      >
-        {/* Inner dot */}
+      {/* Animated progress bar at bottom */}
+      {isRunning && (
         <div
           style={{
-            width: isRunning ? 10 : 8,
-            height: isRunning ? 10 : 8,
-            borderRadius: '50%',
-            background: orbColor,
-            transition: 'all 0.3s',
-            opacity: isRunning ? 1 : 0.5,
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            height: 2,
+            width: `${progressPct}%`,
+            background: `linear-gradient(90deg, ${c}60, ${c})`,
+            transition: 'width 1s linear',
+            borderRadius: '0 1px 0 0',
           }}
         />
-      </button>
+      )}
+
+      {/* Breathing Orb — play/pause toggle */}
+      <Orb
+        color={c}
+        size={isRunning ? 34 : 26}
+        running={isRunning}
+        elapsed={elapsedMs}
+        onClick={handleOrbClick}
+        title={slot.isPaused ? t('timer.start') : t('timer.pause')}
+      />
 
       {/* Dimension pickers (inline) */}
-      <div style={{ flex: 1, display: 'flex', gap: '2px', flexWrap: 'wrap', minWidth: 0, alignItems: 'center' }}>
+      <div
+        style={{
+          flex: 1,
+          display: 'flex',
+          gap: '2px',
+          flexWrap: 'wrap',
+          minWidth: 0,
+          alignItems: 'center',
+          lineHeight: 1.5,
+        }}
+      >
         {/* Stakeholder multi-select chips */}
         <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap' }}>
           {slot.stakeholder.map((sh) => (
@@ -155,11 +149,12 @@ const TimerLane: React.FC<TimerLaneProps> = ({ slot }) => {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '4px',
-                padding: '2px 6px',
-                borderRadius: '4px',
-                background: 'rgba(0, 200, 200, 0.15)',
+                padding: '2px 7px',
+                borderRadius: '10px',
+                background: `${c}18`,
                 fontSize: '11px',
-                color: 'var(--neon-cyan)',
+                fontWeight: 600,
+                color: c,
               }}
             >
               <span>{sh}</span>
@@ -168,11 +163,12 @@ const TimerLane: React.FC<TimerLaneProps> = ({ slot }) => {
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: 'var(--neon-cyan)',
+                  color: c,
                   cursor: 'pointer',
                   padding: '0',
                   lineHeight: '1',
                   fontSize: '12px',
+                  opacity: 0.6,
                 }}
                 title={t('timer.removeStakeholder')}
               >
@@ -185,12 +181,17 @@ const TimerLane: React.FC<TimerLaneProps> = ({ slot }) => {
             options={stakeholders.filter((s) => !slot.stakeholder.includes(s))}
             placeholder={t('ph.stakeholder')}
             onSelect={(v) => addSlotStakeholder(slot.id, v)}
-            onAdd={async (v) => { await addStakeholder(v); addSlotStakeholder(slot.id, v); }}
+            onAdd={async (v) => {
+              await addStakeholder(v);
+              addSlotStakeholder(slot.id, v);
+            }}
             addPlaceholder={t('ph.newStakeholder')}
-            color="var(--neon-cyan)"
+            color={c}
           />
         </div>
-        <span style={{ color: 'var(--text-muted)', fontSize: '10px', margin: '0 1px' }}>·</span>
+
+        <span style={{ color: 'var(--text-muted)', fontSize: '10px', margin: '0 1px', opacity: 0.4 }}>›</span>
+
         <InlinePicker
           value={slot.projekt}
           options={projects}
@@ -198,9 +199,11 @@ const TimerLane: React.FC<TimerLaneProps> = ({ slot }) => {
           onSelect={(v) => updateSlotField(slot.id, 'projekt', v)}
           onAdd={async (v) => { await addProject(v); }}
           addPlaceholder={t('ph.newProjekt')}
-          color="var(--text)"
+          color={isRunning ? 'var(--text)' : 'var(--text-secondary)'}
         />
-        <span style={{ color: 'var(--text-muted)', fontSize: '10px', margin: '0 1px' }}>·</span>
+
+        <span style={{ color: 'var(--text-muted)', fontSize: '10px', margin: '0 1px', opacity: 0.4 }}>›</span>
+
         <InlinePicker
           value={slot.format}
           options={formats}
@@ -208,9 +211,11 @@ const TimerLane: React.FC<TimerLaneProps> = ({ slot }) => {
           onSelect={(v) => updateSlotField(slot.id, 'format', v)}
           onAdd={async (v) => { await addFormat(v); }}
           addPlaceholder={t('ph.newFormat')}
-          color="var(--warning)"
+          color={c + '90'}
         />
-        <span style={{ color: 'var(--text-muted)', fontSize: '10px', margin: '0 1px' }}>·</span>
+
+        <span style={{ color: 'var(--text-muted)', fontSize: '10px', margin: '0 1px', opacity: 0.4 }}>›</span>
+
         <InlinePicker
           value={slot.taetigkeit}
           options={activities}
@@ -218,7 +223,7 @@ const TimerLane: React.FC<TimerLaneProps> = ({ slot }) => {
           onSelect={(v) => updateSlotField(slot.id, 'taetigkeit', v)}
           onAdd={async (v) => { await addActivity(v); }}
           addPlaceholder={t('ph.newTaetigkeit')}
-          color="var(--text-secondary)"
+          color={isRunning ? c : 'var(--text-secondary)'}
         />
       </div>
 
@@ -226,12 +231,13 @@ const TimerLane: React.FC<TimerLaneProps> = ({ slot }) => {
       <div
         className="font-mono font-bold"
         style={{
-          fontSize: '16px',
-          color: isRunning ? 'var(--neon-cyan)' : isPaused ? 'var(--warning)' : 'var(--text-muted)',
-          minWidth: '70px',
+          fontSize: isRunning ? '20px' : '14px',
+          color: isRunning ? c : 'var(--text-muted)',
+          minWidth: isRunning ? '100px' : '60px',
           textAlign: 'right',
           whiteSpace: 'nowrap',
-          textShadow: isRunning ? '0 0 10px rgba(201,169,98,0.2)' : 'none',
+          transition: 'all 0.3s',
+          letterSpacing: '0.01em',
         }}
       >
         {formatDuration(elapsedMs)}
@@ -242,32 +248,33 @@ const TimerLane: React.FC<TimerLaneProps> = ({ slot }) => {
         <button
           onClick={handleStop}
           style={{
-            width: 28,
-            height: 28,
+            width: 26,
+            height: 26,
             borderRadius: '50%',
-            border: '1.5px solid var(--border)',
+            border: `1px solid ${isRunning ? '#D4706E35' : 'var(--border)'}`,
             background: 'transparent',
-            color: 'var(--text-muted)',
+            color: isRunning ? 'var(--danger)' : 'var(--text-muted)',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            transition: 'all 0.2s',
+            fontSize: '9px',
             flexShrink: 0,
+            transition: 'all 0.2s',
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.borderColor = 'var(--danger)';
             e.currentTarget.style.color = 'var(--danger)';
-            e.currentTarget.style.background = 'rgba(212, 112, 110, 0.06)';
+            e.currentTarget.style.background = 'rgba(212, 112, 110, 0.08)';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = 'var(--border)';
-            e.currentTarget.style.color = 'var(--text-muted)';
+            e.currentTarget.style.borderColor = isRunning ? '#D4706E35' : 'var(--border)';
+            e.currentTarget.style.color = isRunning ? 'var(--danger)' : 'var(--text-muted)';
             e.currentTarget.style.background = 'transparent';
           }}
           title={t('timer.stopSave')}
         >
-          <Square className="w-3 h-3" />
+          ■
         </button>
       )}
 
@@ -275,10 +282,10 @@ const TimerLane: React.FC<TimerLaneProps> = ({ slot }) => {
       <button
         onClick={() => removeSlot(slot.id)}
         style={{
-          width: 28,
-          height: 28,
+          width: 26,
+          height: 26,
           borderRadius: '50%',
-          border: '1.5px solid var(--border)',
+          border: '1px solid var(--border)',
           background: 'transparent',
           color: 'var(--text-muted)',
           cursor: 'pointer',
@@ -287,16 +294,17 @@ const TimerLane: React.FC<TimerLaneProps> = ({ slot }) => {
           justifyContent: 'center',
           transition: 'all 0.2s',
           flexShrink: 0,
+          opacity: 0.5,
         }}
         onMouseEnter={(e) => {
           e.currentTarget.style.borderColor = 'var(--danger)';
           e.currentTarget.style.color = 'var(--danger)';
-          e.currentTarget.style.background = 'rgba(212, 112, 110, 0.06)';
+          e.currentTarget.style.opacity = '1';
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.borderColor = 'var(--border)';
           e.currentTarget.style.color = 'var(--text-muted)';
-          e.currentTarget.style.background = 'transparent';
+          e.currentTarget.style.opacity = '0.5';
         }}
         title={t('timer.removeTask')}
       >

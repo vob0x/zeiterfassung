@@ -2,21 +2,22 @@ import React, { useMemo } from 'react';
 import { useTimerStore } from '../../stores/timerStore';
 import { useEntriesStore } from '../../stores/entriesStore';
 import { useI18n } from '../../i18n';
-import { formatDurationHM, formatDuration, getTodayISO, computeUnionMs } from '../../lib/utils';
+import { formatDuration, formatDurationHM, getTodayISO, computeUnionMs } from '../../lib/utils';
 import { Plus } from 'lucide-react';
 import TimerLane from './TimerLane';
 import FuzzySearch from './FuzzySearch';
 import ManualEntry from './ManualEntry';
+import DayRing from './DayRing';
 
-// Breathing orb keyframe animation (injected once)
-const styleId = 'stack-timer-breathe';
+// Inject orb breathing animation once
+const styleId = 'stack-timer-orb-breathe';
 if (typeof document !== 'undefined' && !document.getElementById(styleId)) {
   const style = document.createElement('style');
   style.id = styleId;
   style.textContent = `
-    @keyframes breathe {
-      0%, 100% { box-shadow: 0 0 8px rgba(201,169,98,0.15), 0 0 2px rgba(201,169,98,0.1); transform: scale(1); }
-      50% { box-shadow: 0 0 16px rgba(201,169,98,0.3), 0 0 6px rgba(201,169,98,0.2); transform: scale(1.06); }
+    @keyframes orbBreathe {
+      0%, 100% { transform: scale(1); opacity: 0.4; }
+      50% { transform: scale(1.25); opacity: 0.12; }
     }
   `;
   document.head.appendChild(style);
@@ -27,7 +28,7 @@ const TimerView: React.FC = () => {
   const { taskSlots, addSlot, stopAllTimers, getSlotElapsed } = useTimerStore();
   const { entries } = useEntriesStore();
 
-  // Today's entries for total
+  // Today's saved entries
   const todayEntries = useMemo(() => {
     const todayISO = getTodayISO();
     return entries.filter((e) => e.date === todayISO);
@@ -41,17 +42,46 @@ const TimerView: React.FC = () => {
   // Daily goal: 8:24
   const dailyGoalMs = 8 * 3600 * 1000 + 24 * 60 * 1000;
   const combinedMs = todayTotalMs + runningTotalMs;
-  const progressPercent = Math.min((combinedMs / dailyGoalMs) * 100, 100);
 
   const hasActiveTimers = taskSlots.some((s) => !s.isPaused || s.pausedMs > 0);
+  const runningTimers = taskSlots.filter((s) => !s.isPaused);
+  const pausedTimers = taskSlots.filter((s) => s.isPaused);
+
+  // Segments for DayRing — one per active task + one for saved entries
+  const segments = useMemo(() => {
+    const segs: { color: string; ms: number; label: string }[] = [];
+
+    // Active timer segments
+    taskSlots.forEach((slot) => {
+      const elapsed = getSlotElapsed(slot.id);
+      if (elapsed > 0) {
+        segs.push({
+          color: slot.color,
+          ms: elapsed,
+          label: (slot.stakeholder[0] || slot.projekt || t('stack.untitled')),
+        });
+      }
+    });
+
+    // Saved entries as a single "completed" segment (muted gold)
+    if (todayTotalMs > 0) {
+      segs.push({
+        color: '#4D4941',
+        ms: todayTotalMs,
+        label: t('timer.saved'),
+      });
+    }
+
+    return segs;
+  }, [taskSlots, todayTotalMs, getSlotElapsed, t]);
 
   // Fuzzy search → create a new lane
   const handleFuzzySelect = (combo: { stakeholder: string; projekt: string; taetigkeit: string; format: string }) => {
     addSlot({
-      stakeholder: [combo.stakeholder], // NEW: wrap in array
+      stakeholder: [combo.stakeholder],
       projekt: combo.projekt,
       taetigkeit: combo.taetigkeit,
-      format: combo.format || 'Einzelarbeit', // NEW: include format
+      format: combo.format || 'Einzelarbeit',
       notiz: '',
     });
     // Auto-start the new timer
@@ -66,7 +96,7 @@ const TimerView: React.FC = () => {
 
   // "+" empty timer
   const handleAddEmpty = () => {
-    addSlot({ stakeholder: [], projekt: '', taetigkeit: '', format: 'Einzelarbeit', notiz: '' }); // NEW: add format
+    addSlot({ stakeholder: [], projekt: '', taetigkeit: '', format: 'Einzelarbeit', notiz: '' });
     // Auto-start
     setTimeout(() => {
       const state = useTimerStore.getState();
@@ -79,17 +109,39 @@ const TimerView: React.FC = () => {
 
   return (
     <div className="py-4">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" style={{ alignItems: 'start' }}>
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-6" style={{ alignItems: 'start' }}>
         {/* ── Left Column: Stack Timer ── */}
-        <div className="card" style={{ padding: '20px' }}>
+        <div>
           {/* Header */}
-          <div className="flex items-center justify-between mb-3">
-            <div
-              className="font-display text-xs font-semibold tracking-wide uppercase"
-              style={{ color: 'var(--text-muted)', letterSpacing: '0.02em' }}
-            >
-              {t('timer.tasks')}
+          <div className="flex items-center justify-between mb-4" style={{ padding: '0 4px' }}>
+            <div>
+              <div className="flex items-center gap-2">
+                <div
+                  style={{
+                    width: 7,
+                    height: 7,
+                    borderRadius: '50%',
+                    background: runningTimers.length > 0 ? 'var(--success)' : 'var(--text-muted)',
+                    boxShadow: runningTimers.length > 0 ? '0 0 8px rgba(110,196,158,0.5)' : 'none',
+                  }}
+                />
+                <div
+                  className="font-display font-semibold"
+                  style={{ fontSize: '16px', color: 'var(--text)', letterSpacing: '-0.01em' }}
+                >
+                  {t('timer.tasks')}
+                </div>
+              </div>
+              <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '2px 0 0 15px' }}>
+                {runningTimers.length === 0
+                  ? t('timer.noActive')
+                  : runningTimers.length === 1
+                    ? t('timer.oneActive')
+                    : t('timer.nActive').replace('{{n}}', String(runningTimers.length))}
+                {pausedTimers.length > 0 && ` · ${pausedTimers.length} ${t('timer.paused')}`}
+              </p>
             </div>
+
             {hasActiveTimers && (
               <button
                 onClick={stopAllTimers}
@@ -111,54 +163,101 @@ const TimerView: React.FC = () => {
             )}
           </div>
 
-          {/* Fuzzy Search */}
-          <div style={{ marginBottom: '14px' }}>
-            <FuzzySearch onSelect={handleFuzzySelect} />
+          {/* Search + "+" Button */}
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
+            <div style={{ flex: 1 }}>
+              <FuzzySearch onSelect={handleFuzzySelect} />
+            </div>
+            {/* Start empty timer button */}
+            {taskSlots.length < 8 && (
+              <button
+                onClick={handleAddEmpty}
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: '12px',
+                  border: '1.5px solid var(--border)',
+                  background: 'rgba(255,255,255,0.02)',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  fontSize: '20px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.2s',
+                  flexShrink: 0,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--success)';
+                  e.currentTarget.style.color = 'var(--success)';
+                  e.currentTarget.style.background = 'rgba(110,196,158,0.06)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--border)';
+                  e.currentTarget.style.color = 'var(--text-muted)';
+                  e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+                }}
+                title={t('stack.startEmpty')}
+              >
+                <Plus className="w-5 h-5" />
+              </button>
+            )}
           </div>
 
           {/* Timer Lanes */}
-          <div className="space-y-2 mb-3">
-            {taskSlots.length === 0 && (
-              <div className="text-center py-6">
-                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                  {t('timer.startHint')}
-                </p>
-                <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                  {t('stack.searchOrPlus')}
-                </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {/* Running timers first */}
+            {runningTimers.map((slot) => (
+              <TimerLane key={slot.id} slot={slot} />
+            ))}
+
+            {/* Separator if both running and paused */}
+            {pausedTimers.length > 0 && runningTimers.length > 0 && (
+              <div
+                style={{
+                  fontSize: '9px',
+                  color: 'var(--text-muted)',
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.1em',
+                  padding: '6px 4px 2px',
+                }}
+              >
+                {t('timer.paused')}
               </div>
             )}
 
-            {taskSlots.map((slot) => (
+            {/* Paused timers */}
+            {pausedTimers.filter((s) => getSlotElapsed(s.id) > 0).map((slot) => (
+              <TimerLane key={slot.id} slot={slot} />
+            ))}
+
+            {/* New (empty, no time yet) timers */}
+            {pausedTimers.filter((s) => getSlotElapsed(s.id) === 0).map((slot) => (
               <TimerLane key={slot.id} slot={slot} />
             ))}
           </div>
 
-          {/* "+" Button — start empty timer */}
-          {taskSlots.length < 8 && (
-            <button
-              onClick={handleAddEmpty}
-              className="w-full flex items-center justify-center gap-2 py-2.5 text-sm font-medium rounded-lg transition-all"
+          {/* Empty state */}
+          {taskSlots.length === 0 && (
+            <div
               style={{
-                background: 'transparent',
+                textAlign: 'center',
+                padding: '48px 20px',
+                color: 'var(--text-muted)',
+                borderRadius: '14px',
                 border: '1px dashed var(--border)',
-                color: 'var(--text-secondary)',
-                cursor: 'pointer',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = 'var(--neon-cyan)';
-                e.currentTarget.style.color = 'var(--neon-cyan)';
-                e.currentTarget.style.borderStyle = 'solid';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'var(--border)';
-                e.currentTarget.style.color = 'var(--text-secondary)';
-                e.currentTarget.style.borderStyle = 'dashed';
+                marginTop: '6px',
               }}
             >
-              <Plus className="w-4 h-4" />
-              {t('stack.startEmpty')}
-            </button>
+              <div style={{ fontSize: '32px', marginBottom: '12px', opacity: 0.4 }}>⚡</div>
+              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                {t('timer.startHint')}
+              </div>
+              <div style={{ fontSize: '12px', marginTop: '6px', lineHeight: 1.7 }}>
+                {t('stack.searchOrPlus')}
+              </div>
+            </div>
           )}
 
           {/* Manual Entry */}
@@ -167,134 +266,158 @@ const TimerView: React.FC = () => {
           </div>
         </div>
 
-        {/* ── Right Column: Live Overview ── */}
-        <div className="lg:sticky lg:top-20">
+        {/* ── Right Column: DayRing + Saved Log ── */}
+        <div className="lg:sticky lg:top-20" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* DayRing */}
           <div
             className="card"
             style={{
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
-              justifyContent: 'center',
-              padding: '24px',
+              padding: '24px 16px',
             }}
           >
-            {/* Live combined time (saved + running) */}
-            <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+            <DayRing segments={segments} totalMs={combinedMs} goalMs={dailyGoalMs} />
+
+            {/* Active lanes mini-summary */}
+            {taskSlots.length > 0 && (
               <div
-                className="font-mono font-bold"
                 style={{
-                  fontSize: '48px',
-                  color: 'var(--neon-cyan)',
-                  lineHeight: 1,
-                  textShadow: taskSlots.some((s) => !s.isPaused) ? '0 0 20px rgba(201,169,98,0.2)' : 'none',
+                  display: 'flex',
+                  gap: '6px',
+                  justifyContent: 'center',
+                  flexWrap: 'wrap',
+                  marginTop: '14px',
+                  width: '100%',
                 }}
               >
-                {formatDuration(combinedMs)}
-              </div>
-              <div className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
-                {t('timer.todayTotal')}
-              </div>
-            </div>
-
-            {/* Active lanes summary — mini orbs */}
-            {taskSlots.length > 0 && (
-              <div style={{
-                display: 'flex',
-                gap: '8px',
-                justifyContent: 'center',
-                flexWrap: 'wrap',
-                marginBottom: '16px',
-              }}>
                 {taskSlots.map((slot) => {
                   const running = !slot.isPaused;
                   const elapsed = getSlotElapsed(slot.id);
-                  const label = (Array.isArray(slot.stakeholder) ? slot.stakeholder[0] : slot.stakeholder) || slot.projekt || t('stack.untitled');
+                  const label =
+                    (slot.stakeholder[0]) ||
+                    slot.projekt ||
+                    t('stack.untitled');
                   return (
                     <div
                       key={slot.id}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '5px',
+                        gap: '4px',
                         padding: '3px 8px',
-                        borderRadius: '12px',
-                        background: running ? 'rgba(201,169,98,0.06)' : 'rgba(255,255,255,0.03)',
-                        border: `1px solid ${running ? 'rgba(201,169,98,0.2)' : 'var(--border)'}`,
-                        fontSize: '11px',
+                        borderRadius: '10px',
+                        background: running ? `${slot.color}0A` : 'transparent',
+                        border: `1px solid ${running ? slot.color + '30' : 'var(--border)'}`,
+                        fontSize: '10px',
                       }}
                     >
                       <div
                         style={{
-                          width: 8,
-                          height: 8,
+                          width: 6,
+                          height: 6,
                           borderRadius: '50%',
-                          background: running ? 'var(--neon-cyan)' : elapsed > 0 ? 'var(--warning)' : 'var(--text-muted)',
-                          animation: running ? 'breathe 2s ease-in-out infinite' : 'none',
+                          background: slot.color,
+                          opacity: running ? 1 : 0.4,
+                          boxShadow: running ? `0 0 6px ${slot.color}40` : 'none',
                         }}
                       />
-                      <span style={{ color: 'var(--text-secondary)', maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <span
+                        style={{
+                          color: running ? 'var(--text)' : 'var(--text-muted)',
+                          maxWidth: '60px',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          fontWeight: 500,
+                        }}
+                      >
                         {label}
                       </span>
-                      <span className="font-mono" style={{ color: running ? 'var(--neon-cyan)' : 'var(--text-muted)', fontSize: '10px' }}>
-                        {formatDuration(elapsed)}
+                      <span
+                        className="font-mono"
+                        style={{
+                          color: running ? slot.color : 'var(--text-muted)',
+                          fontSize: '9px',
+                        }}
+                      >
+                        {formatDurationHM(elapsed)}
                       </span>
                     </div>
                   );
                 })}
               </div>
             )}
+          </div>
 
-            {/* Daily Goal Progress */}
-            <div style={{ width: '100%' }}>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                  {t('timer.dailyGoal')}
-                </span>
-                <span className="text-xs font-mono" style={{ color: 'var(--text-secondary)' }}>
-                  {Math.round(progressPercent)}%
-                </span>
-              </div>
+          {/* Today saved log */}
+          {todayEntries.length > 0 && (
+            <div
+              className="card"
+              style={{ padding: '14px 16px' }}
+            >
               <div
-                className="w-full overflow-hidden"
                 style={{
-                  background: 'rgba(255,255,255,0.04)',
-                  borderRadius: '4px',
-                  height: '6px',
-                  position: 'relative',
+                  fontSize: '9px',
+                  color: 'var(--text-muted)',
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.1em',
+                  marginBottom: '8px',
                 }}
               >
-                <div
-                  className="transition-all duration-500"
-                  style={{
-                    width: `${progressPercent}%`,
-                    height: '100%',
-                    borderRadius: '4px',
-                    background:
-                      progressPercent >= 100
-                        ? 'var(--success)'
-                        : progressPercent >= 70
-                          ? 'var(--warning)'
-                          : 'var(--neon-cyan)',
-                  }}
-                />
-                <div
-                  style={{
-                    position: 'absolute',
-                    left: '100%',
-                    top: '-2px',
-                    bottom: '-2px',
-                    width: '2px',
-                    background: 'var(--text-muted)',
-                    borderRadius: '1px',
-                    transform: 'translateX(-2px)',
-                  }}
-                />
+                {t('timer.savedToday')}
               </div>
-              <div className="text-xs mt-1 text-right" style={{ color: 'var(--text-muted)' }}>
-                {formatDurationHM(combinedMs)} / {formatDurationHM(dailyGoalMs)}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                {todayEntries.slice(-6).reverse().map((entry, i) => {
+                  const sh = Array.isArray(entry.stakeholder)
+                    ? entry.stakeholder[0]
+                    : entry.stakeholder;
+                  return (
+                    <div
+                      key={entry.id || i}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '4px 0',
+                        borderBottom: '1px solid rgba(255,255,255,0.03)',
+                        fontSize: '11px',
+                      }}
+                    >
+                      <span style={{ color: 'var(--text-secondary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {sh || '—'} <span style={{ color: 'var(--text-muted)', opacity: 0.4 }}>›</span> {entry.projekt || '—'}
+                      </span>
+                      <span className="font-mono" style={{ color: 'var(--text-muted)', fontSize: '10px' }}>
+                        {formatDurationHM(entry.duration_ms)}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
+          )}
+
+          {/* Keyboard hints */}
+          <div
+            style={{
+              padding: '10px 14px',
+              borderRadius: '10px',
+              background: 'rgba(255,255,255,0.02)',
+              border: '1px solid var(--border)',
+              fontSize: '10px',
+              color: 'var(--text-muted)',
+              lineHeight: 1.7,
+            }}
+          >
+            <div style={{ fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '3px' }}>
+              {t('timer.shortcuts')}
+            </div>
+            <div>⌨ {t('timer.shortcutType')}</div>
+            <div><span style={{ color: 'var(--success)' }}>+</span> {t('timer.shortcutEmpty')}</div>
+            <div>🔵 {t('timer.shortcutOrb')}</div>
+            <div>■ {t('timer.shortcutStop')}</div>
           </div>
         </div>
       </div>

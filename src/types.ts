@@ -126,14 +126,15 @@ export interface UserSettings {
 export interface TimerSlot {
   id: string;
   date: string; // YYYY-MM-DD format
-  stakeholder: string[]; // NEW: array of stakeholders
+  stakeholder: string[]; // Array of stakeholders (multi-select)
   projekt: string;
   taetigkeit: string;
-  format: string; // NEW: format dimension (default 'Einzelarbeit')
+  format: string; // Format dimension (default 'Einzelarbeit')
   start_time: string; // HH:MM format
   elapsed_ms: number;
   notiz?: string;
   is_running: boolean;
+  color: string; // Assigned palette color for visual distinction
   // Timer runtime fields
   startTime: Date;
   pausedMs: number;

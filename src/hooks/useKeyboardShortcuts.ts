@@ -73,38 +73,28 @@ export function useKeyboardShortcuts() {
           break;
 
         case '1':
-          // 1: Switch to Timer
           event.preventDefault();
           switchView('timer');
-          showToast('Timer', 'info', 1000);
           break;
 
         case '2':
-          // 2: Switch to Entries
           event.preventDefault();
           switchView('entries');
-          showToast('Entries', 'info', 1000);
           break;
 
         case '3':
-          // 3: Switch to Dashboard
           event.preventDefault();
           switchView('dashboard');
-          showToast('Dashboard', 'info', 1000);
           break;
 
         case '4':
-          // 4: Switch to Manage
           event.preventDefault();
           switchView('manage');
-          showToast('Manage', 'info', 1000);
           break;
 
         case '5':
-          // 5: Switch to Team
           event.preventDefault();
           switchView('team');
-          showToast('Team', 'info', 1000);
           break;
       }
     };
