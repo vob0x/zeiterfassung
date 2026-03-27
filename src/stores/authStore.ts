@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { supabaseClient, isSupabaseAvailable } from '@/lib/supabase'
-import { deriveEncryptionKey, clearEncryptionKey, hasEncryptionKey } from '@/lib/crypto'
+import { deriveEncryptionKey, clearEncryptionKey, hasEncryptionKey, clearTeamKey } from '@/lib/crypto'
 import { migrateUserData, clearAllUserData } from '@/lib/userStorage'
 import type { Profile, Session } from '@/types'
 
@@ -289,6 +289,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
     localStorage.removeItem('zeiterfassung_session')
     clearEncryptionKey()
+    clearTeamKey()
     set({ profile: null, session: null, isAuthenticated: false, loading: false, needsPassword: false })
   },
 

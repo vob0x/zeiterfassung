@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { getUserData, setUserData } from '@/lib/userStorage';
 import { supabaseClient, isSupabaseAvailable } from '@/lib/supabase';
 import { useAuthStore } from './authStore';
-import { encryptField, decryptField, hasEncryptionKey } from '@/lib/crypto';
+import { encryptField, decryptField, hasEncryptionKey, encryptFieldForTeam, decryptFieldSmart } from '@/lib/crypto';
 
 interface MasterState {
   stakeholders: string[];
@@ -50,11 +50,11 @@ async function syncListToSupabase(
 ) {
   if (!isSupabaseAvailable() || !supabaseClient || names.length === 0) return;
 
-  // Encrypt names before sending to Supabase
+  // Encrypt names before sending to Supabase (Team Key if in team, personal key otherwise)
   const encryptedRows = await Promise.all(
     names.map(async (name, idx) => ({
       user_id: userId,
-      name: hasEncryptionKey() ? await encryptField(name) : name,
+      name: hasEncryptionKey() ? await encryptFieldForTeam(name) : name,
       sort_order: idx,
     }))
   );
@@ -109,18 +109,18 @@ export const useMasterStore = create<MasterState>((set, get) => ({
           supabaseClient.from('formats').select('name').order('sort_order'),
         ]);
 
-        // Decrypt names from Supabase (filter out empty/failed decryptions)
+        // Decrypt names from Supabase (smart: tries Team Key first, then personal key)
         const sbStakeholders = (await Promise.all(
-          (shRes.data || []).map((r: any) => decryptField(r.name))
+          (shRes.data || []).map((r: any) => decryptFieldSmart(r.name))
         )).filter(Boolean);
         const sbProjects = (await Promise.all(
-          (prRes.data || []).map((r: any) => decryptField(r.name))
+          (prRes.data || []).map((r: any) => decryptFieldSmart(r.name))
         )).filter(Boolean);
         const sbActivities = (await Promise.all(
-          (actRes.data || []).map((r: any) => decryptField(r.name))
+          (actRes.data || []).map((r: any) => decryptFieldSmart(r.name))
         )).filter(Boolean);
         const sbFormats = (await Promise.all(
-          (fmtRes.data || []).map((r: any) => decryptField(r.name))
+          (fmtRes.data || []).map((r: any) => decryptFieldSmart(r.name))
         )).filter(Boolean);
 
         // Merge: Supabase + local (dedup)

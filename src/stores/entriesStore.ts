@@ -4,7 +4,7 @@ import { getUserData, setUserData } from '@/lib/userStorage';
 import { computeUnionMs, formatDateISO } from '@/lib/utils';
 import { supabaseClient, isSupabaseAvailable } from '@/lib/supabase';
 import { useAuthStore } from './authStore';
-import { encryptField, decryptField, hasEncryptionKey } from '@/lib/crypto';
+import { encryptField, decryptField, hasEncryptionKey, encryptFieldForTeam, decryptFieldSmart } from '@/lib/crypto';
 
 // Generate a proper UUID v4 (required by Supabase)
 function generateUUID(): string {
@@ -37,7 +37,9 @@ async function encryptEntryForSupabase(row: Record<string, any>): Promise<Record
       if (field === 'stakeholder' && Array.isArray(valueToEncrypt)) {
         valueToEncrypt = JSON.stringify(valueToEncrypt);
       }
-      encrypted[field] = await encryptField(valueToEncrypt);
+      // Use encryptFieldForTeam: uses Team Key if available, personal key otherwise
+      // This ensures team members can decrypt each other's entries
+      encrypted[field] = await encryptFieldForTeam(valueToEncrypt);
     }
   }
   return encrypted;
@@ -47,7 +49,9 @@ async function decryptEntryFromSupabase(row: any): Promise<any> {
   const decrypted = { ...row };
   for (const field of ENCRYPTED_ENTRY_FIELDS) {
     if (decrypted[field]) {
-      const decryptedValue = await decryptField(decrypted[field]);
+      // Use decryptFieldSmart: tries Team Key first, then personal key
+      // This handles entries encrypted with either key
+      const decryptedValue = await decryptFieldSmart(decrypted[field]);
       // For stakeholder, parse JSON array if it was serialized
       if (field === 'stakeholder' && decryptedValue && decryptedValue.startsWith('[')) {
         try {

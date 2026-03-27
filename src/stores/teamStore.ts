@@ -4,7 +4,19 @@ import { getUserData, setUserData, removeUserData } from '@/lib/userStorage';
 import { useAuthStore } from './authStore';
 import { supabaseClient, isSupabaseAvailable } from '@/lib/supabase';
 import { formatDateISO } from '@/lib/utils';
-import { decryptField } from '@/lib/crypto';
+import {
+  decryptField,
+  decryptFieldSmart,
+  hasEncryptionKey,
+  generateTeamKey,
+  encryptTeamKeyForTransport,
+  decryptTeamKeyFromTransport,
+  encryptTeamKeyWithPersonalKey,
+  decryptTeamKeyWithPersonalKey,
+  setTeamKey,
+  clearTeamKey,
+  hasTeamKey,
+} from '@/lib/crypto';
 
 interface TeamState {
   team: Team | null;
@@ -58,7 +70,11 @@ export const useTeamStore = create<TeamState>((set, get) => ({
       if (isSupabaseAvailable() && supabaseClient) {
         const inviteCode = generateInviteCode();
 
-        // Insert team
+        // Generate Team Key for E2E encryption
+        const teamKeyB64 = await generateTeamKey();
+
+        // Insert team (with transport-encrypted Team Key)
+        // We need the team ID first, so insert without the key, then update
         const { data: teamData, error: teamErr } = await supabaseClient
           .from('teams')
           .insert({
@@ -71,15 +87,36 @@ export const useTeamStore = create<TeamState>((set, get) => ({
 
         if (teamErr) throw new Error(teamErr.message);
 
-        // Insert creator as first member
+        // Encrypt Team Key with invite-code-derived transport key
+        const transportEncryptedKey = await encryptTeamKeyForTransport(
+          teamKeyB64, inviteCode, teamData.id
+        );
+
+        // Update team with encrypted Team Key
+        await supabaseClient
+          .from('teams')
+          .update({ encrypted_team_key: transportEncryptedKey })
+          .eq('id', teamData.id);
+
+        // Encrypt Team Key with creator's personal key (for session persistence)
+        let personalEncryptedKey = '';
+        if (hasEncryptionKey()) {
+          personalEncryptedKey = await encryptTeamKeyWithPersonalKey(teamKeyB64);
+        }
+
+        // Insert creator as first member (with personal-key-encrypted Team Key)
         const { error: memberErr } = await supabaseClient
           .from('team_members')
           .insert({
             team_id: teamData.id,
             user_id: userId,
+            encrypted_team_key: personalEncryptedKey,
           });
 
         if (memberErr) throw new Error(memberErr.message);
+
+        // Store Team Key in sessionStorage for immediate use
+        setTeamKey(teamKeyB64);
 
         const team: Team = {
           id: teamData.id,
@@ -188,6 +225,32 @@ export const useTeamStore = create<TeamState>((set, get) => ({
           updated_at: teamData.updated_at,
         };
 
+        // Decrypt Team Key using invite code (E2E key exchange)
+        let teamKeyB64 = '';
+        if (teamData.encrypted_team_key) {
+          try {
+            teamKeyB64 = await decryptTeamKeyFromTransport(
+              teamData.encrypted_team_key,
+              inviteCode.toUpperCase(),
+              team.id
+            );
+            // Store Team Key in sessionStorage
+            setTeamKey(teamKeyB64);
+
+            // Also encrypt with personal key and store on team_members row
+            if (hasEncryptionKey()) {
+              const personalEncrypted = await encryptTeamKeyWithPersonalKey(teamKeyB64);
+              await supabaseClient
+                .from('team_members')
+                .update({ encrypted_team_key: personalEncrypted })
+                .eq('team_id', team.id)
+                .eq('user_id', userId);
+            }
+          } catch (e) {
+            console.error('[Team E2E] Failed to decrypt Team Key from transport:', e);
+          }
+        }
+
         const member: TeamMember = {
           id: `${team.id}_${userId}`,
           team_id: team.id,
@@ -272,6 +335,9 @@ export const useTeamStore = create<TeamState>((set, get) => ({
         }
       }
 
+      // Clear Team Key from sessionStorage
+      clearTeamKey();
+
       // Clear local state
       removeUserData('team');
       removeUserData('teamMembers');
@@ -342,10 +408,10 @@ export const useTeamStore = create<TeamState>((set, get) => ({
 
       // ── Supabase mode ──
       if (isSupabaseAvailable() && supabaseClient && profile?.id) {
-        // Check if user is in any team
+        // Check if user is in any team (also fetch encrypted_team_key for E2E)
         const { data: membershipData } = await supabaseClient
           .from('team_members')
-          .select('team_id')
+          .select('team_id, encrypted_team_key')
           .eq('user_id', profile.id)
           .limit(1);
 
@@ -357,6 +423,18 @@ export const useTeamStore = create<TeamState>((set, get) => ({
         }
 
         const teamId = membershipData[0].team_id;
+
+        // Restore Team Key from personal-key-encrypted copy (if not already in session)
+        if (!hasTeamKey() && membershipData[0].encrypted_team_key && hasEncryptionKey()) {
+          try {
+            const teamKeyB64 = await decryptTeamKeyWithPersonalKey(
+              membershipData[0].encrypted_team_key
+            );
+            setTeamKey(teamKeyB64);
+          } catch (e) {
+            console.warn('[Team E2E] Could not restore Team Key:', e);
+          }
+        }
 
         // Fetch team details
         const { data: teamData } = await supabaseClient
@@ -422,20 +500,33 @@ export const useTeamStore = create<TeamState>((set, get) => ({
 
           if (entriesData) {
             const entries: TimeEntry[] = await Promise.all(
-              entriesData.map(async (row: any) => ({
-                id: row.id,
-                user_id: row.user_id,
-                date: typeof row.date === 'string' ? row.date : formatDateISO(new Date(row.date)),
-                stakeholder: await decryptField(row.stakeholder || ''),
-                projekt: await decryptField(row.projekt || ''),
-                taetigkeit: await decryptField(row.taetigkeit || ''),
-                start_time: row.start_time || '',
-                end_time: row.end_time || '',
-                duration_ms: row.duration_ms || 0,
-                notiz: await decryptField(row.notiz || ''),
-                created_at: row.created_at || '',
-                updated_at: row.updated_at || '',
-              }))
+              entriesData.map(async (row: any) => {
+                // Use decryptFieldSmart: tries Team Key first, then personal key
+                // This handles both team-encrypted and personally-encrypted entries
+                let stakeholder: string | string[] = await decryptFieldSmart(row.stakeholder || '');
+                // Parse JSON array if stakeholder was serialized
+                if (typeof stakeholder === 'string' && stakeholder.startsWith('[')) {
+                  try { stakeholder = JSON.parse(stakeholder); } catch {}
+                }
+                if (typeof stakeholder === 'string' && stakeholder) {
+                  stakeholder = [stakeholder];
+                }
+                return {
+                  id: row.id,
+                  user_id: row.user_id,
+                  date: typeof row.date === 'string' ? row.date : formatDateISO(new Date(row.date)),
+                  stakeholder,
+                  projekt: await decryptFieldSmart(row.projekt || ''),
+                  taetigkeit: await decryptFieldSmart(row.taetigkeit || ''),
+                  format: await decryptFieldSmart(row.format || ''),
+                  start_time: row.start_time || '',
+                  end_time: row.end_time || '',
+                  duration_ms: row.duration_ms || 0,
+                  notiz: await decryptFieldSmart(row.notiz || ''),
+                  created_at: row.created_at || '',
+                  updated_at: row.updated_at || '',
+                };
+              })
             );
             memberEntriesMap.set(displayName_member, entries);
           }

@@ -135,6 +135,219 @@ export async function decryptField(ciphertext: string): Promise<string> {
 }
 
 // ============================================================================
+// Team E2E Encryption
+// ============================================================================
+
+const TEAM_SESSION_KEY = 'ze_team_key';
+const TEAM_TRANSPORT_SALT = 'zeiterfassung_team_transport_';
+
+/** Generate a random 256-bit Team Key and return as base64 */
+export async function generateTeamKey(): Promise<string> {
+  const key = await crypto.subtle.generateKey(
+    { name: 'AES-GCM', length: 256 },
+    true,
+    ['encrypt', 'decrypt']
+  );
+  const exported = await crypto.subtle.exportKey('raw', key);
+  return btoa(String.fromCharCode(...new Uint8Array(exported)));
+}
+
+/** Derive a transport key from invite code + team ID (for Team Key exchange) */
+async function deriveTransportKey(inviteCode: string, teamId: string): Promise<CryptoKey> {
+  const encoder = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(inviteCode.toUpperCase()),
+    'PBKDF2',
+    false,
+    ['deriveKey']
+  );
+  return crypto.subtle.deriveKey(
+    {
+      name: 'PBKDF2',
+      salt: encoder.encode(TEAM_TRANSPORT_SALT + teamId),
+      iterations: 100000,
+      hash: 'SHA-256',
+    },
+    keyMaterial,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+}
+
+/** Encrypt the Team Key with the invite-code-derived transport key */
+export async function encryptTeamKeyForTransport(
+  teamKeyB64: string,
+  inviteCode: string,
+  teamId: string
+): Promise<string> {
+  const transportKey = await deriveTransportKey(inviteCode, teamId);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encrypted = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    transportKey,
+    Uint8Array.from(atob(teamKeyB64), (c) => c.charCodeAt(0))
+  );
+  const combined = new Uint8Array(iv.length + new Uint8Array(encrypted).length);
+  combined.set(iv);
+  combined.set(new Uint8Array(encrypted), iv.length);
+  return btoa(String.fromCharCode(...combined));
+}
+
+/** Decrypt the Team Key using invite code (on team join) */
+export async function decryptTeamKeyFromTransport(
+  encryptedTeamKey: string,
+  inviteCode: string,
+  teamId: string
+): Promise<string> {
+  const transportKey = await deriveTransportKey(inviteCode, teamId);
+  const combined = Uint8Array.from(atob(encryptedTeamKey), (c) => c.charCodeAt(0));
+  const iv = combined.slice(0, 12);
+  const encrypted = combined.slice(12);
+  const decrypted = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv },
+    transportKey,
+    encrypted
+  );
+  return btoa(String.fromCharCode(...new Uint8Array(decrypted)));
+}
+
+/** Encrypt the Team Key with the user's personal key (for session persistence) */
+export async function encryptTeamKeyWithPersonalKey(teamKeyB64: string): Promise<string> {
+  const personalKey = await getKey();
+  if (!personalKey) throw new Error('Personal encryption key not available');
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encrypted = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    personalKey,
+    Uint8Array.from(atob(teamKeyB64), (c) => c.charCodeAt(0))
+  );
+  const combined = new Uint8Array(iv.length + new Uint8Array(encrypted).length);
+  combined.set(iv);
+  combined.set(new Uint8Array(encrypted), iv.length);
+  return btoa(String.fromCharCode(...combined));
+}
+
+/** Decrypt the Team Key with the user's personal key (on session restore) */
+export async function decryptTeamKeyWithPersonalKey(encryptedB64: string): Promise<string> {
+  const personalKey = await getKey();
+  if (!personalKey) throw new Error('Personal encryption key not available');
+  const combined = Uint8Array.from(atob(encryptedB64), (c) => c.charCodeAt(0));
+  const iv = combined.slice(0, 12);
+  const encrypted = combined.slice(12);
+  const decrypted = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv },
+    personalKey,
+    encrypted
+  );
+  return btoa(String.fromCharCode(...new Uint8Array(decrypted)));
+}
+
+/** Store the Team Key in sessionStorage */
+export function setTeamKey(teamKeyB64: string): void {
+  sessionStorage.setItem(TEAM_SESSION_KEY, teamKeyB64);
+}
+
+/** Get the Team Key from sessionStorage (null if not in a team or key missing) */
+export function getTeamKeyB64(): string | null {
+  return sessionStorage.getItem(TEAM_SESSION_KEY);
+}
+
+/** Check if a Team Key is available */
+export function hasTeamKey(): boolean {
+  return sessionStorage.getItem(TEAM_SESSION_KEY) !== null;
+}
+
+/** Clear the Team Key (on team leave or logout) */
+export function clearTeamKey(): void {
+  sessionStorage.removeItem(TEAM_SESSION_KEY);
+}
+
+/**
+ * Get the active encryption key for field-level encryption.
+ * Returns Team Key if available (user is in a team), otherwise personal key.
+ * This ensures team members can decrypt each other's entries.
+ */
+async function getActiveKey(): Promise<CryptoKey | null> {
+  // Team Key takes priority (entries need to be team-readable)
+  const teamKeyB64 = getTeamKeyB64();
+  if (teamKeyB64) {
+    try {
+      const raw = Uint8Array.from(atob(teamKeyB64), (c) => c.charCodeAt(0));
+      return await crypto.subtle.importKey(
+        'raw',
+        raw,
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['encrypt', 'decrypt']
+      );
+    } catch {
+      // Fallback to personal key
+    }
+  }
+  return getKey();
+}
+
+/**
+ * Encrypt a field with the Team Key specifically (for team-shared data).
+ * Falls back to personal key if no Team Key is available.
+ */
+export async function encryptFieldForTeam(plaintext: string): Promise<string> {
+  if (!plaintext) return plaintext;
+  const key = await getActiveKey();
+  if (!key) return plaintext;
+
+  try {
+    const encoder = new TextEncoder();
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const encrypted = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      encoder.encode(plaintext)
+    );
+    const combined = new Uint8Array(iv.length + new Uint8Array(encrypted).length);
+    combined.set(iv);
+    combined.set(new Uint8Array(encrypted), iv.length);
+    return ENC_PREFIX + btoa(String.fromCharCode(...combined));
+  } catch {
+    return plaintext;
+  }
+}
+
+/**
+ * Decrypt a field trying Team Key first, then personal key.
+ * This ensures both team-encrypted and personally-encrypted data can be read.
+ */
+export async function decryptFieldSmart(ciphertext: string): Promise<string> {
+  if (!ciphertext || !ciphertext.startsWith(ENC_PREFIX)) return ciphertext;
+
+  // Try Team Key first (most entries will be team-encrypted when in a team)
+  const teamKeyB64 = getTeamKeyB64();
+  if (teamKeyB64) {
+    try {
+      const raw = Uint8Array.from(atob(teamKeyB64), (c) => c.charCodeAt(0));
+      const teamKey = await crypto.subtle.importKey(
+        'raw', raw, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
+      );
+      const b64 = ciphertext.slice(ENC_PREFIX.length);
+      const combined = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+      const iv = combined.slice(0, 12);
+      const encrypted = combined.slice(12);
+      const decrypted = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv }, teamKey, encrypted
+      );
+      return new TextDecoder().decode(decrypted);
+    } catch {
+      // Team Key didn't work — try personal key below
+    }
+  }
+
+  // Fallback to personal key (for pre-team entries or own entries)
+  return decryptField(ciphertext);
+}
+
+// ============================================================================
 // Batch helpers (for encrypting/decrypting multiple fields at once)
 // ============================================================================
 
