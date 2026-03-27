@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { getUserData, setUserData } from '@/lib/userStorage';
 import { supabaseClient, isSupabaseAvailable } from '@/lib/supabase';
 import { useAuthStore } from './authStore';
-import { encryptField, decryptField, hasEncryptionKey, encryptFieldForTeam, decryptFieldSmart } from '@/lib/crypto';
+import { hasEncryptionKey, encryptFieldForTeam, decryptFieldSmart } from '@/lib/crypto';
 
 interface MasterState {
   stakeholders: string[];
@@ -50,11 +50,17 @@ async function syncListToSupabase(
 ) {
   if (!isSupabaseAvailable() || !supabaseClient || names.length === 0) return;
 
+  // Abort sync if no encryption key — never send plaintext to Supabase
+  if (!hasEncryptionKey()) {
+    console.warn(`[Sync] Skipping ${table} sync — no encryption key available`);
+    return;
+  }
+
   // Encrypt names before sending to Supabase (Team Key if in team, personal key otherwise)
   const encryptedRows = await Promise.all(
     names.map(async (name, idx) => ({
       user_id: userId,
-      name: hasEncryptionKey() ? await encryptFieldForTeam(name) : name,
+      name: await encryptFieldForTeam(name),
       sort_order: idx,
     }))
   );
@@ -62,13 +68,13 @@ async function syncListToSupabase(
   // Delete existing rows first (encrypted values differ each time due to random IV)
   await supabaseClient.from(table).delete().eq('user_id', userId);
 
-  // Insert fresh
-  supabaseClient
+  // Insert fresh (await to catch errors)
+  const { error } = await supabaseClient
     .from(table)
-    .insert(encryptedRows)
-    .then(({ error }) => {
-      if (error) console.warn(`Supabase ${table} sync failed:`, error.message);
-    });
+    .insert(encryptedRows);
+  if (error) {
+    console.error(`[Sync] Supabase ${table} sync failed:`, error.message);
+  }
 }
 
 export const useMasterStore = create<MasterState>((set, get) => ({

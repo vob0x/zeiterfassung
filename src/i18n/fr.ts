@@ -378,7 +378,7 @@ export const fr = {
   // Stack Timer V3
   stack: {
     searchOrPlus: "Cherchez ci-dessus ou appuyez + pour un chrono vide",
-    searchPlaceholder: "Tapez... p.ex. \"Bundes medien\"",
+    searchPlaceholder: "Tapez... p.ex. \"Office fédéral\"",
     startEmpty: "Démarrer un chrono",
     untitled: "Sans titre",
     frequent: "Fréquemment utilisé",

@@ -296,7 +296,10 @@ async function getActiveKey(): Promise<CryptoKey | null> {
 export async function encryptFieldForTeam(plaintext: string): Promise<string> {
   if (!plaintext) return plaintext;
   const key = await getActiveKey();
-  if (!key) return plaintext;
+  if (!key) {
+    console.error('[Crypto] encryptFieldForTeam called without encryption key — aborting to prevent plaintext leak');
+    throw new Error('Encryption key not available');
+  }
 
   try {
     const encoder = new TextEncoder();
@@ -310,8 +313,9 @@ export async function encryptFieldForTeam(plaintext: string): Promise<string> {
     combined.set(iv);
     combined.set(new Uint8Array(encrypted), iv.length);
     return ENC_PREFIX + btoa(String.fromCharCode(...combined));
-  } catch {
-    return plaintext;
+  } catch (e) {
+    console.error('[Crypto] encryptFieldForTeam encryption failed:', e);
+    throw new Error('Encryption failed');
   }
 }
 

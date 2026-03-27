@@ -310,6 +310,7 @@ export interface DatabaseTimeEntries {
   stakeholder: string;
   projekt: string;
   taetigkeit: string;
+  format: string;
   start_time: string;
   end_time: string;
   duration_ms: number;

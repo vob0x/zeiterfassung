@@ -5,7 +5,6 @@ import { useAuthStore } from './authStore';
 import { supabaseClient, isSupabaseAvailable } from '@/lib/supabase';
 import { formatDateISO } from '@/lib/utils';
 import {
-  decryptField,
   decryptFieldSmart,
   hasEncryptionKey,
   generateTeamKey,
@@ -130,7 +129,8 @@ export const useTeamStore = create<TeamState>((set, get) => ({
         const member: TeamMember = {
           id: `${teamData.id}_${userId}`,
           team_id: teamData.id,
-          user_id: displayName,
+          user_id: userId,
+          display_name: displayName,
           joined_at: new Date().toISOString(),
         };
 
@@ -165,7 +165,8 @@ export const useTeamStore = create<TeamState>((set, get) => ({
       const creatorMember: TeamMember = {
         id: `member_${Date.now()}`,
         team_id: newTeam.id,
-        user_id: displayName,
+        user_id: userId,
+        display_name: displayName,
         joined_at: new Date().toISOString(),
       };
 
@@ -254,7 +255,8 @@ export const useTeamStore = create<TeamState>((set, get) => ({
         const member: TeamMember = {
           id: `${team.id}_${userId}`,
           team_id: team.id,
-          user_id: userName,
+          user_id: userId,
+          display_name: userName,
           joined_at: new Date().toISOString(),
         };
 
@@ -286,7 +288,8 @@ export const useTeamStore = create<TeamState>((set, get) => ({
       const newMember: TeamMember = {
         id: `member_${Date.now()}`,
         team_id: newTeam.id,
-        user_id: userName,
+        user_id: userId,
+        display_name: userName,
         joined_at: new Date().toISOString(),
       };
 

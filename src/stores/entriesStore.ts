@@ -4,7 +4,7 @@ import { getUserData, setUserData } from '@/lib/userStorage';
 import { computeUnionMs, formatDateISO } from '@/lib/utils';
 import { supabaseClient, isSupabaseAvailable } from '@/lib/supabase';
 import { useAuthStore } from './authStore';
-import { encryptField, decryptField, hasEncryptionKey, encryptFieldForTeam, decryptFieldSmart } from '@/lib/crypto';
+import { hasEncryptionKey, encryptFieldForTeam, decryptFieldSmart } from '@/lib/crypto';
 
 // Generate a proper UUID v4 (required by Supabase)
 function generateUUID(): string {
@@ -183,7 +183,7 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
                   date: e.date,
                   stakeholder: e.stakeholder,
                   projekt: e.projekt,
-                  format: (e as any).format || 'Einzelarbeit',
+                  format: e.format || 'Einzelarbeit',
                   taetigkeit: e.taetigkeit,
                   start_time: e.start_time,
                   end_time: e.end_time,
@@ -241,11 +241,11 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
         stakeholder: stakeholder,
         projekt: entry.projekt || (entry as any).project || '',
         taetigkeit: entry.taetigkeit || (entry as any).activity || '',
-        format: entry.format || (entry as any).format || 'Einzelarbeit', // NEW: default format
+        format: entry.format || 'Einzelarbeit', // NEW: default format
         start_time: entry.start_time || (entry as any).startTime || '',
         end_time: entry.end_time || (entry as any).endTime || '',
         duration_ms: duration_ms,
-        notiz: entry.notiz || (entry as any).notiz || '',
+        notiz: entry.notiz || '',
         created_at: (entry as any).created_at || new Date().toISOString(),
         updated_at: (entry as any).updated_at || new Date().toISOString(),
       };
