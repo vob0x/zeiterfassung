@@ -128,9 +128,9 @@ export const de = {
   // Manage Section
   manage: {
     stakeholder: "Stakeholder",
-    projekte: "Projekte",
-    taetigkeiten: "Tätigkeiten",
-    formate: "Formate",
+    projekte: "Projekt/Produkt",
+    taetigkeiten: "Tätigkeit",
+    formate: "Format",
     backup: "Backup & Wiederherstellung",
     csv: "CSV (nur Einträge)",
     noEntries: "Noch keine Einträge",

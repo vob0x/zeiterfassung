@@ -1,13 +1,19 @@
 import { useEffect, useState } from 'react';
 import { useI18n } from '../../i18n';
+import { formatHoursAdaptive } from '../../lib/utils';
 
 interface KpiCardsProps {
-  today: number;
-  period: number;
-  entries: number;
+  today: number;   // hours (float)
+  period: number;  // hours (float)
+  entries: number;  // count
 }
 
-function AnimatedCounter({ value, decimals = 1 }: { value: number; decimals?: number }) {
+/**
+ * Animated counter that formats adaptively:
+ * - hours mode (default): < 1h → "45min", >= 1h → "2.3h"
+ * - count mode (suffix=""): just the number
+ */
+function AnimatedValue({ value, mode = 'hours' }: { value: number; mode?: 'hours' | 'count' }) {
   const [displayValue, setDisplayValue] = useState(0);
 
   useEffect(() => {
@@ -30,7 +36,11 @@ function AnimatedCounter({ value, decimals = 1 }: { value: number; decimals?: nu
     animate();
   }, [value]);
 
-  return <span>{displayValue.toFixed(decimals)}h</span>;
+  if (mode === 'count') {
+    return <span>{Math.round(displayValue)}</span>;
+  }
+
+  return <span>{formatHoursAdaptive(displayValue)}</span>;
 }
 
 export function KpiCards({ today, period, entries }: KpiCardsProps) {
@@ -44,7 +54,7 @@ export function KpiCards({ today, period, entries }: KpiCardsProps) {
         <div className="relative z-10">
           <div className="text-sm font-medium mb-2" style={{ color: 'var(--text-muted)' }}>{t('kpi.today')}</div>
           <div className="text-4xl font-bold" style={{ color: 'var(--neon-cyan)' }}>
-            <AnimatedCounter value={today} />
+            <AnimatedValue value={today} mode="hours" />
           </div>
           <div className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>{t('kpi.todaySubtitle')}</div>
         </div>
@@ -56,7 +66,7 @@ export function KpiCards({ today, period, entries }: KpiCardsProps) {
         <div className="relative z-10">
           <div className="text-sm font-medium mb-2" style={{ color: 'var(--text-muted)' }}>{t('period.label')}</div>
           <div className="text-4xl font-bold" style={{ color: '#60a5fa' }}>
-            <AnimatedCounter value={period} />
+            <AnimatedValue value={period} mode="hours" />
           </div>
           <div className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>{t('kpi.periodSubtitle')}</div>
         </div>
@@ -68,7 +78,7 @@ export function KpiCards({ today, period, entries }: KpiCardsProps) {
         <div className="relative z-10">
           <div className="text-sm font-medium mb-2" style={{ color: 'var(--text-muted)' }}>{t('kpi.entries')}</div>
           <div className="text-4xl font-bold" style={{ color: '#c084fc' }}>
-            <AnimatedCounter value={entries} decimals={0} />
+            <AnimatedValue value={entries} mode="count" />
           </div>
           <div className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>{t('kpi.entriesSubtitle')}</div>
         </div>

@@ -32,6 +32,26 @@ export function formatDurationHM(ms: number, fallback?: string): string {
 }
 
 /**
+ * Format hours (float) adaptively: < 1h → "45min", >= 1h → "2.3h"
+ * Accepts hours as float (e.g. 0.75 = 45min, 2.3 = 2h18min)
+ */
+export function formatHoursAdaptive(hours: number, decimals = 1): string {
+  if (hours < 1 / 60) return '0min'; // < 1 minute
+  if (hours < 1) {
+    const mins = Math.round(hours * 60);
+    return `${mins}min`;
+  }
+  return `${hours.toFixed(decimals)}h`;
+}
+
+/**
+ * Format milliseconds adaptively: < 1h → "45min", >= 1h → "2.3h"
+ */
+export function formatMsAdaptive(ms: number, decimals = 1): string {
+  return formatHoursAdaptive(ms / (1000 * 60 * 60), decimals);
+}
+
+/**
  * Format date string (YYYY-MM-DD) to German format (DD.MM.YYYY)
  */
 export function formatDateDE(dateStr: string): string {

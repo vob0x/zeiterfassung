@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { TimeEntry } from '@/types';
 import { useI18n } from '../../i18n';
-import { computeUnionMs } from '../../lib/utils';
+import { computeUnionMs, formatHoursAdaptive } from '../../lib/utils';
 
 interface ActivityBarsProps {
   entries: TimeEntry[];
@@ -58,7 +58,7 @@ export function ActivityBars({ entries, isFormat = false }: ActivityBarsProps) {
           <div key={activity.name} className="space-y-1">
             <div className="flex justify-between items-center text-sm">
               <span className="font-medium" style={{ color: 'var(--text-secondary)' }}>{activity.name}</span>
-              <span className="font-semibold" style={{ color: 'var(--neon-cyan)' }}>{activity.hours.toFixed(1)}h</span>
+              <span className="font-semibold" style={{ color: 'var(--neon-cyan)' }}>{formatHoursAdaptive(activity.hours)}</span>
             </div>
             <div className="w-full rounded-full h-8 overflow-hidden border" style={{ background: 'var(--surface)', borderColor: 'rgba(var(--border-rgb), 0.5)' }}>
               <div

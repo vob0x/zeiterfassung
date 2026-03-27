@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { TimeEntry } from '@/types';
 import { useI18n } from '../../i18n';
-import { computeUnionMs } from '../../lib/utils';
+import { computeUnionMs, formatHoursAdaptive } from '../../lib/utils';
 
 interface HeatmapProps {
   entries: TimeEntry[];
@@ -100,12 +100,12 @@ export function Heatmap({ entries }: HeatmapProps) {
                     className="p-2 text-center text-sm font-medium rounded"
                     style={{ ...getIntensityStyle(hours), color: 'var(--text)' }}
                   >
-                    {hours > 0 ? hours.toFixed(1) : '—'}
+                    {hours > 0 ? formatHoursAdaptive(hours) : '—'}
                   </td>
                 );
               })}
               <td className="p-2 text-center text-sm font-semibold border" style={{ color: 'var(--neon-cyan)', background: 'rgba(var(--surface-rgb), 0.5)', borderColor: 'rgba(var(--border-rgb), 0.3)' }}>
-                {(totals.stakeholder[sh] || 0).toFixed(1)}
+                {formatHoursAdaptive(totals.stakeholder[sh] || 0)}
               </td>
             </tr>
           ))}
@@ -119,11 +119,11 @@ export function Heatmap({ entries }: HeatmapProps) {
                 className="p-2 text-center text-sm font-semibold border"
                 style={{ color: 'var(--neon-cyan)', background: 'rgba(var(--surface-rgb), 0.5)', borderColor: 'rgba(var(--border-rgb), 0.3)' }}
               >
-                {(totals.project[pr] || 0).toFixed(1)}
+                {formatHoursAdaptive(totals.project[pr] || 0)}
               </td>
             ))}
             <td className="p-2 text-center text-sm font-bold border" style={{ color: 'var(--neon-cyan)', background: 'rgba(var(--surface-rgb), 0.7)', borderColor: 'rgba(var(--border-rgb), 0.3)' }}>
-              {Object.values(totals.stakeholder).reduce((a, b) => a + b, 0).toFixed(1)}
+              {formatHoursAdaptive(Object.values(totals.stakeholder).reduce((a, b) => a + b, 0))}
             </td>
           </tr>
         </tbody>

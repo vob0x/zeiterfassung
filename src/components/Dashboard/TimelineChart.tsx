@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { TimeEntry } from '@/types';
 import { useI18n } from '../../i18n';
-import { computeUnionMs } from '../../lib/utils';
+import { computeUnionMs, formatHoursAdaptive } from '../../lib/utils';
 
 interface TimelineChartProps {
   entries: TimeEntry[];
@@ -118,7 +118,7 @@ export function TimelineChart({ entries }: TimelineChartProps) {
                 fontSize="12"
                 fill="var(--text-muted)"
               >
-                {hours.toFixed(0)}h
+                {formatHoursAdaptive(hours, 0)}
               </text>
               {ratio > 0 && (
                 <line

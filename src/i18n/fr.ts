@@ -127,10 +127,10 @@ export const fr = {
 
   // Manage Section
   manage: {
-    stakeholder: "Mandants",
-    projekte: "Projets",
-    taetigkeiten: "Activités",
-    formate: "Formats",
+    stakeholder: "Mandant",
+    projekte: "Projet/Produit",
+    taetigkeiten: "Activité",
+    formate: "Format",
     backup: "Sauvegarde & restauration",
     csv: "CSV (entrées uniquement)",
     noEntries: "Aucune entrée",
