@@ -397,14 +397,25 @@ const TaskSlot: React.FC<TaskSlotProps> = ({ slot }) => {
             placeholder={t('ph.newStakeholder')}
             value={newStakeholder}
             onChange={(e) => setNewStakeholder(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleAddStakeholder()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleAddStakeholder();
+              if (e.key === 'Escape') { setShowAddStakeholder(false); setNewStakeholder(''); }
+            }}
+            onBlur={() => { if (!newStakeholder.trim()) { setShowAddStakeholder(false); setNewStakeholder(''); } }}
             style={inlineInputStyle}
+            autoFocus
           />
           <button
             onClick={handleAddStakeholder}
             style={{ padding: '4px 8px', background: 'var(--success)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}
           >
             {t('btn.save')}
+          </button>
+          <button
+            onClick={() => { setShowAddStakeholder(false); setNewStakeholder(''); }}
+            style={{ padding: '4px 6px', background: 'transparent', color: 'var(--text-muted)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: '11px', cursor: 'pointer' }}
+          >
+            ✕
           </button>
         </div>
       )}
@@ -415,14 +426,25 @@ const TaskSlot: React.FC<TaskSlotProps> = ({ slot }) => {
             placeholder={t('ph.newProjekt')}
             value={newProject}
             onChange={(e) => setNewProject(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleAddProject()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleAddProject();
+              if (e.key === 'Escape') { setShowAddProject(false); setNewProject(''); }
+            }}
+            onBlur={() => { if (!newProject.trim()) { setShowAddProject(false); setNewProject(''); } }}
             style={inlineInputStyle}
+            autoFocus
           />
           <button
             onClick={handleAddProject}
             style={{ padding: '4px 8px', background: 'var(--success)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}
           >
             {t('btn.save')}
+          </button>
+          <button
+            onClick={() => { setShowAddProject(false); setNewProject(''); }}
+            style={{ padding: '4px 6px', background: 'transparent', color: 'var(--text-muted)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: '11px', cursor: 'pointer' }}
+          >
+            ✕
           </button>
         </div>
       )}
@@ -433,14 +455,25 @@ const TaskSlot: React.FC<TaskSlotProps> = ({ slot }) => {
             placeholder={t('ph.newTaetigkeit')}
             value={newActivity}
             onChange={(e) => setNewActivity(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleAddActivity()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleAddActivity();
+              if (e.key === 'Escape') { setShowAddActivity(false); setNewActivity(''); }
+            }}
+            onBlur={() => { if (!newActivity.trim()) { setShowAddActivity(false); setNewActivity(''); } }}
             style={inlineInputStyle}
+            autoFocus
           />
           <button
             onClick={handleAddActivity}
             style={{ padding: '4px 8px', background: 'var(--success)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}
           >
             {t('btn.save')}
+          </button>
+          <button
+            onClick={() => { setShowAddActivity(false); setNewActivity(''); }}
+            style={{ padding: '4px 6px', background: 'transparent', color: 'var(--text-muted)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: '11px', cursor: 'pointer' }}
+          >
+            ✕
           </button>
         </div>
       )}

@@ -4,6 +4,7 @@ import { useEntriesStore } from './entriesStore';
 import { useAuthStore } from './authStore';
 import { getUserData, setUserData, removeUserData } from '@/lib/userStorage';
 import { formatDateISO } from '@/lib/utils';
+import { supabaseClient, isSupabaseAvailable } from '@/lib/supabase';
 
 // Serializable version for localStorage (Date → ISO string)
 interface SerializedSlot {
@@ -51,7 +52,7 @@ interface TimerState {
   getSlotElapsed: (id: string) => number;
   tick: () => void;
   saveTimers: () => void;
-  restoreTimers: () => void;
+  restoreTimers: () => Promise<void>;
   setError: (error: string | null) => void;
   clearError: () => void;
 }
@@ -193,6 +194,9 @@ export const useTimerStore = create<TimerState>((set, get) => ({
     }));
 
     ensureTickInterval(get, set);
+
+    // Sync to Supabase for cross-device visibility
+    setTimeout(() => get().saveTimers(), 100);
   },
 
   pauseTimer: (id: string) => {
@@ -212,6 +216,9 @@ export const useTimerStore = create<TimerState>((set, get) => ({
       }),
       activeSlotId: null,
     }));
+
+    // Sync to Supabase for cross-device visibility
+    setTimeout(() => get().saveTimers(), 100);
   },
 
   resumeTimer: (id: string) => {
@@ -230,6 +237,9 @@ export const useTimerStore = create<TimerState>((set, get) => ({
     }));
 
     ensureTickInterval(get, set);
+
+    // Sync to Supabase for cross-device visibility
+    setTimeout(() => get().saveTimers(), 100);
   },
 
   stopTimer: (id: string) => {
@@ -366,10 +376,53 @@ export const useTimerStore = create<TimerState>((set, get) => ({
 
     const saved: SavedTimerState = { slots: serialized, savedAt: now };
     setUserData('timerSlots', saved);
+
+    // Also push to Supabase for cross-device sync
+    syncTimersToSupabase(serialized, now);
   },
 
-  restoreTimers: () => {
-    const saved = getUserData<SavedTimerState | null>('timerSlots', null);
+  restoreTimers: async () => {
+    // Try Supabase first (cross-device), then fall back to localStorage
+    const profile = useAuthStore.getState().profile;
+    let saved: SavedTimerState | null = null;
+
+    if (isSupabaseAvailable() && supabaseClient && profile?.id && !profile.id.startsWith('local_')) {
+      try {
+        const { data, error } = await supabaseClient
+          .from('running_timers')
+          .select('*')
+          .eq('user_id', profile.id);
+
+        if (!error && data && data.length > 0) {
+          const sbSlots: SerializedSlot[] = data.map((row: any) => ({
+            id: row.id,
+            date: row.date || '',
+            stakeholder: JSON.parse(row.stakeholder || '[]'),
+            projekt: row.projekt || '',
+            taetigkeit: row.taetigkeit || '',
+            format: row.format || 'Einzelarbeit',
+            start_time: row.start_time || '',
+            notiz: row.notiz || '',
+            is_running: row.was_running,
+            color: row.color || '',
+            pausedMs: Number(row.paused_ms) || 0,
+            isPaused: row.is_paused,
+            wasRunning: row.was_running,
+            elapsed_ms: 0,
+          }));
+          const savedAt = Math.max(...data.map((r: any) => Number(r.saved_at) || 0));
+          saved = { slots: sbSlots, savedAt };
+        }
+      } catch (e) {
+        console.warn('[TimerSync] Supabase restore failed, falling back to localStorage:', e);
+      }
+    }
+
+    // Fall back to localStorage
+    if (!saved) {
+      saved = getUserData<SavedTimerState | null>('timerSlots', null);
+    }
+
     if (!saved || !saved.slots || saved.slots.length === 0) return;
 
     const now = Date.now();
@@ -442,4 +495,49 @@ if (typeof window !== 'undefined') {
   window.addEventListener('beforeunload', () => {
     useTimerStore.getState().saveTimers();
   });
+}
+
+// ── Supabase Sync Helper ───────────────────────────────────────────────
+
+async function syncTimersToSupabase(slots: SerializedSlot[], savedAt: number): Promise<void> {
+  const profile = useAuthStore.getState().profile;
+  if (!isSupabaseAvailable() || !supabaseClient || !profile?.id || profile.id.startsWith('local_')) return;
+
+  try {
+    // Delete all existing timers for this user first
+    await supabaseClient
+      .from('running_timers')
+      .delete()
+      .eq('user_id', profile.id);
+
+    if (slots.length === 0) return;
+
+    // Insert current timer state
+    const rows = slots.map((s) => ({
+      id: s.id,
+      user_id: profile.id,
+      date: s.date,
+      stakeholder: JSON.stringify(s.stakeholder),
+      projekt: s.projekt,
+      taetigkeit: s.taetigkeit,
+      format: s.format,
+      start_time: s.start_time,
+      notiz: s.notiz || '',
+      color: s.color,
+      paused_ms: s.pausedMs,
+      is_paused: s.isPaused,
+      was_running: s.wasRunning,
+      saved_at: savedAt,
+    }));
+
+    const { error } = await supabaseClient
+      .from('running_timers')
+      .insert(rows);
+
+    if (error) {
+      console.error('[TimerSync] Push to Supabase failed:', error.message);
+    }
+  } catch (e) {
+    console.warn('[TimerSync] Supabase sync failed:', e);
+  }
 }

@@ -32,8 +32,9 @@ export function TeamTimeline({ memberEntries, members }: TeamTimelineProps) {
     const uniqueDates = [...new Set(allEntries.map((e) => e.date))].sort();
     const chartDates = uniqueDates.slice(Math.max(0, uniqueDates.length - 14));
 
+    // Key by display_name (matching memberEntries map keys from teamStore)
     const memberColorMap_ = Object.fromEntries(
-      members.map((m, i) => [m.user_id, MEMBER_COLORS[i % MEMBER_COLORS.length]])
+      members.map((m, i) => [m.display_name || m.user_id, MEMBER_COLORS[i % MEMBER_COLORS.length]])
     );
 
     let maxHours = 0;
@@ -194,7 +195,7 @@ export function TeamTimeline({ memberEntries, members }: TeamTimelineProps) {
               className="w-4 h-4 rounded"
               style={{ backgroundColor: MEMBER_COLORS[idx % MEMBER_COLORS.length] }}
             />
-            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{member.user_id}</span>
+            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{member.display_name || member.user_id}</span>
           </div>
         ))}
       </div>
