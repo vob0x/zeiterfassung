@@ -286,8 +286,11 @@ export const useTimerStore = create<TimerState>((set, get) => ({
       updated_at: new Date().toISOString(),
     });
 
-    // Reset slot (keep visible)
-    get().resetSlot(id);
+    // Remove the stopped slot entirely (don't just reset — other devices need to see it gone)
+    set((state) => ({
+      taskSlots: state.taskSlots.filter((s) => s.id !== id),
+      activeSlotId: state.activeSlotId === id ? null : state.activeSlotId,
+    }));
 
     // Check if any active timers remain
     const remaining = get().taskSlots;
@@ -298,6 +301,7 @@ export const useTimerStore = create<TimerState>((set, get) => ({
     }
 
     // Sync stopped state to Supabase for cross-device visibility
+    // Use setTimeout to ensure state is settled, then sync
     setTimeout(() => get().saveTimers(), 100);
   },
 
@@ -571,7 +575,7 @@ async function refreshTimersFromSupabase(): Promise<void> {
       .eq('user_id', profile.id);
 
     if (error) {
-      console.warn('[TimerSync] Realtime refresh query failed:', error.message);
+      console.warn('[TimerSync] Refresh query failed:', error.message);
       return;
     }
 
@@ -583,13 +587,37 @@ async function refreshTimersFromSupabase(): Promise<void> {
     // Skip if this is an echo of our own save
     if (remoteSavedAt > 0 && remoteSavedAt === _lastLocalSavedAt) return;
 
-    console.log('[TimerSync] Remote change detected, refreshing timers…');
+    const localSlots = useTimerStore.getState().taskSlots;
 
+    // ── Case 1: Remote has NO timers ─────────────────────────────
     if (!data || data.length === 0) {
-      // Remote has no timers — clear local slots
-      useTimerStore.setState({ taskSlots: [] });
+      // Only clear local if we actually have timers (don't loop on empty→empty)
+      if (localSlots.length > 0) {
+        console.log('[TimerSync] Remote has no timers — clearing local slots');
+        // Stop tick interval if running
+        const state = useTimerStore.getState();
+        if (state.tickInterval) {
+          clearInterval(state.tickInterval);
+        }
+        useTimerStore.setState({ taskSlots: [], tickInterval: null, activeSlotId: null });
+      }
       return;
     }
+
+    // ── Case 2: Remote has timers — check if anything changed ────
+    // Quick fingerprint: compare slot IDs + was_running states
+    const remoteFingerprint = data
+      .map((r: any) => `${r.id}:${r.was_running}:${r.paused_ms}`)
+      .sort()
+      .join('|');
+    const localFingerprint = localSlots
+      .map((s) => `${s.id}:${!s.isPaused}:${s.isPaused ? s.pausedMs : -1}`)
+      .sort()
+      .join('|');
+
+    if (remoteFingerprint === localFingerprint) return; // No meaningful change
+
+    console.log('[TimerSync] Remote change detected, updating local timers…');
 
     const now = Date.now();
     const elapsed = remoteSavedAt > 0 ? now - remoteSavedAt : 0;
@@ -637,22 +665,27 @@ async function refreshTimersFromSupabase(): Promise<void> {
       };
     });
 
-    useTimerStore.setState({ taskSlots: restored });
+    // Stop old tick interval before replacing state
+    const oldState = useTimerStore.getState();
+    if (oldState.tickInterval) {
+      clearInterval(oldState.tickInterval);
+    }
+
+    useTimerStore.setState({ taskSlots: restored, tickInterval: null, activeSlotId: null });
 
     // Restart tick interval if any timers are running
     if (hasRunning) {
-      const state = useTimerStore.getState();
-      if (!state.tickInterval) {
-        const interval = setInterval(() => {
-          useTimerStore.getState().tick();
-        }, 500);
-        useTimerStore.setState({ tickInterval: interval });
-      }
+      const interval = setInterval(() => {
+        useTimerStore.getState().tick();
+      }, 500);
+      useTimerStore.setState({ tickInterval: interval });
     }
   } catch (e) {
-    console.warn('[TimerSync] Realtime refresh failed:', e);
+    console.warn('[TimerSync] Refresh failed:', e);
   }
 }
+
+let _pollInterval: ReturnType<typeof setInterval> | null = null;
 
 export function subscribeToTimerSync(): void {
   const profile = useAuthStore.getState().profile;
@@ -661,38 +694,52 @@ export function subscribeToTimerSync(): void {
   // Clean up existing subscription
   unsubscribeFromTimerSync();
 
-  console.log('[TimerSync] Subscribing to Realtime changes…');
+  console.log('[TimerSync] Subscribing to Realtime changes + polling…');
 
-  _realtimeChannel = supabaseClient
-    .channel(`running-timers-${profile.id}`)
-    .on(
-      'postgres_changes' as any,
-      {
-        event: '*',
-        schema: 'public',
-        table: 'running_timers',
-        filter: `user_id=eq.${profile.id}`,
-      },
-      () => {
-        // Debounce: batch rapid changes (e.g. delete-all + insert-all)
-        if (_refreshTimeout) clearTimeout(_refreshTimeout);
-        _refreshTimeout = setTimeout(() => {
-          refreshTimersFromSupabase();
-        }, 800);
-      }
-    )
-    .subscribe((status: string) => {
-      console.log('[TimerSync] Realtime subscription status:', status);
-    });
+  // 1) Realtime subscription for instant updates (best-effort)
+  try {
+    _realtimeChannel = supabaseClient
+      .channel(`running-timers-${profile.id}`)
+      .on(
+        'postgres_changes' as any,
+        {
+          event: '*',
+          schema: 'public',
+          table: 'running_timers',
+          filter: `user_id=eq.${profile.id}`,
+        },
+        () => {
+          // Debounce: batch rapid changes (e.g. delete-all + insert-all)
+          if (_refreshTimeout) clearTimeout(_refreshTimeout);
+          _refreshTimeout = setTimeout(() => {
+            refreshTimersFromSupabase();
+          }, 800);
+        }
+      )
+      .subscribe((status: string) => {
+        console.log('[TimerSync] Realtime subscription status:', status);
+      });
+  } catch (e) {
+    console.warn('[TimerSync] Realtime subscription failed, relying on polling:', e);
+  }
+
+  // 2) Polling fallback every 5 seconds — reliable regardless of Realtime status
+  _pollInterval = setInterval(() => {
+    refreshTimersFromSupabase();
+  }, 5000);
 }
 
 export function unsubscribeFromTimerSync(): void {
   if (_realtimeChannel && supabaseClient) {
-    supabaseClient.removeChannel(_realtimeChannel);
+    try { supabaseClient.removeChannel(_realtimeChannel); } catch (_) {}
     _realtimeChannel = null;
   }
   if (_refreshTimeout) {
     clearTimeout(_refreshTimeout);
     _refreshTimeout = null;
+  }
+  if (_pollInterval) {
+    clearInterval(_pollInterval);
+    _pollInterval = null;
   }
 }
