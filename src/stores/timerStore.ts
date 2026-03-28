@@ -89,11 +89,9 @@ function ensureTickInterval(get: () => TimerState, set: (partial: Partial<TimerS
 // A poll firing before the DB operation completes would fetch stale data and undo the local change.
 let _suppressUntil: number = 0;
 
-// When pullTimersFromSupabase updates the store, we set this flag so that any
-// saveTimers() call triggered as a side-effect (React re-render, visibilitychange, etc.)
-// does NOT push the just-pulled state back to Supabase (which would undo a remote stop).
-let _isRemoteUpdate = false;
-let _remoteUpdateTimeout: ReturnType<typeof setTimeout> | null = null;
+// Only push to Supabase when a LOCAL user action has dirtied the state.
+// This prevents any phantom saveTimers() caller from pushing remote state back.
+let _localDirty = false;
 
 export const useTimerStore = create<TimerState>((set, get) => ({
   taskSlots: [],
@@ -133,6 +131,7 @@ export const useTimerStore = create<TimerState>((set, get) => ({
   },
 
   removeSlot: (id: string) => {
+    _localDirty = true;
     set((state) => ({
       taskSlots: state.taskSlots.filter((slot) => slot.id !== id),
       activeSlotId: state.activeSlotId === id ? null : state.activeSlotId,
@@ -187,6 +186,7 @@ export const useTimerStore = create<TimerState>((set, get) => ({
   },
 
   startTimer: (id: string) => {
+    _localDirty = true;
     set((state) => ({
       taskSlots: state.taskSlots.map((slot) =>
         slot.id === id
@@ -207,6 +207,7 @@ export const useTimerStore = create<TimerState>((set, get) => ({
   },
 
   pauseTimer: (id: string) => {
+    _localDirty = true;
     set((state) => ({
       taskSlots: state.taskSlots.map((slot) => {
         if (slot.id === id && !slot.isPaused) {
@@ -228,6 +229,7 @@ export const useTimerStore = create<TimerState>((set, get) => ({
   },
 
   resumeTimer: (id: string) => {
+    _localDirty = true;
     set((state) => ({
       taskSlots: state.taskSlots.map((slot) =>
         slot.id === id && slot.isPaused
@@ -247,6 +249,7 @@ export const useTimerStore = create<TimerState>((set, get) => ({
   },
 
   stopTimer: (id: string) => {
+    _localDirty = true;
     console.log('[STOP] stopTimer called for', id);
     const state = get();
     const slot = state.taskSlots.find((s) => s.id === id);
@@ -366,14 +369,19 @@ export const useTimerStore = create<TimerState>((set, get) => ({
 
   saveTimers: () => {
     const state = get();
-    console.log('[SAVE] saveTimers called, slots:', state.taskSlots.length, '_isRemoteUpdate:', _isRemoteUpdate);
+    console.log('[SAVE] saveTimers called, slots:', state.taskSlots.length, '_localDirty:', _localDirty);
+    console.trace('[SAVE] call stack');
 
-    // If the state was just set by a remote pull, do NOT push back to Supabase.
-    // This prevents the deadly loop: pull → setState → saveTimers → push → overwrite remote stop.
-    if (_isRemoteUpdate) {
-      console.log('[SAVE] skipping Supabase push — state was set by remote pull');
+    // Only push to Supabase when a LOCAL user action dirtied the state.
+    // This prevents any phantom caller (beforeunload, visibilitychange, etc.)
+    // from pushing remote-pulled state back to Supabase.
+    if (!_localDirty) {
+      console.log('[SAVE] skipping — no local action pending');
       return;
     }
+
+    // Reset dirty flag BEFORE the async push
+    _localDirty = false;
 
     // Suppress remote refresh to prevent race condition
     _suppressUntil = Math.max(_suppressUntil, Date.now() + 3000);
@@ -520,9 +528,10 @@ export const useTimerStore = create<TimerState>((set, get) => ({
   },
 }));
 
-// Save timers before unload
+// Save timers before unload — mark dirty so the save actually pushes
 if (typeof window !== 'undefined') {
   window.addEventListener('beforeunload', () => {
+    _localDirty = true;
     useTimerStore.getState().saveTimers();
   });
 }
@@ -589,20 +598,6 @@ async function pushTimersToSupabase(slots: SerializedSlot[]): Promise<void> {
 let _pollInterval: ReturnType<typeof setInterval> | null = null;
 let _realtimeChannel: any = null;
 
-/**
- * Set _isRemoteUpdate = true for 2 seconds. Any saveTimers() call during
- * this window will skip the Supabase push, preventing the pull→push loop.
- */
-function setRemoteUpdateFlag(): void {
-  _isRemoteUpdate = true;
-  if (_remoteUpdateTimeout) clearTimeout(_remoteUpdateTimeout);
-  _remoteUpdateTimeout = setTimeout(() => {
-    _isRemoteUpdate = false;
-    _remoteUpdateTimeout = null;
-    console.log('[PULL] _isRemoteUpdate cleared');
-  }, 2000);
-}
-
 async function pullTimersFromSupabase(): Promise<void> {
   // Skip if we recently saved locally (prevents race condition where poll
   // fetches stale data before our DELETE+INSERT completes)
@@ -632,7 +627,6 @@ async function pullTimersFromSupabase(): Promise<void> {
         console.log('[PULL] Remote empty → clearing local timers');
         const s = useTimerStore.getState();
         if (s.tickInterval) clearInterval(s.tickInterval);
-        setRemoteUpdateFlag();
         useTimerStore.setState({ taskSlots: [], tickInterval: null, activeSlotId: null });
       }
       return;
@@ -705,8 +699,6 @@ async function pullTimersFromSupabase(): Promise<void> {
     const oldState = useTimerStore.getState();
     if (oldState.tickInterval) clearInterval(oldState.tickInterval);
 
-    // Flag that this is a remote update so saveTimers() won't push back to Supabase
-    setRemoteUpdateFlag();
     useTimerStore.setState({ taskSlots: restored, tickInterval: null, activeSlotId: null });
 
     // Restart tick if needed
