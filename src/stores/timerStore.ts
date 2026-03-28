@@ -126,6 +126,9 @@ export const useTimerStore = create<TimerState>((set, get) => ({
       taskSlots: state.taskSlots.filter((slot) => slot.id !== id),
       activeSlotId: state.activeSlotId === id ? null : state.activeSlotId,
     }));
+
+    // Sync removal to Supabase for cross-device visibility
+    setTimeout(() => get().saveTimers(), 100);
   },
 
   // Reset slot timer to 0 but keep slot visible with its fields
@@ -293,6 +296,9 @@ export const useTimerStore = create<TimerState>((set, get) => ({
       clearInterval(state.tickInterval);
       set({ tickInterval: null });
     }
+
+    // Sync stopped state to Supabase for cross-device visibility
+    setTimeout(() => get().saveTimers(), 100);
   },
 
   stopAllTimers: () => {
@@ -345,6 +351,8 @@ export const useTimerStore = create<TimerState>((set, get) => ({
     const state = get();
     if (state.taskSlots.length === 0) {
       removeUserData('timerSlots');
+      // Also clear Supabase so other devices see no running timers
+      syncTimersToSupabase([], Date.now());
       return;
     }
 
@@ -499,9 +507,14 @@ if (typeof window !== 'undefined') {
 
 // ── Supabase Sync Helper ───────────────────────────────────────────────
 
+// Track our last save timestamp to skip our own Realtime echoes
+let _lastLocalSavedAt: number = 0;
+
 async function syncTimersToSupabase(slots: SerializedSlot[], savedAt: number): Promise<void> {
   const profile = useAuthStore.getState().profile;
   if (!isSupabaseAvailable() || !supabaseClient || !profile?.id || profile.id.startsWith('local_')) return;
+
+  _lastLocalSavedAt = savedAt;
 
   try {
     // Delete all existing timers for this user first
@@ -539,5 +552,147 @@ async function syncTimersToSupabase(slots: SerializedSlot[], savedAt: number): P
     }
   } catch (e) {
     console.warn('[TimerSync] Supabase sync failed:', e);
+  }
+}
+
+// ── Realtime Subscription for Cross-Device Sync ──────────────────────
+
+let _realtimeChannel: any = null;
+let _refreshTimeout: ReturnType<typeof setTimeout> | null = null;
+
+async function refreshTimersFromSupabase(): Promise<void> {
+  const profile = useAuthStore.getState().profile;
+  if (!isSupabaseAvailable() || !supabaseClient || !profile?.id) return;
+
+  try {
+    const { data, error } = await supabaseClient
+      .from('running_timers')
+      .select('*')
+      .eq('user_id', profile.id);
+
+    if (error) {
+      console.warn('[TimerSync] Realtime refresh query failed:', error.message);
+      return;
+    }
+
+    // Determine the remote saved_at timestamp
+    const remoteSavedAt = data && data.length > 0
+      ? Math.max(...data.map((r: any) => Number(r.saved_at) || 0))
+      : 0;
+
+    // Skip if this is an echo of our own save
+    if (remoteSavedAt > 0 && remoteSavedAt === _lastLocalSavedAt) return;
+
+    console.log('[TimerSync] Remote change detected, refreshing timers…');
+
+    if (!data || data.length === 0) {
+      // Remote has no timers — clear local slots
+      useTimerStore.setState({ taskSlots: [] });
+      return;
+    }
+
+    const now = Date.now();
+    const elapsed = remoteSavedAt > 0 ? now - remoteSavedAt : 0;
+    let hasRunning = false;
+
+    const restored: TimerSlot[] = data.map((row: any, idx: number) => {
+      const wasRunning = row.was_running;
+      const pausedMs = Number(row.paused_ms) || 0;
+
+      if (wasRunning) {
+        hasRunning = true;
+        return {
+          id: row.id,
+          date: row.date || '',
+          stakeholder: JSON.parse(row.stakeholder || '[]'),
+          projekt: row.projekt || '',
+          taetigkeit: row.taetigkeit || '',
+          format: row.format || 'Einzelarbeit',
+          start_time: row.start_time || '',
+          elapsed_ms: 0,
+          notiz: row.notiz || '',
+          is_running: true,
+          color: row.color || TIMER_PALETTE[idx % TIMER_PALETTE.length],
+          startTime: new Date(),
+          pausedMs: pausedMs + elapsed,
+          isPaused: false,
+        };
+      }
+
+      return {
+        id: row.id,
+        date: row.date || '',
+        stakeholder: JSON.parse(row.stakeholder || '[]'),
+        projekt: row.projekt || '',
+        taetigkeit: row.taetigkeit || '',
+        format: row.format || 'Einzelarbeit',
+        start_time: row.start_time || '',
+        elapsed_ms: 0,
+        notiz: row.notiz || '',
+        is_running: false,
+        color: row.color || TIMER_PALETTE[idx % TIMER_PALETTE.length],
+        startTime: new Date(),
+        pausedMs,
+        isPaused: true,
+      };
+    });
+
+    useTimerStore.setState({ taskSlots: restored });
+
+    // Restart tick interval if any timers are running
+    if (hasRunning) {
+      const state = useTimerStore.getState();
+      if (!state.tickInterval) {
+        const interval = setInterval(() => {
+          useTimerStore.getState().tick();
+        }, 500);
+        useTimerStore.setState({ tickInterval: interval });
+      }
+    }
+  } catch (e) {
+    console.warn('[TimerSync] Realtime refresh failed:', e);
+  }
+}
+
+export function subscribeToTimerSync(): void {
+  const profile = useAuthStore.getState().profile;
+  if (!isSupabaseAvailable() || !supabaseClient || !profile?.id || profile.id.startsWith('local_')) return;
+
+  // Clean up existing subscription
+  unsubscribeFromTimerSync();
+
+  console.log('[TimerSync] Subscribing to Realtime changes…');
+
+  _realtimeChannel = supabaseClient
+    .channel(`running-timers-${profile.id}`)
+    .on(
+      'postgres_changes' as any,
+      {
+        event: '*',
+        schema: 'public',
+        table: 'running_timers',
+        filter: `user_id=eq.${profile.id}`,
+      },
+      () => {
+        // Debounce: batch rapid changes (e.g. delete-all + insert-all)
+        if (_refreshTimeout) clearTimeout(_refreshTimeout);
+        _refreshTimeout = setTimeout(() => {
+          refreshTimersFromSupabase();
+        }, 800);
+      }
+    )
+    .subscribe((status: string) => {
+      console.log('[TimerSync] Realtime subscription status:', status);
+    });
+}
+
+export function unsubscribeFromTimerSync(): void {
+  if (_realtimeChannel && supabaseClient) {
+    supabaseClient.removeChannel(_realtimeChannel);
+    _realtimeChannel = null;
+  }
+  if (_refreshTimeout) {
+    clearTimeout(_refreshTimeout);
+    _refreshTimeout = null;
   }
 }

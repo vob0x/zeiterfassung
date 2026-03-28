@@ -4,7 +4,7 @@ import { useUiStore } from '@/stores/uiStore'
 import { useEntriesStore } from '@/stores/entriesStore'
 import { useMasterStore } from '@/stores/masterStore'
 import { useTeamStore } from '@/stores/teamStore'
-import { useTimerStore } from '@/stores/timerStore'
+import { useTimerStore, subscribeToTimerSync, unsubscribeFromTimerSync } from '@/stores/timerStore'
 import { I18nProvider, useI18n } from '@/i18n'
 import Layout from '@/components/Layout'
 import LoginScreen from '@/components/Auth/LoginScreen'
@@ -30,7 +30,14 @@ function AppContent() {
       fetchEntries()
       fetchMaster()
       syncTeam()
-      restoreTimers()
+      restoreTimers().then(() => {
+        // Start listening for cross-device timer changes after initial restore
+        subscribeToTimerSync()
+      })
+    }
+
+    return () => {
+      unsubscribeFromTimerSync()
     }
   }, [isAuthenticated, needsPassword, fetchEntries, fetchMaster, syncTeam, restoreTimers])
 
