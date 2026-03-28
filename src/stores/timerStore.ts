@@ -42,8 +42,8 @@ interface TimerState {
     field: 'stakeholder' | 'projekt' | 'taetigkeit' | 'format' | 'notiz',
     value: string | string[]
   ) => void;
-  addSlotStakeholder: (id: string, stakeholder: string) => void; // NEW: add stakeholder to array
-  removeSlotStakeholder: (id: string, stakeholder: string) => void; // NEW: remove stakeholder from array
+  addSlotStakeholder: (id: string, stakeholder: string) => void;
+  removeSlotStakeholder: (id: string, stakeholder: string) => void;
   startTimer: (id: string) => void;
   pauseTimer: (id: string) => void;
   resumeTimer: (id: string) => void;
@@ -62,11 +62,9 @@ const TIMER_PALETTE = ['#C9A962', '#6EC49E', '#9B8EC4', '#D4706E', '#5BA4D9', '#
 let colorCounter = 0;
 
 function assignColor(existingColors: string[]): string {
-  // Find the first palette color not in use
   for (const c of TIMER_PALETTE) {
     if (!existingColors.includes(c)) return c;
   }
-  // Fallback: cycle
   return TIMER_PALETTE[colorCounter++ % TIMER_PALETTE.length];
 }
 
@@ -83,6 +81,13 @@ function ensureTickInterval(get: () => TimerState, set: (partial: Partial<TimerS
     set({ tickInterval: interval });
   }
 }
+
+// ── Cross-device sync state (module-level) ─────────────────────────────
+
+// After a local save, suppress remote refresh for 3 seconds to avoid race conditions.
+// The key race: saveTimers sets _suppressUntil, then starts async DELETE+INSERT.
+// A poll firing before the DB operation completes would fetch stale data and undo the local change.
+let _suppressUntil: number = 0;
 
 export const useTimerStore = create<TimerState>((set, get) => ({
   taskSlots: [],
@@ -126,12 +131,9 @@ export const useTimerStore = create<TimerState>((set, get) => ({
       taskSlots: state.taskSlots.filter((slot) => slot.id !== id),
       activeSlotId: state.activeSlotId === id ? null : state.activeSlotId,
     }));
-
-    // Sync removal to Supabase for cross-device visibility
     setTimeout(() => get().saveTimers(), 100);
   },
 
-  // Reset slot timer to 0 but keep slot visible with its fields
   resetSlot: (id: string) => {
     set((state) => ({
       taskSlots: state.taskSlots.map((slot) =>
@@ -158,7 +160,6 @@ export const useTimerStore = create<TimerState>((set, get) => ({
     }));
   },
 
-  // NEW: Add stakeholder to slot's stakeholder array
   addSlotStakeholder: (id, stakeholder) => {
     set((state) => ({
       taskSlots: state.taskSlots.map((slot) =>
@@ -169,7 +170,6 @@ export const useTimerStore = create<TimerState>((set, get) => ({
     }));
   },
 
-  // NEW: Remove stakeholder from slot's stakeholder array
   removeSlotStakeholder: (id, stakeholder) => {
     set((state) => ({
       taskSlots: state.taskSlots.map((slot) =>
@@ -197,8 +197,6 @@ export const useTimerStore = create<TimerState>((set, get) => ({
     }));
 
     ensureTickInterval(get, set);
-
-    // Sync to Supabase for cross-device visibility
     setTimeout(() => get().saveTimers(), 100);
   },
 
@@ -220,7 +218,6 @@ export const useTimerStore = create<TimerState>((set, get) => ({
       activeSlotId: null,
     }));
 
-    // Sync to Supabase for cross-device visibility
     setTimeout(() => get().saveTimers(), 100);
   },
 
@@ -240,8 +237,6 @@ export const useTimerStore = create<TimerState>((set, get) => ({
     }));
 
     ensureTickInterval(get, set);
-
-    // Sync to Supabase for cross-device visibility
     setTimeout(() => get().saveTimers(), 100);
   },
 
@@ -255,7 +250,7 @@ export const useTimerStore = create<TimerState>((set, get) => ({
       slot.pausedMs +
       (slot.isPaused ? 0 : Date.now() - slot.startTime.getTime());
 
-    // Minimum 1 second to save (matching V5.15)
+    // Minimum 1 second to save
     if (totalMs < 1000) {
       set({ error: 'Timer too short' });
       return;
@@ -273,10 +268,10 @@ export const useTimerStore = create<TimerState>((set, get) => ({
 
     entriesStore.add({
       date: slot.date || now.toISOString().split('T')[0],
-      stakeholder: slot.stakeholder || [], // NEW: array format
+      stakeholder: slot.stakeholder || [],
       projekt: slot.projekt || '',
       taetigkeit: slot.taetigkeit || '',
-      format: slot.format || 'Einzelarbeit', // NEW: include format
+      format: slot.format || 'Einzelarbeit',
       start_time: startTime,
       end_time: endTime,
       duration_ms: totalMs,
@@ -286,8 +281,11 @@ export const useTimerStore = create<TimerState>((set, get) => ({
       updated_at: new Date().toISOString(),
     });
 
-    // Step 1: Reset slot to paused-at-0 (keeps a row in Supabase so other devices see the stop)
-    get().resetSlot(id);
+    // Remove the stopped slot entirely
+    set((st) => ({
+      taskSlots: st.taskSlots.filter((s) => s.id !== id),
+      activeSlotId: st.activeSlotId === id ? null : st.activeSlotId,
+    }));
 
     // Check if any active timers remain
     const remaining = get().taskSlots;
@@ -297,22 +295,9 @@ export const useTimerStore = create<TimerState>((set, get) => ({
       set({ tickInterval: null });
     }
 
-    // Step 2: Immediately sync the "stopped" state to Supabase
-    // This pushes a row with was_running=false so other devices pick it up
+    // Sync to Supabase — suppress MUST be set BEFORE the async save
+    _suppressUntil = Date.now() + 5000;
     setTimeout(() => get().saveTimers(), 100);
-
-    // Step 3: After remote has picked up the stop, remove the slot entirely
-    setTimeout(() => {
-      const current = get().taskSlots.find((s) => s.id === id);
-      if (current && current.isPaused && current.pausedMs === 0) {
-        set((st) => ({
-          taskSlots: st.taskSlots.filter((s) => s.id !== id),
-          activeSlotId: st.activeSlotId === id ? null : st.activeSlotId,
-        }));
-        // Sync the removal
-        setTimeout(() => get().saveTimers(), 100);
-      }
-    }, 4000);
   },
 
   stopAllTimers: () => {
@@ -344,12 +329,10 @@ export const useTimerStore = create<TimerState>((set, get) => ({
   },
 
   tick: () => {
-    // Force a re-render by creating new taskSlots array reference
     set((state) => ({
       taskSlots: state.taskSlots.length > 0 ? [...state.taskSlots] : [],
     }));
 
-    // Check if any timers are still running
     const state = get();
     const hasActive = state.taskSlots.some((s) => !s.isPaused);
 
@@ -363,17 +346,20 @@ export const useTimerStore = create<TimerState>((set, get) => ({
 
   saveTimers: () => {
     const state = get();
+
+    // Suppress remote refresh to prevent race condition
+    _suppressUntil = Date.now() + 3000;
+
     if (state.taskSlots.length === 0) {
       removeUserData('timerSlots');
-      // Also clear Supabase so other devices see no running timers
-      syncTimersToSupabase([], Date.now());
+      // Clear Supabase so other devices see no running timers
+      pushTimersToSupabase([]);
       return;
     }
 
     const now = Date.now();
     const serialized: SerializedSlot[] = state.taskSlots.map((slot) => {
       const wasRunning = !slot.isPaused;
-      // For running timers: accumulate all elapsed into pausedMs
       const totalPaused = wasRunning
         ? slot.pausedMs + (now - slot.startTime.getTime())
         : slot.pausedMs;
@@ -398,13 +384,10 @@ export const useTimerStore = create<TimerState>((set, get) => ({
 
     const saved: SavedTimerState = { slots: serialized, savedAt: now };
     setUserData('timerSlots', saved);
-
-    // Also push to Supabase for cross-device sync
-    syncTimersToSupabase(serialized, now);
+    pushTimersToSupabase(serialized);
   },
 
   restoreTimers: async () => {
-    // Try Supabase first (cross-device), then fall back to localStorage
     const profile = useAuthStore.getState().profile;
     let saved: SavedTimerState | null = null;
 
@@ -440,7 +423,6 @@ export const useTimerStore = create<TimerState>((set, get) => ({
       }
     }
 
-    // Fall back to localStorage
     if (!saved) {
       saved = getUserData<SavedTimerState | null>('timerSlots', null);
     }
@@ -448,7 +430,7 @@ export const useTimerStore = create<TimerState>((set, get) => ({
     if (!saved || !saved.slots || saved.slots.length === 0) return;
 
     const now = Date.now();
-    const elapsed = now - saved.savedAt; // Time passed during refresh
+    const elapsed = now - saved.savedAt;
     let hasRunning = false;
 
     const restored: TimerSlot[] = saved.slots.map((s, idx) => {
@@ -494,12 +476,10 @@ export const useTimerStore = create<TimerState>((set, get) => ({
 
     set({ taskSlots: restored });
 
-    // Restart tick interval if any timers are running
     if (hasRunning) {
       ensureTickInterval(get, set);
     }
 
-    // Clean up saved state
     removeUserData('timerSlots');
   },
 
@@ -512,32 +492,35 @@ export const useTimerStore = create<TimerState>((set, get) => ({
   },
 }));
 
-// Save timers before unload (all slots, not just running)
+// Save timers before unload
 if (typeof window !== 'undefined') {
   window.addEventListener('beforeunload', () => {
     useTimerStore.getState().saveTimers();
   });
 }
 
-// ── Supabase Sync Helper ───────────────────────────────────────────────
+// ── Supabase Push (fire-and-forget) ─────────────────────────────────────
 
-// Track our last save timestamp to skip our own Realtime echoes
-let _lastLocalSavedAt: number = 0;
-
-async function syncTimersToSupabase(slots: SerializedSlot[], savedAt: number): Promise<void> {
+async function pushTimersToSupabase(slots: SerializedSlot[]): Promise<void> {
   const profile = useAuthStore.getState().profile;
   if (!isSupabaseAvailable() || !supabaseClient || !profile?.id || profile.id.startsWith('local_')) return;
 
-  _lastLocalSavedAt = savedAt;
-
   try {
-    // Delete all existing timers for this user first
-    await supabaseClient
+    // Delete all existing timers for this user
+    const { error: delError } = await supabaseClient
       .from('running_timers')
       .delete()
       .eq('user_id', profile.id);
 
-    if (slots.length === 0) return;
+    if (delError) {
+      console.error('[TimerSync] DELETE failed:', delError.message);
+      return;
+    }
+
+    if (slots.length === 0) {
+      console.log('[TimerSync] Cleared all remote timers');
+      return;
+    }
 
     // Insert current timer state
     const rows = slots.map((s) => ({
@@ -554,27 +537,31 @@ async function syncTimersToSupabase(slots: SerializedSlot[], savedAt: number): P
       paused_ms: s.pausedMs,
       is_paused: s.isPaused,
       was_running: s.wasRunning,
-      saved_at: savedAt,
+      saved_at: Date.now(),
     }));
 
-    const { error } = await supabaseClient
+    const { error: insError } = await supabaseClient
       .from('running_timers')
       .insert(rows);
 
-    if (error) {
-      console.error('[TimerSync] Push to Supabase failed:', error.message);
+    if (insError) {
+      console.error('[TimerSync] INSERT failed:', insError.message);
     }
   } catch (e) {
-    console.warn('[TimerSync] Supabase sync failed:', e);
+    console.warn('[TimerSync] Push failed:', e);
   }
 }
 
-// ── Realtime Subscription for Cross-Device Sync ──────────────────────
+// ── Cross-Device Polling ────────────────────────────────────────────────
 
+let _pollInterval: ReturnType<typeof setInterval> | null = null;
 let _realtimeChannel: any = null;
-let _refreshTimeout: ReturnType<typeof setTimeout> | null = null;
 
-async function refreshTimersFromSupabase(): Promise<void> {
+async function pullTimersFromSupabase(): Promise<void> {
+  // Skip if we recently saved locally (prevents race condition where poll
+  // fetches stale data before our DELETE+INSERT completes)
+  if (Date.now() < _suppressUntil) return;
+
   const profile = useAuthStore.getState().profile;
   if (!isSupabaseAvailable() || !supabaseClient || !profile?.id) return;
 
@@ -584,65 +571,43 @@ async function refreshTimersFromSupabase(): Promise<void> {
       .select('*')
       .eq('user_id', profile.id);
 
-    if (error) {
-      console.warn('[TimerSync] Refresh query failed:', error.message);
-      return;
-    }
-
-    // Determine the remote saved_at timestamp
-    const remoteSavedAt = data && data.length > 0
-      ? Math.max(...data.map((r: any) => Number(r.saved_at) || 0))
-      : 0;
-
-    // Skip if this is an echo of our own save
-    if (remoteSavedAt > 0 && remoteSavedAt === _lastLocalSavedAt) return;
+    if (error) return;
 
     const localSlots = useTimerStore.getState().taskSlots;
 
-    // ── Case 1: Remote has NO timers ─────────────────────────────
+    // ── Remote is empty → clear local timers ──────────────────────
     if (!data || data.length === 0) {
-      // Only clear local if we actually have timers (don't loop on empty→empty)
       if (localSlots.length > 0) {
-        console.log('[TimerSync] Remote has no timers — clearing local slots');
-        // Stop tick interval if running
-        const state = useTimerStore.getState();
-        if (state.tickInterval) {
-          clearInterval(state.tickInterval);
-        }
+        console.log('[TimerSync] Remote empty → clearing local timers');
+        const s = useTimerStore.getState();
+        if (s.tickInterval) clearInterval(s.tickInterval);
         useTimerStore.setState({ taskSlots: [], tickInterval: null, activeSlotId: null });
       }
       return;
     }
 
-    // ── Case 2: Remote has timers — check if anything changed ────
-    // Quick fingerprint: compare slot IDs + was_running states
-    const remoteFingerprint = data
-      .map((r: any) => `${r.id}:${r.was_running}:${r.paused_ms}`)
+    // ── Quick check: has anything changed? ────────────────────────
+    // Compare remote slot IDs + running states with local
+    const remoteKey = data
+      .map((r: any) => `${r.id}:${r.was_running}`)
       .sort()
-      .join('|');
-    const localFingerprint = localSlots
-      .map((s) => `${s.id}:${!s.isPaused}:${s.isPaused ? s.pausedMs : -1}`)
+      .join(',');
+    const localKey = localSlots
+      .map((s) => `${s.id}:${!s.isPaused}`)
       .sort()
-      .join('|');
+      .join(',');
 
-    if (remoteFingerprint === localFingerprint) return; // No meaningful change
+    if (remoteKey === localKey) return; // Nothing changed
 
-    console.log('[TimerSync] Remote change detected, updating local timers…');
+    console.log('[TimerSync] Remote changed → updating local timers');
 
+    // ── Rebuild local state from remote ───────────────────────────
     const now = Date.now();
+    const remoteSavedAt = Math.max(...data.map((r: any) => Number(r.saved_at) || 0));
     const elapsed = remoteSavedAt > 0 ? now - remoteSavedAt : 0;
     let hasRunning = false;
 
-    // Filter out "completed" slots (was_running=false AND paused_ms=0 → timer was stopped)
-    const activeRemoteRows = data.filter((row: any) => {
-      const wasRunning = row.was_running;
-      const pausedMs = Number(row.paused_ms) || 0;
-      // A slot with was_running=false and paused_ms=0 is a "just stopped" marker → skip it
-      if (!wasRunning && pausedMs === 0) return false;
-      return true;
-    });
-
-    const restored: TimerSlot[] = activeRemoteRows.map((row: any, idx: number) => {
+    const restored: TimerSlot[] = data.map((row: any, idx: number) => {
       const wasRunning = row.was_running;
       const pausedMs = Number(row.paused_ms) || 0;
 
@@ -684,15 +649,13 @@ async function refreshTimersFromSupabase(): Promise<void> {
       };
     });
 
-    // Stop old tick interval before replacing state
+    // Clear old tick interval
     const oldState = useTimerStore.getState();
-    if (oldState.tickInterval) {
-      clearInterval(oldState.tickInterval);
-    }
+    if (oldState.tickInterval) clearInterval(oldState.tickInterval);
 
     useTimerStore.setState({ taskSlots: restored, tickInterval: null, activeSlotId: null });
 
-    // Restart tick interval if any timers are running
+    // Restart tick if needed
     if (hasRunning) {
       const interval = setInterval(() => {
         useTimerStore.getState().tick();
@@ -700,25 +663,27 @@ async function refreshTimersFromSupabase(): Promise<void> {
       useTimerStore.setState({ tickInterval: interval });
     }
   } catch (e) {
-    console.warn('[TimerSync] Refresh failed:', e);
+    console.warn('[TimerSync] Pull failed:', e);
   }
 }
-
-let _pollInterval: ReturnType<typeof setInterval> | null = null;
 
 export function subscribeToTimerSync(): void {
   const profile = useAuthStore.getState().profile;
   if (!isSupabaseAvailable() || !supabaseClient || !profile?.id || profile.id.startsWith('local_')) return;
 
-  // Clean up existing subscription
   unsubscribeFromTimerSync();
 
-  console.log('[TimerSync] Subscribing to Realtime changes + polling…');
+  console.log('[TimerSync] Starting cross-device sync (poll every 3s)');
 
-  // 1) Realtime subscription for instant updates (best-effort)
+  // Primary: polling every 3 seconds (reliable)
+  _pollInterval = setInterval(() => {
+    pullTimersFromSupabase();
+  }, 3000);
+
+  // Bonus: Realtime for faster updates (best-effort)
   try {
     _realtimeChannel = supabaseClient
-      .channel(`running-timers-${profile.id}`)
+      .channel(`timers-${profile.id}`)
       .on(
         'postgres_changes' as any,
         {
@@ -728,34 +693,20 @@ export function subscribeToTimerSync(): void {
           filter: `user_id=eq.${profile.id}`,
         },
         () => {
-          // Debounce: batch rapid changes (e.g. delete-all + insert-all)
-          if (_refreshTimeout) clearTimeout(_refreshTimeout);
-          _refreshTimeout = setTimeout(() => {
-            refreshTimersFromSupabase();
-          }, 800);
+          // On any remote change, pull immediately (if not suppressed)
+          setTimeout(() => pullTimersFromSupabase(), 500);
         }
       )
-      .subscribe((status: string) => {
-        console.log('[TimerSync] Realtime subscription status:', status);
-      });
+      .subscribe();
   } catch (e) {
-    console.warn('[TimerSync] Realtime subscription failed, relying on polling:', e);
+    console.warn('[TimerSync] Realtime failed, relying on polling:', e);
   }
-
-  // 2) Polling fallback every 5 seconds — reliable regardless of Realtime status
-  _pollInterval = setInterval(() => {
-    refreshTimersFromSupabase();
-  }, 5000);
 }
 
 export function unsubscribeFromTimerSync(): void {
   if (_realtimeChannel && supabaseClient) {
     try { supabaseClient.removeChannel(_realtimeChannel); } catch (_) {}
     _realtimeChannel = null;
-  }
-  if (_refreshTimeout) {
-    clearTimeout(_refreshTimeout);
-    _refreshTimeout = null;
   }
   if (_pollInterval) {
     clearInterval(_pollInterval);
