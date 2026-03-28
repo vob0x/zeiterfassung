@@ -20,16 +20,25 @@ const COLORS = [
 export function ActivityBars({ entries, isFormat = false }: ActivityBarsProps) {
   const { t } = useI18n();
   const { activities, totalHours } = useMemo(() => {
-    const itemMap: Record<string, number> = {};
+    // Group entries by key AND date first, then compute union per group
+    const grouped: Record<string, Map<string, TimeEntry[]>> = {};
 
     for (const entry of entries) {
       const key = isFormat ? (entry.format || 'Einzelarbeit') : entry.taetigkeit;
-      const dayEntries = entries.filter((e) => {
-        const entryKey = isFormat ? (e.format || 'Einzelarbeit') : e.taetigkeit;
-        return entryKey === key && e.date === entry.date;
+      if (!grouped[key]) grouped[key] = new Map();
+      const dayMap = grouped[key];
+      if (!dayMap.has(entry.date)) dayMap.set(entry.date, []);
+      dayMap.get(entry.date)!.push(entry);
+    }
+
+    // Compute hours per key: union per day, then sum across days
+    const itemMap: Record<string, number> = {};
+    for (const [key, dayMap] of Object.entries(grouped)) {
+      let total = 0;
+      dayMap.forEach((dayEntries) => {
+        total += computeUnionMs(dayEntries) / (1000 * 60 * 60);
       });
-      const hours = computeUnionMs(dayEntries) / (1000 * 60 * 60);
-      itemMap[key] = (itemMap[key] || 0) + hours;
+      itemMap[key] = total;
     }
 
     const sorted = Object.entries(itemMap)

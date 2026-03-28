@@ -41,14 +41,23 @@ export function Heatmap({ entries }: HeatmapProps) {
       }
     }
 
-    // Fill matrix - assign full duration to each stakeholder in the array
+    // Fill matrix - compute union per stakeholder × project × day
     for (const sh of uniqueStakeholders) {
       for (const pr of uniqueProjects) {
-        const dayEntries = entries.filter((e) => {
+        const matchingEntries = entries.filter((e) => {
           const shArray = Array.isArray(e.stakeholder) ? e.stakeholder : [e.stakeholder];
           return shArray.includes(sh) && e.projekt === pr;
         });
-        const totalMs = dayEntries.reduce((sum, e) => sum + computeUnionMs([e]), 0);
+        // Group by date, compute union per day, then sum
+        const byDate = new Map<string, TimeEntry[]>();
+        matchingEntries.forEach((e) => {
+          if (!byDate.has(e.date)) byDate.set(e.date, []);
+          byDate.get(e.date)!.push(e);
+        });
+        let totalMs = 0;
+        byDate.forEach((dayEntries) => {
+          totalMs += computeUnionMs(dayEntries);
+        });
         const hours = totalMs / (1000 * 60 * 60);
         matrix[sh][pr] = hours;
         stakeholderTotals[sh] += hours;

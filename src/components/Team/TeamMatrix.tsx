@@ -21,9 +21,26 @@ function getIntensityColor(hours: number): { background: string; borderColor: st
 export function TeamMatrix({ dimension, entries, members }: TeamMatrixProps) {
   const { t } = useI18n();
   const { items, memberIds, matrix, totals } = useMemo(() => {
-    const dimensionKey = dimension === 'stakeholder' ? 'stakeholder' : 'projekt';
-    const uniqueItems = [...new Set(entries.map((e) => e[dimensionKey]))].sort();
-    const memberIdList = members.map((m) => m.user_id).sort();
+    const isStakeholder = dimension === 'stakeholder';
+
+    // Extract unique dimension values — flatten stakeholder arrays
+    const uniqueItemSet = new Set<string>();
+    entries.forEach((e) => {
+      if (isStakeholder) {
+        const shArray = Array.isArray(e.stakeholder) ? e.stakeholder : [e.stakeholder];
+        shArray.forEach((sh) => { if (sh) uniqueItemSet.add(sh); });
+      } else {
+        if (e.projekt) uniqueItemSet.add(e.projekt);
+      }
+    });
+    const uniqueItems = Array.from(uniqueItemSet).sort();
+
+    // Use display_name for column headers, user_id for data matching
+    const memberIdList = members.map((m) => m.display_name || m.user_id).sort();
+    const memberUserIds = members.reduce<Record<string, string>>((acc, m) => {
+      acc[m.display_name || m.user_id] = m.user_id;
+      return acc;
+    }, {});
 
     const matrix: Record<string, Record<string, number>> = {};
     const itemTotals: Record<string, number> = {};
@@ -45,12 +62,17 @@ export function TeamMatrix({ dimension, entries, members }: TeamMatrixProps) {
     // Fill matrix
     for (const item of uniqueItems) {
       for (const memberId of memberIdList) {
-        const memberItemEntries = entries.filter(
-          (e) => e[dimensionKey] === item && e.user_id === members.find((m) => m.user_id === memberId)?.user_id
-        );
+        const uid = memberUserIds[memberId];
+        const memberItemEntries = entries.filter((e) => {
+          const matchesDimension = isStakeholder
+            ? (Array.isArray(e.stakeholder) ? e.stakeholder : [e.stakeholder]).includes(item)
+            : e.projekt === item;
+          return matchesDimension && e.user_id === uid;
+        });
 
         let total = 0;
-        for (const date of [...new Set(memberItemEntries.map((e) => e.date))]) {
+        const dates = new Set(memberItemEntries.map((e) => e.date));
+        for (const date of dates) {
           const dateEntries = memberItemEntries.filter((e) => e.date === date);
           total += computeUnionMs(dateEntries) / (1000 * 60 * 60);
         }
