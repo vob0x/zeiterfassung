@@ -241,17 +241,20 @@ export const useTimerStore = create<TimerState>((set, get) => ({
   },
 
   stopTimer: (id: string) => {
+    console.log('[STOP] stopTimer called for', id);
     const state = get();
     const slot = state.taskSlots.find((s) => s.id === id);
-    if (!slot) return;
+    if (!slot) { console.log('[STOP] slot not found, aborting'); return; }
 
     // Calculate final duration
     const totalMs =
       slot.pausedMs +
       (slot.isPaused ? 0 : Date.now() - slot.startTime.getTime());
+    console.log('[STOP] totalMs =', totalMs);
 
     // Minimum 1 second to save
     if (totalMs < 1000) {
+      console.log('[STOP] too short, aborting');
       set({ error: 'Timer too short' });
       return;
     }
@@ -263,29 +266,35 @@ export const useTimerStore = create<TimerState>((set, get) => ({
     const startTime = `${String(startDate.getHours()).padStart(2, '0')}:${String(startDate.getMinutes()).padStart(2, '0')}`;
 
     // Save entry to entries store
-    const entriesStore = useEntriesStore.getState();
-    const authStore = useAuthStore.getState();
+    try {
+      const entriesStore = useEntriesStore.getState();
+      const authStore = useAuthStore.getState();
 
-    entriesStore.add({
-      date: slot.date || now.toISOString().split('T')[0],
-      stakeholder: slot.stakeholder || [],
-      projekt: slot.projekt || '',
-      taetigkeit: slot.taetigkeit || '',
-      format: slot.format || 'Einzelarbeit',
-      start_time: startTime,
-      end_time: endTime,
-      duration_ms: totalMs,
-      notiz: slot.notiz || '',
-      user_id: authStore.profile?.id || 'local',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    });
+      entriesStore.add({
+        date: slot.date || now.toISOString().split('T')[0],
+        stakeholder: slot.stakeholder || [],
+        projekt: slot.projekt || '',
+        taetigkeit: slot.taetigkeit || '',
+        format: slot.format || 'Einzelarbeit',
+        start_time: startTime,
+        end_time: endTime,
+        duration_ms: totalMs,
+        notiz: slot.notiz || '',
+        user_id: authStore.profile?.id || 'local',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+      console.log('[STOP] entry saved to entriesStore');
+    } catch (e) {
+      console.error('[STOP] entriesStore.add FAILED:', e);
+    }
 
     // Remove the stopped slot entirely
     set((st) => ({
       taskSlots: st.taskSlots.filter((s) => s.id !== id),
       activeSlotId: st.activeSlotId === id ? null : st.activeSlotId,
     }));
+    console.log('[STOP] slot removed, remaining:', get().taskSlots.length);
 
     // Check if any active timers remain
     const remaining = get().taskSlots;
@@ -295,9 +304,14 @@ export const useTimerStore = create<TimerState>((set, get) => ({
       set({ tickInterval: null });
     }
 
-    // Sync to Supabase — suppress MUST be set BEFORE the async save
-    _suppressUntil = Date.now() + 5000;
-    setTimeout(() => get().saveTimers(), 100);
+    // Suppress polling so it can't undo the stop with stale Supabase data
+    _suppressUntil = Date.now() + 10000;
+    console.log('[STOP] _suppressUntil set to now + 10s');
+
+    setTimeout(() => {
+      console.log('[STOP] delayed saveTimers firing');
+      get().saveTimers();
+    }, 100);
   },
 
   stopAllTimers: () => {
@@ -346,9 +360,10 @@ export const useTimerStore = create<TimerState>((set, get) => ({
 
   saveTimers: () => {
     const state = get();
+    console.log('[SAVE] saveTimers called, slots:', state.taskSlots.length);
 
     // Suppress remote refresh to prevent race condition
-    _suppressUntil = Date.now() + 3000;
+    _suppressUntil = Math.max(_suppressUntil, Date.now() + 3000);
 
     if (state.taskSlots.length === 0) {
       removeUserData('timerSlots');
@@ -503,7 +518,11 @@ if (typeof window !== 'undefined') {
 
 async function pushTimersToSupabase(slots: SerializedSlot[]): Promise<void> {
   const profile = useAuthStore.getState().profile;
-  if (!isSupabaseAvailable() || !supabaseClient || !profile?.id || profile.id.startsWith('local_')) return;
+  console.log('[PUSH] pushTimersToSupabase called, slots:', slots.length, 'profile:', profile?.id?.substring(0, 8));
+  if (!isSupabaseAvailable() || !supabaseClient || !profile?.id || profile.id.startsWith('local_')) {
+    console.log('[PUSH] guard failed — not pushing');
+    return;
+  }
 
   try {
     // Delete all existing timers for this user
@@ -560,7 +579,10 @@ let _realtimeChannel: any = null;
 async function pullTimersFromSupabase(): Promise<void> {
   // Skip if we recently saved locally (prevents race condition where poll
   // fetches stale data before our DELETE+INSERT completes)
-  if (Date.now() < _suppressUntil) return;
+  if (Date.now() < _suppressUntil) {
+    console.log('[PULL] suppressed (remaining:', Math.round((_suppressUntil - Date.now()) / 1000), 's)');
+    return;
+  }
 
   const profile = useAuthStore.getState().profile;
   if (!isSupabaseAvailable() || !supabaseClient || !profile?.id) return;
@@ -575,10 +597,12 @@ async function pullTimersFromSupabase(): Promise<void> {
 
     const localSlots = useTimerStore.getState().taskSlots;
 
+    console.log('[PULL] query result: rows=', data?.length ?? 0, 'localSlots=', localSlots.length);
+
     // ── Remote is empty → clear local timers ──────────────────────
     if (!data || data.length === 0) {
       if (localSlots.length > 0) {
-        console.log('[TimerSync] Remote empty → clearing local timers');
+        console.log('[PULL] Remote empty → clearing local timers');
         const s = useTimerStore.getState();
         if (s.tickInterval) clearInterval(s.tickInterval);
         useTimerStore.setState({ taskSlots: [], tickInterval: null, activeSlotId: null });
@@ -599,7 +623,7 @@ async function pullTimersFromSupabase(): Promise<void> {
 
     if (remoteKey === localKey) return; // Nothing changed
 
-    console.log('[TimerSync] Remote changed → updating local timers');
+    console.log('[PULL] Remote changed → updating local. remote:', remoteKey, 'local:', localKey);
 
     // ── Rebuild local state from remote ───────────────────────────
     const now = Date.now();
