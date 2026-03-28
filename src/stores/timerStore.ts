@@ -286,11 +286,8 @@ export const useTimerStore = create<TimerState>((set, get) => ({
       updated_at: new Date().toISOString(),
     });
 
-    // Remove the stopped slot entirely (don't just reset — other devices need to see it gone)
-    set((state) => ({
-      taskSlots: state.taskSlots.filter((s) => s.id !== id),
-      activeSlotId: state.activeSlotId === id ? null : state.activeSlotId,
-    }));
+    // Step 1: Reset slot to paused-at-0 (keeps a row in Supabase so other devices see the stop)
+    get().resetSlot(id);
 
     // Check if any active timers remain
     const remaining = get().taskSlots;
@@ -300,9 +297,22 @@ export const useTimerStore = create<TimerState>((set, get) => ({
       set({ tickInterval: null });
     }
 
-    // Sync stopped state to Supabase for cross-device visibility
-    // Use setTimeout to ensure state is settled, then sync
+    // Step 2: Immediately sync the "stopped" state to Supabase
+    // This pushes a row with was_running=false so other devices pick it up
     setTimeout(() => get().saveTimers(), 100);
+
+    // Step 3: After remote has picked up the stop, remove the slot entirely
+    setTimeout(() => {
+      const current = get().taskSlots.find((s) => s.id === id);
+      if (current && current.isPaused && current.pausedMs === 0) {
+        set((st) => ({
+          taskSlots: st.taskSlots.filter((s) => s.id !== id),
+          activeSlotId: st.activeSlotId === id ? null : st.activeSlotId,
+        }));
+        // Sync the removal
+        setTimeout(() => get().saveTimers(), 100);
+      }
+    }, 4000);
   },
 
   stopAllTimers: () => {
@@ -623,7 +633,16 @@ async function refreshTimersFromSupabase(): Promise<void> {
     const elapsed = remoteSavedAt > 0 ? now - remoteSavedAt : 0;
     let hasRunning = false;
 
-    const restored: TimerSlot[] = data.map((row: any, idx: number) => {
+    // Filter out "completed" slots (was_running=false AND paused_ms=0 → timer was stopped)
+    const activeRemoteRows = data.filter((row: any) => {
+      const wasRunning = row.was_running;
+      const pausedMs = Number(row.paused_ms) || 0;
+      // A slot with was_running=false and paused_ms=0 is a "just stopped" marker → skip it
+      if (!wasRunning && pausedMs === 0) return false;
+      return true;
+    });
+
+    const restored: TimerSlot[] = activeRemoteRows.map((row: any, idx: number) => {
       const wasRunning = row.was_running;
       const pausedMs = Number(row.paused_ms) || 0;
 
