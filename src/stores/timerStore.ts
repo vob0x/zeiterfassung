@@ -606,6 +606,13 @@ async function pullTimersFromSupabase(): Promise<void> {
 
     if (error) return;
 
+    // Re-check suppress AFTER the async query. A local push may have started
+    // while this query was in flight, meaning we're reading stale data.
+    if (Date.now() < _suppressUntil) {
+      console.log('[PULL] suppressed after query (stale read)');
+      return;
+    }
+
     const localSlots = useTimerStore.getState().taskSlots;
 
     console.log('[PULL] rows=', data?.length ?? 0, 'localSlots=', localSlots.length);
