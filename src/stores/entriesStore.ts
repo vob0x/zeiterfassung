@@ -525,3 +525,131 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
     set({ error: null });
   },
 }));
+
+// ── Cross-Device Entries Sync ──────────────────────────────────────────
+
+let _entriesPollInterval: ReturnType<typeof setInterval> | null = null;
+let _entriesRealtimeChannel: any = null;
+let _entriesSuppressUntil: number = 0;
+
+async function pullEntriesFromSupabase(): Promise<void> {
+  if (Date.now() < _entriesSuppressUntil) return;
+
+  const profile = useAuthStore.getState().profile;
+  if (!isSupabaseAvailable() || !supabaseClient || !hasEncryptionKey() || !profile?.id || profile.id.startsWith('local_')) return;
+
+  try {
+    const { data, error: sbErr } = await supabaseClient
+      .from('time_entries')
+      .select('*')
+      .eq('user_id', profile.id)
+      .order('date', { ascending: false });
+
+    // Re-check suppress after async query
+    if (Date.now() < _entriesSuppressUntil) return;
+    if (sbErr || !data) return;
+
+    // Quick check: has the row count or IDs changed?
+    const localEntries = useEntriesStore.getState().entries;
+    const remoteIds = data.map((r: any) => r.id).sort().join(',');
+    const localIds = localEntries.map(e => e.id).sort().join(',');
+    const remoteLatest = data.reduce((max: string, r: any) => {
+      const t = r.updated_at || '';
+      return t > max ? t : max;
+    }, '');
+    const localLatest = localEntries.reduce((max, e) => {
+      const t = e.updated_at || '';
+      return t > max ? t : max;
+    }, '');
+
+    // Skip if nothing changed
+    if (remoteIds === localIds && remoteLatest === localLatest) return;
+
+    // Decrypt and rebuild entries
+    const sbEntries: TimeEntry[] = await Promise.all(
+      data.map(async (row: any) => {
+        const decrypted = await decryptEntryFromSupabase(row);
+        let stakeholder: string | string[] = decrypted.stakeholder || '';
+        if (typeof stakeholder === 'string' && stakeholder) {
+          stakeholder = [stakeholder];
+        }
+        return {
+          id: decrypted.id,
+          user_id: decrypted.user_id,
+          date: typeof decrypted.date === 'string' ? decrypted.date : formatDateISO(new Date(decrypted.date)),
+          stakeholder,
+          projekt: decrypted.projekt || '',
+          taetigkeit: decrypted.taetigkeit || '',
+          format: decrypted.format || 'Einzelarbeit',
+          start_time: decrypted.start_time || '',
+          end_time: decrypted.end_time || '',
+          duration_ms: decrypted.duration_ms || 0,
+          notiz: decrypted.notiz || '',
+          created_at: decrypted.created_at || '',
+          updated_at: decrypted.updated_at || '',
+        };
+      })
+    );
+
+    // Merge: Supabase as base, add local-only
+    const sbIds = new Set(sbEntries.map(e => e.id));
+    const localOnly = localEntries.filter(e => !sbIds.has(e.id));
+    const merged = [...sbEntries, ...localOnly];
+
+    useEntriesStore.setState({ entries: merged });
+    setUserData('entries', merged);
+  } catch (e) {
+    // silent
+  }
+}
+
+export function subscribeToEntriesSync(): void {
+  const profile = useAuthStore.getState().profile;
+  if (!isSupabaseAvailable() || !supabaseClient || !profile?.id || profile.id.startsWith('local_')) return;
+
+  unsubscribeFromEntriesSync();
+
+  // Poll every 10s (entries are heavier due to encryption)
+  _entriesPollInterval = setInterval(() => {
+    pullEntriesFromSupabase();
+  }, 10000);
+
+  // Realtime for faster updates
+  try {
+    _entriesRealtimeChannel = supabaseClient
+      .channel(`entries-${profile.id}`)
+      .on(
+        'postgres_changes' as any,
+        {
+          event: '*',
+          schema: 'public',
+          table: 'time_entries',
+          filter: `user_id=eq.${profile.id}`,
+        },
+        () => {
+          setTimeout(() => pullEntriesFromSupabase(), 500);
+        }
+      )
+      .subscribe();
+  } catch (e) {
+    // Realtime failed, polling is the fallback
+  }
+}
+
+export function unsubscribeFromEntriesSync(): void {
+  if (_entriesRealtimeChannel && supabaseClient) {
+    try { supabaseClient.removeChannel(_entriesRealtimeChannel); } catch (_) {}
+    _entriesRealtimeChannel = null;
+  }
+  if (_entriesPollInterval) {
+    clearInterval(_entriesPollInterval);
+    _entriesPollInterval = null;
+  }
+}
+
+// Suppress sync after local mutations (add, update, delete, bulkAdd)
+useEntriesStore.subscribe((state, prevState) => {
+  if (state.entries !== prevState.entries) {
+    _entriesSuppressUntil = Date.now() + 5000;
+  }
+});

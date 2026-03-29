@@ -620,5 +620,145 @@ async function syncLocalData(
   }
 }
 
+// ── Cross-Device Team Sync ──────────────────────────────────────────────
+
+let _teamPollInterval: ReturnType<typeof setInterval> | null = null;
+let _teamRealtimeChannels: any[] = [];
+let _teamSuppressUntil: number = 0;
+
+async function pullTeamDataFromSupabase(): Promise<void> {
+  if (Date.now() < _teamSuppressUntil) return;
+
+  const state = useTeamStore.getState();
+  if (!state.connected || !state.team) return;
+
+  // Re-use the existing syncTeamData logic, but silently
+  try {
+    // Don't set loading to true for background sync
+    const profile = useAuthStore.getState().profile;
+    if (!isSupabaseAvailable() || !supabaseClient || !profile?.id) return;
+
+    const teamId = state.team.id;
+
+    // Quick check: fetch member count + latest entry timestamp
+    const { data: membersData } = await supabaseClient
+      .from('team_members')
+      .select('id, user_id, joined_at')
+      .eq('team_id', teamId);
+
+    if (Date.now() < _teamSuppressUntil) return;
+
+    const memberUserIds = (membersData || []).map((m: any) => m.user_id);
+    const currentMemberIds = state.members.map(m => m.user_id).sort().join(',');
+    const remoteMemberIds = memberUserIds.sort().join(',');
+
+    // Check if members changed
+    const membersChanged = currentMemberIds !== remoteMemberIds;
+
+    // Check if entries changed (quick count check)
+    let entriesChanged = false;
+    if (!membersChanged) {
+      const { count } = await supabaseClient
+        .from('time_entries')
+        .select('id', { count: 'exact', head: true })
+        .in('user_id', memberUserIds);
+
+      if (Date.now() < _teamSuppressUntil) return;
+
+      let currentTotal = 0;
+      state.memberEntries.forEach(entries => { currentTotal += entries.length; });
+      entriesChanged = (count || 0) !== currentTotal;
+    }
+
+    if (!membersChanged && !entriesChanged) return;
+
+    // Something changed — do a full sync
+    await useTeamStore.getState().syncTeamData();
+  } catch (e) {
+    // silent
+  }
+}
+
+export function subscribeToTeamSync(): void {
+  const state = useTeamStore.getState();
+  if (!state.connected || !state.team) return;
+  if (!isSupabaseAvailable() || !supabaseClient) return;
+
+  unsubscribeFromTeamSync();
+
+  const teamId = state.team.id;
+  // Poll every 15s (team data is heavy due to multi-user encryption)
+  _teamPollInterval = setInterval(() => {
+    pullTeamDataFromSupabase();
+  }, 15000);
+
+  // Realtime: listen for team_members changes
+  try {
+    const memberChannel = supabaseClient
+      .channel(`team-members-${teamId}`)
+      .on(
+        'postgres_changes' as any,
+        {
+          event: '*',
+          schema: 'public',
+          table: 'team_members',
+          filter: `team_id=eq.${teamId}`,
+        },
+        () => {
+          setTimeout(() => pullTeamDataFromSupabase(), 1000);
+        }
+      )
+      .subscribe();
+    _teamRealtimeChannels.push(memberChannel);
+  } catch (e) {
+    // Realtime failed, polling is the fallback
+  }
+
+  // Realtime: listen for time_entries changes from all team members
+  const memberUserIds = state.members.map(m => m.user_id);
+  for (const uid of memberUserIds) {
+    try {
+      const entryChannel = supabaseClient
+        .channel(`team-entries-${uid}`)
+        .on(
+          'postgres_changes' as any,
+          {
+            event: '*',
+            schema: 'public',
+            table: 'time_entries',
+            filter: `user_id=eq.${uid}`,
+          },
+          () => {
+            setTimeout(() => pullTeamDataFromSupabase(), 1000);
+          }
+        )
+        .subscribe();
+      _teamRealtimeChannels.push(entryChannel);
+    } catch (e) {
+      // silent
+    }
+  }
+}
+
+export function unsubscribeFromTeamSync(): void {
+  if (_teamRealtimeChannels.length > 0 && supabaseClient) {
+    for (const ch of _teamRealtimeChannels) {
+      try { supabaseClient.removeChannel(ch); } catch (_) {}
+    }
+    _teamRealtimeChannels = [];
+  }
+  if (_teamPollInterval) {
+    clearInterval(_teamPollInterval);
+    _teamPollInterval = null;
+  }
+}
+
+// Suppress after local team mutations
+useTeamStore.subscribe((state, prevState) => {
+  if (state.members !== prevState.members || state.memberEntries !== prevState.memberEntries) {
+    _teamSuppressUntil = Date.now() + 5000;
+  }
+});
+
 // NOTE: Team sync is deferred to after auth (called from App.tsx),
 // NOT on store creation, because we need the user ID for scoped keys.
