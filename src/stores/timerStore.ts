@@ -190,6 +190,9 @@ export const useTimerStore = create<TimerState>((set, get) => ({
       ),
       activeSlotId: state.activeSlotId === id ? null : state.activeSlotId,
     }));
+    // Sync reset state to other devices
+    get().saveTimers();
+    syncStateToSupabase();
   },
 
   updateSlotField: (id, field, value) => {
