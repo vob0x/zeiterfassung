@@ -416,3 +416,141 @@ export const useMasterStore = create<MasterState>((set, get) => ({
     set({ error: null });
   },
 }));
+
+// ── Cross-Device Master Data Sync ──────────────────────────────────────
+
+let _masterPollInterval: ReturnType<typeof setInterval> | null = null;
+let _masterRealtimeChannels: any[] = [];
+let _masterSuppressUntil: number = 0;
+
+// Track last known state fingerprint to avoid unnecessary updates
+let _lastMasterFingerprint: string = '';
+
+function getMasterFingerprint(sh: string[], pr: string[], ac: string[], fm: string[]): string {
+  return [sh.join(','), pr.join(','), ac.join(','), fm.join(',')].join('|');
+}
+
+async function pullMasterDataFromSupabase(): Promise<void> {
+  if (Date.now() < _masterSuppressUntil) return;
+
+  const userId = getSupabaseUserId();
+  if (!isSupabaseAvailable() || !supabaseClient || !userId) return;
+
+  try {
+    const [shRes, prRes, actRes, fmtRes] = await Promise.all([
+      supabaseClient.from('stakeholders').select('name').order('sort_order'),
+      supabaseClient.from('projects').select('name').order('sort_order'),
+      supabaseClient.from('activities').select('name').order('sort_order'),
+      supabaseClient.from('formats').select('name').order('sort_order'),
+    ]);
+
+    // Re-check suppress after async query
+    if (Date.now() < _masterSuppressUntil) return;
+
+    const sbStakeholders = (await Promise.all(
+      (shRes.data || []).map((r: any) => decryptFieldSmart(r.name))
+    )).filter(Boolean) as string[];
+    const sbProjects = (await Promise.all(
+      (prRes.data || []).map((r: any) => decryptFieldSmart(r.name))
+    )).filter(Boolean) as string[];
+    const sbActivities = (await Promise.all(
+      (actRes.data || []).map((r: any) => decryptFieldSmart(r.name))
+    )).filter(Boolean) as string[];
+    const sbFormats = (await Promise.all(
+      (fmtRes.data || []).map((r: any) => decryptFieldSmart(r.name))
+    )).filter(Boolean) as string[];
+
+    // Merge with local
+    const state = useMasterStore.getState();
+    const merged = {
+      stakeholders: mergeNames(sbStakeholders, state.stakeholders),
+      projects: mergeNames(sbProjects, state.projects),
+      activities: mergeNames(sbActivities, state.activities),
+      formats: mergeNames(sbFormats, state.formats),
+    };
+
+    // Check fingerprint — skip if unchanged
+    const newFp = getMasterFingerprint(merged.stakeholders, merged.projects, merged.activities, merged.formats);
+    if (newFp === _lastMasterFingerprint) return;
+    _lastMasterFingerprint = newFp;
+
+    // Update store + localStorage
+    useMasterStore.setState(merged);
+    setUserData('stakeholders', merged.stakeholders);
+    setUserData('projects', merged.projects);
+    setUserData('activities', merged.activities);
+    setUserData('formats', merged.formats);
+  } catch (e) {
+    // silent
+  }
+}
+
+export function subscribeToMasterSync(): void {
+  const userId = getSupabaseUserId();
+  if (!isSupabaseAvailable() || !supabaseClient || !userId) return;
+
+  unsubscribeFromMasterSync();
+
+  // Initialize fingerprint from current state
+  const state = useMasterStore.getState();
+  _lastMasterFingerprint = getMasterFingerprint(state.stakeholders, state.projects, state.activities, state.formats);
+
+  // Poll every 5 seconds (master data changes less frequently than timers)
+  _masterPollInterval = setInterval(() => {
+    pullMasterDataFromSupabase();
+  }, 5000);
+
+  // Realtime subscriptions for each table
+  const tables = ['stakeholders', 'projects', 'activities', 'formats'];
+  for (const table of tables) {
+    try {
+      const channel = supabaseClient
+        .channel(`master-${table}-${userId}`)
+        .on(
+          'postgres_changes' as any,
+          {
+            event: '*',
+            schema: 'public',
+            table,
+            filter: `user_id=eq.${userId}`,
+          },
+          () => {
+            setTimeout(() => pullMasterDataFromSupabase(), 500);
+          }
+        )
+        .subscribe();
+      _masterRealtimeChannels.push(channel);
+    } catch (e) {
+      // Realtime failed, polling is the fallback
+    }
+  }
+}
+
+export function unsubscribeFromMasterSync(): void {
+  if (_masterRealtimeChannels.length > 0 && supabaseClient) {
+    for (const ch of _masterRealtimeChannels) {
+      try { supabaseClient.removeChannel(ch); } catch (_) {}
+    }
+    _masterRealtimeChannels = [];
+  }
+  if (_masterPollInterval) {
+    clearInterval(_masterPollInterval);
+    _masterPollInterval = null;
+  }
+}
+
+// Subscribe to store changes to auto-suppress after local mutations
+useMasterStore.subscribe((state, prevState) => {
+  const changed =
+    state.stakeholders !== prevState.stakeholders ||
+    state.projects !== prevState.projects ||
+    state.activities !== prevState.activities ||
+    state.formats !== prevState.formats;
+
+  if (changed) {
+    _masterSuppressUntil = Date.now() + 3000;
+    _lastMasterFingerprint = getMasterFingerprint(
+      state.stakeholders, state.projects, state.activities, state.formats
+    );
+  }
+});

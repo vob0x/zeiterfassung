@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown, Plus } from 'lucide-react';
 import { useI18n } from '../../i18n';
 
@@ -27,14 +28,29 @@ const InlinePicker: React.FC<InlinePickerProps> = ({
   const [newValue, setNewValue] = useState('');
   const { t } = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const newInputRef = useRef<HTMLInputElement>(null);
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
 
-  // Close on outside click
+  // Calculate dropdown position when opening
+  useEffect(() => {
+    if (!isOpen || !containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    setDropdownPos({
+      top: rect.bottom + 4,
+      left: rect.left,
+    });
+  }, [isOpen]);
+
+  // Close on outside click (check both trigger and portal dropdown)
   useEffect(() => {
     if (!isOpen) return;
     const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const inTrigger = containerRef.current?.contains(target);
+      const inDropdown = dropdownRef.current?.contains(target);
+      if (!inTrigger && !inDropdown) {
         setIsOpen(false);
         setFilter('');
         setIsAdding(false);
@@ -127,14 +143,14 @@ const InlinePicker: React.FC<InlinePickerProps> = ({
         />
       </button>
 
-      {/* Dropdown */}
-      {isOpen && (
+      {/* Dropdown (rendered via portal to escape overflow:hidden parents) */}
+      {isOpen && createPortal(
         <div
+          ref={dropdownRef}
           style={{
-            position: 'absolute',
-            top: '100%',
-            left: 0,
-            marginTop: '4px',
+            position: 'fixed',
+            top: dropdownPos.top,
+            left: dropdownPos.left,
             minWidth: '180px',
             maxWidth: '260px',
             maxHeight: '240px',
@@ -142,7 +158,7 @@ const InlinePicker: React.FC<InlinePickerProps> = ({
             border: '1px solid var(--border)',
             borderRadius: '8px',
             boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
-            zIndex: 50,
+            zIndex: 9999,
             overflow: 'hidden',
             display: 'flex',
             flexDirection: 'column',
@@ -281,7 +297,8 @@ const InlinePicker: React.FC<InlinePickerProps> = ({
               )}
             </div>
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

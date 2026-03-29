@@ -5,6 +5,7 @@ import { useEntriesStore } from '@/stores/entriesStore'
 import { useMasterStore } from '@/stores/masterStore'
 import { useTeamStore } from '@/stores/teamStore'
 import { useTimerStore, subscribeToTimerSync, unsubscribeFromTimerSync } from '@/stores/timerStore'
+import { subscribeToMasterSync, unsubscribeFromMasterSync } from '@/stores/masterStore'
 import { I18nProvider, useI18n } from '@/i18n'
 import Layout from '@/components/Layout'
 import LoginScreen from '@/components/Auth/LoginScreen'
@@ -34,10 +35,13 @@ function AppContent() {
         // Start listening for cross-device timer changes after initial restore
         subscribeToTimerSync()
       })
+      // Start listening for cross-device master data changes
+      subscribeToMasterSync()
     }
 
     return () => {
       unsubscribeFromTimerSync()
+      unsubscribeFromMasterSync()
     }
   }, [isAuthenticated, needsPassword, fetchEntries, fetchMaster, syncTeam, restoreTimers])
 

@@ -1,11 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { TimerSlot } from '@/types';
 import { useTimerStore } from '../../stores/timerStore';
 import { useEntriesStore } from '../../stores/entriesStore';
 import { useMasterStore } from '../../stores/masterStore';
 import { useI18n } from '../../i18n';
 import { useUiStore } from '../../stores/uiStore';
-import { X } from 'lucide-react';
+import { X, MessageSquare } from 'lucide-react';
 import { formatDuration, formatDateISO } from '../../lib/utils';
 import InlinePicker from './InlinePicker';
 import Orb from './Orb';
@@ -16,6 +16,7 @@ interface TimerLaneProps {
 
 const TimerLane: React.FC<TimerLaneProps> = ({ slot }) => {
   const { t } = useI18n();
+  const [showNotiz, setShowNotiz] = useState(!!slot.notiz);
   const { showToast } = useUiStore();
   const {
     pauseTimer,
@@ -90,10 +91,6 @@ const TimerLane: React.FC<TimerLaneProps> = ({ slot }) => {
   return (
     <div
       style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: isRunning ? '14px' : '10px',
-        padding: isRunning ? '14px 18px' : '10px 14px',
         borderRadius: '14px',
         background: isRunning ? `${c}08` : 'rgba(255,255,255,0.02)',
         border: `1px solid ${isRunning ? c + '25' : 'var(--border)'}`,
@@ -117,6 +114,16 @@ const TimerLane: React.FC<TimerLaneProps> = ({ slot }) => {
           }}
         />
       )}
+
+      {/* Main row */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: isRunning ? '14px' : '10px',
+          padding: isRunning ? '14px 18px' : '10px 14px',
+        }}
+      >
 
       {/* Breathing Orb — play/pause toggle */}
       <Orb
@@ -278,6 +285,35 @@ const TimerLane: React.FC<TimerLaneProps> = ({ slot }) => {
         </button>
       )}
 
+      {/* Notiz toggle */}
+      <button
+        onClick={() => setShowNotiz(!showNotiz)}
+        style={{
+          width: 26,
+          height: 26,
+          borderRadius: '50%',
+          border: `1px solid ${showNotiz || slot.notiz ? c + '30' : 'var(--border)'}`,
+          background: showNotiz ? `${c}10` : 'transparent',
+          color: showNotiz || slot.notiz ? c : 'var(--text-muted)',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          transition: 'all 0.2s',
+          flexShrink: 0,
+          opacity: showNotiz || slot.notiz ? 0.8 : 0.4,
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.opacity = '1';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.opacity = showNotiz || slot.notiz ? '0.8' : '0.4';
+        }}
+        title={t('field.notiz')}
+      >
+        <MessageSquare className="w-3 h-3" />
+      </button>
+
       {/* Remove lane */}
       <button
         onClick={() => removeSlot(slot.id)}
@@ -310,6 +346,41 @@ const TimerLane: React.FC<TimerLaneProps> = ({ slot }) => {
       >
         <X className="w-3 h-3" />
       </button>
+      </div>{/* end main row */}
+
+      {/* Notiz input row */}
+      {showNotiz && (
+        <div
+          style={{
+            padding: '0 18px 10px 18px',
+            marginLeft: isRunning ? 48 : 36,
+          }}
+        >
+          <input
+            type="text"
+            value={slot.notiz || ''}
+            onChange={(e) => updateSlotField(slot.id, 'notiz', e.target.value)}
+            placeholder={t('ph.notiz')}
+            style={{
+              width: '100%',
+              padding: '5px 8px',
+              border: `1px solid ${isRunning ? c + '20' : 'var(--border)'}`,
+              borderRadius: '6px',
+              background: 'transparent',
+              color: 'var(--text)',
+              fontSize: '11px',
+              outline: 'none',
+              fontFamily: 'var(--font)',
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = c;
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = isRunning ? c + '20' : 'var(--border)';
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 };
