@@ -123,7 +123,6 @@ function syncStateToSupabase(): void {
   const state = useTimerStore.getState();
   const serialized = serializeSlots(state.taskSlots);
   _suppressUntil = Date.now() + 5000;
-  console.log('[SYNC] syncStateToSupabase, slots:', serialized.length);
   pushTimersToSupabase(serialized);
 }
 
@@ -287,20 +286,16 @@ export const useTimerStore = create<TimerState>((set, get) => ({
   },
 
   stopTimer: (id: string) => {
-    console.log('[STOP] stopTimer called for', id);
     const state = get();
     const slot = state.taskSlots.find((s) => s.id === id);
-    if (!slot) { console.log('[STOP] slot not found, aborting'); return; }
+    if (!slot) return;
 
     // Calculate final duration
     const totalMs =
       slot.pausedMs +
       (slot.isPaused ? 0 : Date.now() - slot.startTime.getTime());
-    console.log('[STOP] totalMs =', totalMs);
-
     // Minimum 1 second to save
     if (totalMs < 1000) {
-      console.log('[STOP] too short, aborting');
       set({ error: 'Timer too short' });
       return;
     }
@@ -330,9 +325,8 @@ export const useTimerStore = create<TimerState>((set, get) => ({
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       });
-      console.log('[STOP] entry saved to entriesStore');
     } catch (e) {
-      console.error('[STOP] entriesStore.add FAILED:', e);
+      console.error('[TimerSync] entriesStore.add failed:', e);
     }
 
     // Remove the stopped slot entirely
@@ -340,8 +334,6 @@ export const useTimerStore = create<TimerState>((set, get) => ({
       taskSlots: st.taskSlots.filter((s) => s.id !== id),
       activeSlotId: st.activeSlotId === id ? null : st.activeSlotId,
     }));
-    console.log('[STOP] slot removed, remaining:', get().taskSlots.length);
-
     // Check if any active timers remain
     const remaining = get().taskSlots;
     const hasActive = remaining.some((s) => !s.isPaused);
@@ -350,9 +342,8 @@ export const useTimerStore = create<TimerState>((set, get) => ({
       set({ tickInterval: null });
     }
 
-    // Save to localStorage + push to Supabase DIRECTLY
+    // Save to localStorage + push to Supabase
     get().saveTimers();
-    console.log('[STOP] calling syncStateToSupabase');
     syncStateToSupabase();
   },
 
@@ -402,8 +393,6 @@ export const useTimerStore = create<TimerState>((set, get) => ({
 
   saveTimers: () => {
     const state = get();
-    console.log('[SAVE] saveTimers (localStorage only), slots:', state.taskSlots.length);
-
     if (state.taskSlots.length === 0) {
       removeUserData('timerSlots');
       return;
@@ -446,7 +435,7 @@ export const useTimerStore = create<TimerState>((set, get) => ({
           saved = { slots: sbSlots, savedAt };
         }
       } catch (e) {
-        console.warn('[TimerSync] Supabase restore failed, falling back to localStorage:', e);
+        // Supabase restore failed, fall back to localStorage
       }
     }
 
@@ -531,11 +520,7 @@ if (typeof window !== 'undefined') {
 
 async function pushTimersToSupabase(slots: SerializedSlot[]): Promise<void> {
   const profile = useAuthStore.getState().profile;
-  console.log('[PUSH] pushTimersToSupabase, slots:', slots.length, 'profile:', profile?.id?.substring(0, 8));
-  if (!isSupabaseAvailable() || !supabaseClient || !profile?.id || profile.id.startsWith('local_')) {
-    console.log('[PUSH] guard failed — not pushing');
-    return;
-  }
+  if (!isSupabaseAvailable() || !supabaseClient || !profile?.id || profile.id.startsWith('local_')) return;
 
   try {
     // Delete all existing timers for this user
@@ -544,15 +529,9 @@ async function pushTimersToSupabase(slots: SerializedSlot[]): Promise<void> {
       .delete()
       .eq('user_id', profile.id);
 
-    if (delError) {
-      console.error('[PUSH] DELETE failed:', delError.message);
-      return;
-    }
+    if (delError) return;
 
-    if (slots.length === 0) {
-      console.log('[PUSH] Cleared all remote timers (0 slots)');
-      return;
-    }
+    if (slots.length === 0) return;
 
     // Insert current timer state
     const rows = slots.map((s) => ({
@@ -577,12 +556,10 @@ async function pushTimersToSupabase(slots: SerializedSlot[]): Promise<void> {
       .insert(rows);
 
     if (insError) {
-      console.error('[PUSH] INSERT failed:', insError.message);
-    } else {
-      console.log('[PUSH] Pushed', rows.length, 'rows to Supabase');
+      console.error('[TimerSync] INSERT failed:', insError.message);
     }
   } catch (e) {
-    console.warn('[PUSH] Push failed:', e);
+    // silent
   }
 }
 
@@ -593,10 +570,7 @@ let _realtimeChannel: any = null;
 
 async function pullTimersFromSupabase(): Promise<void> {
   // Skip if we recently pushed (prevents reading stale data during async DELETE+INSERT)
-  if (Date.now() < _suppressUntil) {
-    console.log('[PULL] suppressed (remaining:', Math.round((_suppressUntil - Date.now()) / 1000), 's)');
-    return;
-  }
+  if (Date.now() < _suppressUntil) return;
 
   const profile = useAuthStore.getState().profile;
   if (!isSupabaseAvailable() || !supabaseClient || !profile?.id) return;
@@ -611,19 +585,13 @@ async function pullTimersFromSupabase(): Promise<void> {
 
     // Re-check suppress AFTER the async query. A local push may have started
     // while this query was in flight, meaning we're reading stale data.
-    if (Date.now() < _suppressUntil) {
-      console.log('[PULL] suppressed after query (stale read)');
-      return;
-    }
+    if (Date.now() < _suppressUntil) return;
 
     const localSlots = useTimerStore.getState().taskSlots;
-
-    console.log('[PULL] rows=', data?.length ?? 0, 'localSlots=', localSlots.length);
 
     // ── Remote is empty → clear local timers ──────────────────────
     if (!data || data.length === 0) {
       if (localSlots.length > 0) {
-        console.log('[PULL] Remote empty → clearing local timers');
         const s = useTimerStore.getState();
         if (s.tickInterval) clearInterval(s.tickInterval);
         useTimerStore.setState({ taskSlots: [], tickInterval: null, activeSlotId: null });
@@ -641,9 +609,7 @@ async function pullTimersFromSupabase(): Promise<void> {
       .sort()
       .join(',');
 
-    if (remoteKey === localKey) return; // Nothing changed
-
-    console.log('[PULL] Remote changed → updating local. remote:', remoteKey, 'local:', localKey);
+    if (remoteKey === localKey) return;
 
     // ── Rebuild local state from remote ───────────────────────────
     const now = Date.now();
@@ -707,7 +673,7 @@ async function pullTimersFromSupabase(): Promise<void> {
       useTimerStore.setState({ tickInterval: interval });
     }
   } catch (e) {
-    console.warn('[TimerSync] Pull failed:', e);
+    // silent
   }
 }
 
@@ -717,7 +683,7 @@ export function subscribeToTimerSync(): void {
 
   unsubscribeFromTimerSync();
 
-  console.log('[TimerSync] Starting cross-device sync (poll every 3s)');
+  // Poll every 3s + Realtime for instant updates
 
   // Primary: polling every 3 seconds (reliable)
   _pollInterval = setInterval(() => {
@@ -743,7 +709,7 @@ export function subscribeToTimerSync(): void {
       )
       .subscribe();
   } catch (e) {
-    console.warn('[TimerSync] Realtime failed, relying on polling:', e);
+    // Realtime failed, polling is the fallback
   }
 }
 
