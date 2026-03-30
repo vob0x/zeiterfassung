@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { TimeEntry } from '@/types';
 import { useI18n } from '../../i18n';
-import { computeUnionMs, formatHoursAdaptive } from '../../lib/utils';
+import { formatHoursAdaptive } from '../../lib/utils';
 
 interface ActivityBarsProps {
   entries: TimeEntry[];
@@ -20,30 +20,17 @@ const COLORS = [
 export function ActivityBars({ entries, isFormat = false }: ActivityBarsProps) {
   const { t } = useI18n();
   const { activities, totalHours } = useMemo(() => {
-    // Group entries by key AND date first, then compute union per group
-    const grouped: Record<string, Map<string, TimeEntry[]>> = {};
+    // Group entries by key, sum duration_ms
+    const itemMap: Record<string, number> = {};
 
     for (const entry of entries) {
       const rawKey = isFormat ? (entry.format || 'Einzelarbeit') : entry.taetigkeit;
       const key = rawKey && rawKey.trim() ? rawKey.trim() : (isFormat ? 'Einzelarbeit' : '(ohne Bezeichnung)');
-      if (!grouped[key]) grouped[key] = new Map();
-      const dayMap = grouped[key];
-      if (!dayMap.has(entry.date)) dayMap.set(entry.date, []);
-      dayMap.get(entry.date)!.push(entry);
-    }
-
-    // Compute hours per key: union per day, then sum across days
-    const itemMap: Record<string, number> = {};
-    for (const [key, dayMap] of Object.entries(grouped)) {
-      let total = 0;
-      dayMap.forEach((dayEntries) => {
-        total += computeUnionMs(dayEntries) / (1000 * 60 * 60);
-      });
-      itemMap[key] = total;
+      itemMap[key] = (itemMap[key] || 0) + (entry.duration_ms || 0);
     }
 
     const sorted = Object.entries(itemMap)
-      .map(([name, hours]) => ({ name, hours }))
+      .map(([name, ms]) => ({ name, hours: ms / (1000 * 60 * 60) }))
       .sort((a, b) => b.hours - a.hours);
 
     const total = sorted.reduce((sum, a) => sum + a.hours, 0);

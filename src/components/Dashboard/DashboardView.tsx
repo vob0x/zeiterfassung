@@ -3,7 +3,7 @@ import { useI18n } from '../../i18n';
 import { useEntriesStore } from '../../stores/entriesStore';
 import { useMasterStore } from '../../stores/masterStore';
 import { PeriodType } from '@/types';
-import { computeUnionMs, formatDateISO } from '../../lib/utils';
+import { formatDateISO } from '../../lib/utils';
 import { KpiCards } from './KpiCards';
 import { Heatmap } from './Heatmap';
 import { ActivityBars } from './ActivityBars';
@@ -74,23 +74,11 @@ export default function DashboardView() {
   const todayStr = formatDateISO(new Date());
   const todayEntries = entries.filter((e) => e.date === todayStr);
 
-  const kpiToday = computeUnionMs(todayEntries) / (1000 * 60 * 60);
+  // Sum of duration_ms — consistent with team dashboard and respects parallel timers
+  const kpiToday = todayEntries.reduce((sum, e) => sum + (e.duration_ms || 0), 0) / (1000 * 60 * 60);
 
-  // Fix: compute kpiPeriod correctly by grouping by date first
   const kpiPeriod = useMemo(() => {
-    const byDate = new Map<string, typeof filteredEntries>();
-    filteredEntries.forEach((entry) => {
-      if (!byDate.has(entry.date)) {
-        byDate.set(entry.date, []);
-      }
-      byDate.get(entry.date)!.push(entry);
-    });
-
-    let total = 0;
-    byDate.forEach((dayEntries) => {
-      total += computeUnionMs(dayEntries) / (1000 * 60 * 60);
-    });
-    return total;
+    return filteredEntries.reduce((sum, e) => sum + (e.duration_ms || 0), 0) / (1000 * 60 * 60);
   }, [filteredEntries]);
 
   const kpiEntries = filteredEntries.length;

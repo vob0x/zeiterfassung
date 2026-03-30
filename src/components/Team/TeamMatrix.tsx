@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { TimeEntry, TeamMember } from '@/types';
 import { useI18n } from '../../i18n';
-import { computeUnionMs } from '../../lib/utils';
+// duration_ms sum used instead of computeUnionMs to correctly count parallel timer entries
 
 interface TeamMatrixProps {
   dimension: 'stakeholder' | 'project';
@@ -70,12 +70,7 @@ export function TeamMatrix({ dimension, entries, members }: TeamMatrixProps) {
           return matchesDimension && e.user_id === uid;
         });
 
-        let total = 0;
-        const dates = new Set(memberItemEntries.map((e) => e.date));
-        for (const date of dates) {
-          const dateEntries = memberItemEntries.filter((e) => e.date === date);
-          total += computeUnionMs(dateEntries) / (1000 * 60 * 60);
-        }
+        const total = memberItemEntries.reduce((sum, e) => sum + (e.duration_ms || 0), 0) / (1000 * 60 * 60);
 
         matrix[item][memberId] = total;
         itemTotals[item] += total;

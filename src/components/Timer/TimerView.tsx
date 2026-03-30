@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { useTimerStore } from '../../stores/timerStore';
 import { useEntriesStore } from '../../stores/entriesStore';
 import { useI18n } from '../../i18n';
-import { formatDuration, formatDurationHM, getTodayISO, computeUnionMs } from '../../lib/utils';
+import { formatDuration, formatDurationHM, getTodayISO } from '../../lib/utils';
 import { Plus } from 'lucide-react';
 import TimerLane from './TimerLane';
 import FuzzySearch from './FuzzySearch';
@@ -34,7 +34,7 @@ const TimerView: React.FC = () => {
     return entries.filter((e) => e.date === todayISO);
   }, [entries]);
 
-  const todayTotalMs = useMemo(() => computeUnionMs(todayEntries), [todayEntries]);
+  const todayTotalMs = useMemo(() => todayEntries.reduce((sum, e) => sum + (e.duration_ms || 0), 0), [todayEntries]);
 
   // Running timers total (live)
   const runningTotalMs = taskSlots.reduce((sum, slot) => sum + getSlotElapsed(slot.id), 0);

@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { TimeEntry } from '@/types';
 import { useI18n } from '../../i18n';
-import { computeUnionMs } from '../../lib/utils';
 
 interface TeamDailyProps {
   memberEntries: Map<string, TimeEntry[]>;
@@ -33,7 +32,7 @@ export function TeamDaily({ memberEntries, entries }: TeamDailyProps) {
 
       for (const date of uniqueDates) {
         const memberDateEntries = (memberEntries.get(memberId) || []).filter((e) => e.date === date);
-        const hours = computeUnionMs(memberDateEntries) / (1000 * 60 * 60);
+        const hours = memberDateEntries.reduce((sum, e) => sum + (e.duration_ms || 0), 0) / (1000 * 60 * 60);
         matrix[memberId][date] = hours;
         if (hours > 0) {
           total += hours;

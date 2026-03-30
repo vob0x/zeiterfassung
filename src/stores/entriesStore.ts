@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { TimeEntry, FilterState } from '@/types';
 import { getUserData, setUserData } from '@/lib/userStorage';
-import { computeUnionMs, formatDateISO } from '@/lib/utils';
+import { formatDateISO } from '@/lib/utils';
 import { supabaseClient, isSupabaseAvailable } from '@/lib/supabase';
 import { useAuthStore } from './authStore';
 import { hasEncryptionKey, encryptFieldForTeam, decryptFieldSmart } from '@/lib/crypto';
@@ -514,7 +514,7 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
   getDayTotal: (date: string) => {
     const state = get();
     const dayEntries = state.entries.filter((e) => e.date === date);
-    return computeUnionMs(dayEntries) / (1000 * 60 * 60); // Convert to hours
+    return dayEntries.reduce((sum, e) => sum + (e.duration_ms || 0), 0) / (1000 * 60 * 60); // Convert to hours
   },
 
   setError: (error: string | null) => {

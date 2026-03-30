@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { TimeEntry } from '@/types';
 import { useI18n } from '../../i18n';
-import { computeUnionMs, formatHoursAdaptive } from '../../lib/utils';
+import { formatHoursAdaptive } from '../../lib/utils';
 
 interface HeatmapProps {
   entries: TimeEntry[];
@@ -41,23 +41,14 @@ export function Heatmap({ entries }: HeatmapProps) {
       }
     }
 
-    // Fill matrix - compute union per stakeholder × project × day
+    // Fill matrix - sum duration_ms per stakeholder × project
     for (const sh of uniqueStakeholders) {
       for (const pr of uniqueProjects) {
         const matchingEntries = entries.filter((e) => {
           const shArray = Array.isArray(e.stakeholder) ? e.stakeholder : [e.stakeholder];
           return shArray.includes(sh) && e.projekt === pr;
         });
-        // Group by date, compute union per day, then sum
-        const byDate = new Map<string, TimeEntry[]>();
-        matchingEntries.forEach((e) => {
-          if (!byDate.has(e.date)) byDate.set(e.date, []);
-          byDate.get(e.date)!.push(e);
-        });
-        let totalMs = 0;
-        byDate.forEach((dayEntries) => {
-          totalMs += computeUnionMs(dayEntries);
-        });
+        const totalMs = matchingEntries.reduce((sum, e) => sum + (e.duration_ms || 0), 0);
         const hours = totalMs / (1000 * 60 * 60);
         matrix[sh][pr] = hours;
         stakeholderTotals[sh] += hours;

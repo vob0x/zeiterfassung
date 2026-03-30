@@ -5,7 +5,7 @@ import { useI18n } from '../../i18n';
 import { useUiStore } from '../../stores/uiStore';
 import { useMasterStore } from '../../stores/masterStore';
 import { X, Clock, Search } from 'lucide-react';
-import { formatDurationHM, computeUnionMs } from '../../lib/utils';
+import { formatDurationHM } from '../../lib/utils';
 import EntryRow from './EntryRow';
 import EditEntryModal from './EditEntryModal';
 
@@ -126,20 +126,7 @@ const EntriesView: React.FC = () => {
 
   // Calculate total duration
   const totalDurationMs = useMemo(() => {
-    // Group by date and compute union per day
-    const byDate = new Map<string, TimeEntry[]>();
-    sortedEntries.forEach((e) => {
-      if (!byDate.has(e.date)) {
-        byDate.set(e.date, []);
-      }
-      byDate.get(e.date)!.push(e);
-    });
-
-    let total = 0;
-    byDate.forEach((dayEntries) => {
-      total += computeUnionMs(dayEntries);
-    });
-    return total;
+    return sortedEntries.reduce((sum, e) => sum + (e.duration_ms || 0), 0);
   }, [sortedEntries]);
 
   // Handle sort column click
