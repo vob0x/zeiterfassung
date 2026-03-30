@@ -9,7 +9,7 @@ interface ComboResult {
   stakeholder: string;
   projekt: string;
   taetigkeit: string;
-  format?: string; // NEW: optional format (defaults to 'Einzelarbeit' if not selected)
+  format: string;
   score: number;
   label: string;
 }
@@ -29,11 +29,15 @@ function fuzzyMatch(query: string, target: string): number {
   const q = query.toLowerCase();
   const t = target.toLowerCase();
 
-  // Exact prefix match = highest score
+  // Exact full match = highest
+  if (t === q) return 120;
+  // Exact prefix match
   if (t.startsWith(q)) return 100;
-
   // Contains match
   if (t.includes(q)) return 80;
+  // Word boundary match (e.g. "meet" matches "team-meeting" at the "m" of "meeting")
+  const wordBoundaryRe = new RegExp(`(?:^|[\\s\\-_\\.])${q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i');
+  if (wordBoundaryRe.test(t)) return 75;
 
   // Fuzzy char-by-char
   let qi = 0;
@@ -54,7 +58,16 @@ function fuzzyMatch(query: string, target: string): number {
   return 30 + maxConsecutive * 10;
 }
 
-// Multi-word fuzzy search across all dimensions
+type DimName = 'stakeholder' | 'project' | 'activity' | 'format';
+interface DimMatch { name: string; score: number }
+
+/**
+ * Dimension-aware search: instead of O(n^4) brute force, each query word
+ * is matched against each dimension independently. Words are assigned to
+ * their best-matching dimension, then candidate combos are built only from
+ * matched items — dramatically reducing the search space and improving
+ * relevance.
+ */
 function searchCombos(
   query: string,
   stakeholders: string[],
@@ -67,14 +80,116 @@ function searchCombos(
   if (words.length === 0) return [];
 
   const frecencyMap = new Map(frecency.map((f) => [f.key, f]));
-  const results: ComboResult[] = [];
   const now = Date.now();
 
-  // For each combination, check if all query words match at least one dimension
-  for (const sh of stakeholders) {
-    for (const pr of projects) {
-      for (const act of ['', ...activities]) {
-        for (const fmt of ['', ...formats]) { // NEW: iterate formats (empty = no filter)
+  // Step 1: For each word, find top matches per dimension
+  const dims: { key: DimName; items: string[] }[] = [
+    { key: 'stakeholder', items: stakeholders },
+    { key: 'project', items: projects },
+    { key: 'activity', items: activities },
+    { key: 'format', items: formats },
+  ];
+
+  // wordMatches[wordIdx][dimKey] = sorted list of matches
+  const wordMatches: Record<DimName, DimMatch[]>[] = words.map((word) => {
+    const perDim: Record<DimName, DimMatch[]> = {
+      stakeholder: [], project: [], activity: [], format: [],
+    };
+    for (const dim of dims) {
+      for (const item of dim.items) {
+        const score = fuzzyMatch(word, item);
+        if (score > 0) {
+          perDim[dim.key].push({ name: item, score });
+        }
+      }
+      perDim[dim.key].sort((a, b) => b.score - a.score);
+      // Keep top 5 per dimension to limit combos
+      perDim[dim.key] = perDim[dim.key].slice(0, 5);
+    }
+    return perDim;
+  });
+
+  // Step 2: Assign each word to its best dimension (greedy, no duplication)
+  // Each word gets a "primary dimension" = the dimension where its top match scores highest
+  const wordBestDim: { dim: DimName; score: number }[] = words.map((_, wi) => {
+    let bestDim: DimName = 'stakeholder';
+    let bestScore = 0;
+    for (const dim of dims) {
+      const topMatch = wordMatches[wi][dim.key][0];
+      if (topMatch && topMatch.score > bestScore) {
+        bestScore = topMatch.score;
+        bestDim = dim.key;
+      }
+    }
+    return { dim: bestDim, score: bestScore };
+  });
+
+  // If two words both want the same dimension, let the one with the higher score keep it,
+  // and reassign the other to its next-best dimension
+  const usedDims = new Set<DimName>();
+  const wordAssignments: { dim: DimName; matches: DimMatch[] }[] = new Array(words.length);
+
+  // Sort word indices by descending best score for greedy assignment
+  const wordOrder = words.map((_, i) => i).sort((a, b) => wordBestDim[b].score - wordBestDim[a].score);
+
+  for (const wi of wordOrder) {
+    // Try dimensions in order of match quality for this word
+    const dimsByScore = dims
+      .map((d) => ({ key: d.key, topScore: wordMatches[wi][d.key][0]?.score || 0 }))
+      .filter((d) => d.topScore > 0)
+      .sort((a, b) => b.topScore - a.topScore);
+
+    let assigned = false;
+    for (const d of dimsByScore) {
+      if (!usedDims.has(d.key)) {
+        usedDims.add(d.key);
+        wordAssignments[wi] = { dim: d.key, matches: wordMatches[wi][d.key] };
+        assigned = true;
+        break;
+      }
+    }
+    // If all best dims are taken, allow sharing the dim (fallback)
+    if (!assigned) {
+      const fallback = dimsByScore[0];
+      if (fallback) {
+        wordAssignments[wi] = { dim: fallback.key, matches: wordMatches[wi][fallback.key] };
+      } else {
+        // Word matches nothing — no results possible
+        return [];
+      }
+    }
+  }
+
+  // Step 3: Build candidate sets per dimension
+  // For dimensions with an assigned word, use only those matched items
+  // For dimensions without a word, use ALL items (or empty placeholder)
+  const candidateSets: Record<DimName, string[]> = {
+    stakeholder: stakeholders,
+    project: projects,
+    activity: ['', ...activities],
+    format: ['', ...formats],
+  };
+
+  for (const wa of wordAssignments) {
+    if (!wa) continue;
+    const matchedNames = wa.matches.map((m) => m.name);
+    if (wa.dim === 'activity') {
+      candidateSets.activity = ['', ...matchedNames];
+    } else if (wa.dim === 'format') {
+      candidateSets.format = ['', ...matchedNames];
+    } else {
+      candidateSets[wa.dim] = matchedNames;
+    }
+  }
+
+  // Step 4: Generate combos from the (now small) candidate sets
+  const results: ComboResult[] = [];
+
+  for (const sh of candidateSets.stakeholder) {
+    for (const pr of candidateSets.project) {
+      for (const act of candidateSets.activity) {
+        for (const fmt of candidateSets.format) {
+          // Re-score: each word must match at least one dimension in this combo
           let totalScore = 0;
           let allWordsMatch = true;
 
@@ -82,7 +197,7 @@ function searchCombos(
             const shScore = fuzzyMatch(word, sh);
             const prScore = fuzzyMatch(word, pr);
             const actScore = act ? fuzzyMatch(word, act) : 0;
-            const fmtScore = fmt ? fuzzyMatch(word, fmt) : 0; // NEW
+            const fmtScore = fmt ? fuzzyMatch(word, fmt) : 0;
             const bestScore = Math.max(shScore, prScore, actScore, fmtScore);
 
             if (bestScore === 0) {
@@ -95,17 +210,21 @@ function searchCombos(
           if (!allWordsMatch) continue;
 
           // Frecency boost
-          const key = `${sh}|${pr}|${act}|${fmt}`; // NEW: include format in key
+          const key = `${sh}|${pr}|${act}|${fmt}`;
           const freq = frecencyMap.get(key);
           if (freq) {
-            const recency = Math.max(0, 1 - (now - freq.lastUsed) / (14 * 24 * 60 * 60 * 1000)); // 14-day decay
+            const recency = Math.max(0, 1 - (now - freq.lastUsed) / (14 * 24 * 60 * 60 * 1000));
             totalScore += freq.count * 5 + recency * 20;
           }
+
+          // Bonus: prefer combos that fill more dimensions
+          if (act) totalScore += 2;
+          if (fmt) totalScore += 2;
 
           let label = act
             ? `${sh} · ${pr} · ${act}`
             : `${sh} · ${pr}`;
-          if (fmt) label += ` (${fmt})`; // NEW: show format in label
+          if (fmt) label += ` (${fmt})`;
 
           results.push({ stakeholder: sh, projekt: pr, taetigkeit: act, format: fmt || 'Einzelarbeit', score: totalScore, label });
         }
@@ -239,6 +358,7 @@ const FuzzySearch: React.FC<FuzzySearchProps> = ({ onSelect }) => {
   };
 
   const showResults = isOpen && (results.length > 0 || (query.trim() === '' && topCombos.length > 0));
+  const showNoResults = isOpen && query.trim() !== '' && results.length === 0;
 
   return (
     <div ref={containerRef} style={{ position: 'relative' }}>
@@ -297,6 +417,32 @@ const FuzzySearch: React.FC<FuzzySearchProps> = ({ onSelect }) => {
         )}
       </div>
 
+      {/* No results */}
+      {showNoResults && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            right: 0,
+            marginTop: '4px',
+            background: 'var(--surface-solid, #1a1a2e)',
+            border: '1px solid var(--border)',
+            borderRadius: '12px',
+            boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
+            zIndex: 50,
+            padding: '12px 16px',
+          }}
+        >
+          <div style={{ color: 'var(--text-muted)', fontSize: '12px', textAlign: 'center' }}>
+            {t('stack.noResults') || 'Keine Treffer'}
+          </div>
+          <div style={{ color: 'var(--text-muted)', fontSize: '10px', textAlign: 'center', marginTop: '4px', opacity: 0.6 }}>
+            {t('stack.searchHint') || 'Tipp: Stakeholder + Projekt + Tätigkeit'}
+          </div>
+        </div>
+      )}
+
       {/* Results dropdown */}
       {showResults && (
         <div
@@ -335,7 +481,7 @@ const FuzzySearch: React.FC<FuzzySearchProps> = ({ onSelect }) => {
           {/* Items */}
           {(results.length > 0 ? results : topCombos).map((item, idx) => (
             <button
-              key={item.label}
+              key={`${item.stakeholder}|${item.projekt}|${item.taetigkeit}|${item.format}`}
               onClick={() => handleSelect(item)}
               style={{
                 display: 'flex',
@@ -362,7 +508,24 @@ const FuzzySearch: React.FC<FuzzySearchProps> = ({ onSelect }) => {
                   flexShrink: 0,
                 }}
               />
-              <span style={{ flex: 1 }}>{item.label}</span>
+              <div style={{ flex: 1, display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
+                <span style={{ padding: '1px 6px', borderRadius: '4px', background: 'rgba(110, 196, 158, 0.15)', color: 'rgba(110, 196, 158, 0.9)', fontSize: '10px', fontWeight: 600 }}>
+                  {item.stakeholder}
+                </span>
+                <span style={{ padding: '1px 6px', borderRadius: '4px', background: 'rgba(100, 180, 255, 0.15)', color: 'rgba(100, 180, 255, 0.9)', fontSize: '10px', fontWeight: 600 }}>
+                  {item.projekt}
+                </span>
+                {item.taetigkeit && (
+                  <span style={{ padding: '1px 6px', borderRadius: '4px', background: 'rgba(201, 169, 98, 0.15)', color: 'rgba(201, 169, 98, 0.9)', fontSize: '10px', fontWeight: 600 }}>
+                    {item.taetigkeit}
+                  </span>
+                )}
+                {item.format && item.format !== 'Einzelarbeit' && (
+                  <span style={{ padding: '1px 6px', borderRadius: '4px', background: 'rgba(180, 130, 220, 0.15)', color: 'rgba(180, 130, 220, 0.9)', fontSize: '10px', fontWeight: 600 }}>
+                    {item.format}
+                  </span>
+                )}
+              </div>
             </button>
           ))}
         </div>

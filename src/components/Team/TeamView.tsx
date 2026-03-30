@@ -11,7 +11,8 @@ import { TeamMatrix } from './TeamMatrix';
 import { TeamWorkload } from './TeamWorkload';
 import { TeamTimeline } from './TeamTimeline';
 import { useAuthStore } from '../../stores/authStore';
-import { Copy, Users, UserPlus, UserMinus, Wifi, WifiOff, QrCode } from 'lucide-react';
+import { Copy, Users, UserPlus, UserMinus, Wifi, WifiOff, QrCode, Camera } from 'lucide-react';
+import QRScanner from './QRScanner';
 
 export default function TeamView() {
   const { t } = useI18n();
@@ -30,6 +31,7 @@ export default function TeamView() {
   const [isJoining, setIsJoining] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [showQR, setShowQR] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
 
   const isOnline = isSupabaseAvailable();
 
@@ -215,19 +217,29 @@ export default function TeamView() {
           {/* JOIN TEAM */}
           {setupMode === 'join' && (
             <div className="space-y-3">
-              <input
-                type="text"
-                placeholder={t('team.inviteCodePlaceholder')}
-                value={inviteCode}
-                onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-                maxLength={6}
-                className="w-full px-4 py-3 rounded border font-mono text-center text-lg tracking-widest focus:outline-none"
-                style={{ background: 'var(--surface-solid)', color: 'var(--text)', borderColor: 'var(--border)', letterSpacing: '0.3em' }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && inviteCode.length === 6) handleJoinTeam(inviteCode);
-                }}
-                disabled={isJoining}
-              />
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder={t('team.inviteCodePlaceholder')}
+                  value={inviteCode}
+                  onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                  maxLength={6}
+                  className="flex-1 px-4 py-3 rounded border font-mono text-center text-lg tracking-widest focus:outline-none"
+                  style={{ background: 'var(--surface-solid)', color: 'var(--text)', borderColor: 'var(--border)', letterSpacing: '0.3em' }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && inviteCode.length === 6) handleJoinTeam(inviteCode);
+                  }}
+                  disabled={isJoining}
+                />
+                <button
+                  onClick={() => setShowScanner(true)}
+                  className="px-4 py-3 rounded border flex items-center gap-2 transition-all"
+                  style={{ background: 'rgba(201,169,98,0.05)', borderColor: 'rgba(201,169,98,0.15)', color: 'var(--neon-cyan)' }}
+                  title={t('team.scanQR') || 'QR scannen'}
+                >
+                  <Camera className="w-5 h-5" />
+                </button>
+              </div>
               {/* In offline mode, also ask for a team name since we can't look it up */}
               {!isOnline && (
                 <input
@@ -265,6 +277,21 @@ export default function TeamView() {
             </div>
           )}
         </div>
+
+        {/* QR Scanner Modal */}
+        {showScanner && (
+          <QRScanner
+            onScan={(code) => {
+              setInviteCode(code);
+              setShowScanner(false);
+              // Auto-join if we got a valid 6-char code
+              if (code.length === 6) {
+                handleJoinTeam(code);
+              }
+            }}
+            onClose={() => setShowScanner(false)}
+          />
+        )}
       </div>
     );
   }

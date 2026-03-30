@@ -129,6 +129,38 @@ export function exportCSV(
   return [csvHeaders.join(';'), ...rows].join('\n');
 }
 
+// Normalize date: DD.MM.YYYY → YYYY-MM-DD, already ISO → pass through
+function normalizeDate(raw: string): string {
+  // DD.MM.YYYY format (European)
+  const euMatch = raw.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  if (euMatch) {
+    const [, d, m, y] = euMatch;
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  }
+  // Already YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  return raw;
+}
+
+// Check if a string looks like a time value (HH:MM or HH:MM:SS)
+function isTimeValue(s: string): boolean {
+  return /^\d{1,2}:\d{2}(:\d{2})?$/.test(s);
+}
+
+// Parse time string "HH:MM" or "HH:MM:SS" to minutes from midnight
+function parseTimeToMinutes(s: string): number {
+  const parts = s.split(':').map(Number);
+  return (parts[0] || 0) * 60 + (parts[1] || 0);
+}
+
+// Compute end time from start time (minutes) + duration (hours as float)
+function computeEndTime(startMinutes: number, durationHours: number): string {
+  const endMinutes = startMinutes + Math.round(durationHours * 60);
+  const h = Math.floor(endMinutes / 60) % 24;
+  const m = endMinutes % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
 export async function importCSV(file: File): Promise<Omit<TimeEntry, 'id' | 'user_id' | 'created_at' | 'updated_at'>[]> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -152,53 +184,118 @@ export async function importCSV(file: File): Promise<Omit<TimeEntry, 'id' | 'use
 
           if (cells.length < 7) continue;
 
-          // Backward compatibility: detect old (8 cols) vs new (10 cols) format
-          // Old: Datum, Stakeholder, Projekt, Tätigkeit, Von, Bis, Dauer, Notiz, (Wochentag)
-          // New: Datum, Stakeholder, Projekt, Format, Tätigkeit, Von, Bis, Dauer, Notiz, (Wochentag)
-          const isNewFormat = cells.length >= 10;
+          // ── Detect column layout by checking if cells[5] looks like a time ──
+          // New V6 format: Datum(0), Stakeholder(1), Projekt(2), Format(3), Tätigkeit(4), Von(5), Bis(6), Dauer(7), Notiz(8), Wochentag(9)
+          // Old V5 format: Datum(0), Stakeholder(1), Projekt(2), Tätigkeit(3), Von(4), Bis(5), Dauer(6), Notiz(7), Wochentag(8)
+          // Broken V6 export: Datum(0), Stakeholder(1), Projekt(2), Format(3), Format_dup(4), Tätigkeit(5), Von(6), Bis(7), Dauer(8), Notiz(9)
 
-          let dateIdx = 0, shIdx = 1, prIdx = 2, formatIdx = -1, taIdx = -1, startIdx = -1, endIdx = -1, notizIdx = -1;
+          let date = '';
+          let stakeholderStr = cells[1] || '';
+          let projekt = cells[2] || '';
+          let format = 'Einzelarbeit';
+          let taetigkeit = '';
+          let startTime = '';
+          let endTime = '';
+          let durationHours = NaN;
+          let notiz = '';
 
-          if (isNewFormat) {
-            // New format: Datum(0), Stakeholder(1), Projekt(2), Format(3), Tätigkeit(4), Von(5), Bis(6), Dauer(7), Notiz(8), Wochentag(9)
-            formatIdx = 3;
-            taIdx = 4;
-            startIdx = 5;
-            endIdx = 6;
-            notizIdx = 8;
+          if (cells.length >= 10 && isTimeValue(cells[5])) {
+            // ── Standard V6 format (10+ cols, col 5 is a time) ──
+            format = cells[3] || 'Einzelarbeit';
+            taetigkeit = cells[4] || '';
+            startTime = cells[5];
+            endTime = cells[6];
+            durationHours = parseFloat(cells[7]);
+            notiz = cells[8] || '';
+          } else if (cells.length >= 10 && isTimeValue(cells[6])) {
+            // ── Broken V6 export (cols shifted: format duplicated, Tätigkeit in col 5, Von in col 6) ──
+            format = cells[3] || 'Einzelarbeit';
+            taetigkeit = cells[5] || '';
+            startTime = cells[6];
+            endTime = isTimeValue(cells[7]) ? cells[7] : '';
+            durationHours = parseFloat(cells[8]);
+            notiz = cells[9] || '';
+          } else if (cells.length >= 8 && isTimeValue(cells[4])) {
+            // ── Old V5 format (8-9 cols, col 4 is Von) ──
+            taetigkeit = cells[3] || '';
+            startTime = cells[4];
+            endTime = cells[5];
+            durationHours = parseFloat(cells[6]);
+            notiz = cells[7] || '';
           } else {
-            // Old format: Datum(0), Stakeholder(1), Projekt(2), Tätigkeit(3), Von(4), Bis(5), Dauer(6), Notiz(7), Wochentag(8)
-            taIdx = 3;
-            startIdx = 4;
-            endIdx = 5;
-            notizIdx = 7;
+            // ── Unknown format, try best guess ──
+            // Find the first cell that looks like a time
+            let timeIdx = -1;
+            for (let i = 3; i < Math.min(cells.length, 8); i++) {
+              if (isTimeValue(cells[i])) { timeIdx = i; break; }
+            }
+            if (timeIdx === -1) continue; // Skip row if no time found
+
+            // Everything between col 2 and timeIdx is dimension data
+            if (timeIdx === 5) {
+              format = cells[3] || 'Einzelarbeit';
+              taetigkeit = cells[4] || '';
+            } else if (timeIdx === 4) {
+              taetigkeit = cells[3] || '';
+            } else if (timeIdx === 6) {
+              format = cells[3] || 'Einzelarbeit';
+              taetigkeit = cells[5] || '';
+            }
+            startTime = cells[timeIdx];
+            endTime = isTimeValue(cells[timeIdx + 1]) ? cells[timeIdx + 1] : '';
+            const durIdx = endTime ? timeIdx + 2 : timeIdx + 1;
+            durationHours = parseFloat(cells[durIdx]);
+            notiz = cells[durIdx + 1] || '';
           }
 
-          // Calculate duration_ms
-          const [sh, sm] = (cells[startIdx] || '0:0').split(':').map(Number);
-          const [eh, em] = (cells[endIdx] || '0:0').split(':').map(Number);
-          let startMin = (sh || 0) * 60 + (sm || 0);
-          let endMin = (eh || 0) * 60 + (em || 0);
+          // Normalize date
+          date = normalizeDate(cells[0]);
+
+          // Clean up "undefined" and "NaN" strings
+          if (notiz === 'undefined' || notiz === 'NaN') notiz = '';
+          if (taetigkeit === 'undefined') taetigkeit = '';
+
+          // Normalize time format: remove seconds if present (HH:MM:SS → HH:MM)
+          if (startTime && startTime.length > 5) startTime = startTime.substring(0, 5);
+          if (endTime && endTime.length > 5) endTime = endTime.substring(0, 5);
+
+          // If endTime is missing/invalid, compute from startTime + duration
+          if (!endTime || endTime === 'NaN' || !isTimeValue(endTime)) {
+            if (startTime && !isNaN(durationHours) && durationHours > 0) {
+              const startMin = parseTimeToMinutes(startTime);
+              endTime = computeEndTime(startMin, durationHours);
+            } else {
+              endTime = startTime; // Fallback: 0 duration
+            }
+          }
+
+          // Calculate duration_ms from start/end times
+          const startMin = parseTimeToMinutes(startTime);
+          let endMin = parseTimeToMinutes(endTime);
           if (endMin < startMin) endMin += 24 * 60;
-          const duration_ms = (endMin - startMin) * 60000;
+          let duration_ms = (endMin - startMin) * 60000;
+
+          // If time-based duration is 0 but we have a hours value, use that
+          if (duration_ms === 0 && !isNaN(durationHours) && durationHours > 0) {
+            duration_ms = Math.round(durationHours * 3600000);
+          }
 
           // Handle stakeholder as comma-separated string -> split into array
-          const stakeholderStr = cells[shIdx] || '';
           const stakeholder = stakeholderStr
             .split(',')
             .map((s) => s.trim())
             .filter((s) => s);
 
           const entry: Omit<TimeEntry, 'id' | 'user_id' | 'created_at' | 'updated_at'> = {
-            date: cells[dateIdx],
+            date,
             stakeholder: stakeholder.length > 0 ? stakeholder : [''],
-            projekt: cells[prIdx],
-            taetigkeit: cells[taIdx],
-            format: isNewFormat ? (cells[formatIdx] || 'Einzelarbeit') : 'Einzelarbeit',
-            start_time: cells[startIdx],
-            end_time: cells[endIdx],
+            projekt,
+            taetigkeit,
+            format,
+            start_time: startTime,
+            end_time: endTime,
             duration_ms,
-            notiz: cells[notizIdx] || '',
+            notiz,
           };
 
           entries.push(entry);

@@ -23,10 +23,10 @@ export function Heatmap({ entries }: HeatmapProps) {
     const allStakeholders = new Set<string>();
     entries.forEach((e) => {
       const shArray = Array.isArray(e.stakeholder) ? e.stakeholder : [e.stakeholder];
-      shArray.forEach((sh) => allStakeholders.add(sh));
+      shArray.forEach((sh) => { if (sh && sh.trim()) allStakeholders.add(sh.trim()); });
     });
     const uniqueStakeholders = Array.from(allStakeholders).sort();
-    const uniqueProjects = [...new Set(entries.map((e) => e.projekt))].sort();
+    const uniqueProjects = [...new Set(entries.map((e) => e.projekt).filter(p => p && p.trim()))].sort();
 
     const matrix: Record<string, Record<string, number>> = {};
     const stakeholderTotals: Record<string, number> = {};

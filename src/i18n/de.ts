@@ -184,6 +184,10 @@ export const de = {
     removeMemberConfirm: "Mitglied aus dem Team entfernen?",
     memberRemoved: "Mitglied entfernt.",
     scanToJoin: "QR-Code scannen zum Beitreten",
+    scanQR: "QR-Code scannen",
+    scanFallback: "Nutze deine Handy-Kamera oder eine QR-App, um den Code zu scannen. Der Link öffnet die App und füllt den Code automatisch aus.",
+    scanHint: "QR-Code in den Rahmen halten",
+    cameraError: "Kamera-Zugriff nicht möglich. Bitte erlaube den Zugriff in den Browser-Einstellungen.",
   },
 
   // KPIs
@@ -378,12 +382,14 @@ export const de = {
   // Stack Timer V3
   stack: {
     searchOrPlus: "Suche oben oder drücke + für leeren Timer",
-    searchPlaceholder: "Tippe los... z.B. \"Bundes medien\"",
+    searchPlaceholder: "Schnellsuche... z.B. \"COM Meeting\" oder \"BAG Daily\"",
     startEmpty: "Timer starten",
     untitled: "Ohne Titel",
     frequent: "Häufig verwendet",
     search: "Suche...",
     noMatch: "Kein Treffer",
+    noResults: "Keine Treffer",
+    searchHint: "Tipp: Stakeholder + Projekt + Tätigkeit eingeben",
     addNew: "Neu hinzufügen",
   },
 

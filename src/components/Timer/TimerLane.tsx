@@ -115,13 +115,13 @@ const TimerLane: React.FC<TimerLaneProps> = ({ slot }) => {
         />
       )}
 
-      {/* Main row */}
+      {/* Top row: Orb + Time + Action buttons */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: isRunning ? '14px' : '10px',
-          padding: isRunning ? '14px 18px' : '10px 14px',
+          gap: isRunning ? '10px' : '8px',
+          padding: isRunning ? '12px 14px 4px 14px' : '8px 12px 4px 12px',
         }}
       >
 
@@ -135,113 +135,13 @@ const TimerLane: React.FC<TimerLaneProps> = ({ slot }) => {
         title={slot.isPaused ? t('timer.start') : t('timer.pause')}
       />
 
-      {/* Dimension pickers (inline) */}
-      <div
-        style={{
-          flex: 1,
-          display: 'flex',
-          gap: '2px',
-          flexWrap: 'wrap',
-          minWidth: 0,
-          alignItems: 'center',
-          lineHeight: 1.5,
-        }}
-      >
-        {/* Stakeholder multi-select chips */}
-        <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap' }}>
-          {slot.stakeholder.map((sh) => (
-            <div
-              key={sh}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                padding: '2px 7px',
-                borderRadius: '10px',
-                background: `${c}18`,
-                fontSize: '11px',
-                fontWeight: 600,
-                color: c,
-              }}
-            >
-              <span>{sh}</span>
-              <button
-                onClick={() => removeSlotStakeholder(slot.id, sh)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: c,
-                  cursor: 'pointer',
-                  padding: '0',
-                  lineHeight: '1',
-                  fontSize: '12px',
-                  opacity: 0.6,
-                }}
-                title={t('timer.removeStakeholder')}
-              >
-                ×
-              </button>
-            </div>
-          ))}
-          <InlinePicker
-            value=""
-            options={stakeholders.filter((s) => !slot.stakeholder.includes(s))}
-            placeholder={t('ph.stakeholder')}
-            onSelect={(v) => addSlotStakeholder(slot.id, v)}
-            onAdd={async (v) => {
-              await addStakeholder(v);
-              addSlotStakeholder(slot.id, v);
-            }}
-            addPlaceholder={t('ph.newStakeholder')}
-            color={c}
-          />
-        </div>
-
-        <span style={{ color: 'var(--text-muted)', fontSize: '10px', margin: '0 1px', opacity: 0.4 }}>›</span>
-
-        <InlinePicker
-          value={slot.projekt}
-          options={projects}
-          placeholder={t('ph.projekt')}
-          onSelect={(v) => updateSlotField(slot.id, 'projekt', v)}
-          onAdd={async (v) => { await addProject(v); }}
-          addPlaceholder={t('ph.newProjekt')}
-          color={isRunning ? 'var(--text)' : 'var(--text-secondary)'}
-        />
-
-        <span style={{ color: 'var(--text-muted)', fontSize: '10px', margin: '0 1px', opacity: 0.4 }}>›</span>
-
-        <InlinePicker
-          value={slot.format}
-          options={formats}
-          placeholder={t('ph.format')}
-          onSelect={(v) => updateSlotField(slot.id, 'format', v)}
-          onAdd={async (v) => { await addFormat(v); }}
-          addPlaceholder={t('ph.newFormat')}
-          color={c + '90'}
-        />
-
-        <span style={{ color: 'var(--text-muted)', fontSize: '10px', margin: '0 1px', opacity: 0.4 }}>›</span>
-
-        <InlinePicker
-          value={slot.taetigkeit}
-          options={activities}
-          placeholder={t('ph.taetigkeit')}
-          onSelect={(v) => updateSlotField(slot.id, 'taetigkeit', v)}
-          onAdd={async (v) => { await addActivity(v); }}
-          addPlaceholder={t('ph.newTaetigkeit')}
-          color={isRunning ? c : 'var(--text-secondary)'}
-        />
-      </div>
-
-      {/* Time display */}
+      {/* Time display — takes remaining space */}
       <div
         className="font-mono font-bold"
         style={{
+          flex: 1,
           fontSize: isRunning ? '20px' : '14px',
           color: isRunning ? c : 'var(--text-muted)',
-          minWidth: isRunning ? '100px' : '60px',
-          textAlign: 'right',
           whiteSpace: 'nowrap',
           transition: 'all 0.3s',
           letterSpacing: '0.01em',
@@ -346,7 +246,103 @@ const TimerLane: React.FC<TimerLaneProps> = ({ slot }) => {
       >
         <X className="w-3 h-3" />
       </button>
-      </div>{/* end main row */}
+      </div>{/* end top row */}
+
+      {/* Dimension pickers — own row, full width, wraps on mobile */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))',
+          gap: '4px',
+          padding: '4px 14px 10px 14px',
+          marginLeft: isRunning ? 44 : 34,
+        }}
+      >
+        {/* Stakeholder multi-select chips */}
+        <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap', minWidth: 0 }}>
+          {slot.stakeholder.map((sh) => (
+            <div
+              key={sh}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '2px 7px',
+                borderRadius: '10px',
+                background: `${c}18`,
+                fontSize: '11px',
+                fontWeight: 600,
+                color: c,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                maxWidth: '120px',
+              }}
+            >
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{sh}</span>
+              <button
+                onClick={() => removeSlotStakeholder(slot.id, sh)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: c,
+                  cursor: 'pointer',
+                  padding: '0',
+                  lineHeight: '1',
+                  fontSize: '12px',
+                  opacity: 0.6,
+                  flexShrink: 0,
+                }}
+                title={t('timer.removeStakeholder')}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+          <InlinePicker
+            value=""
+            options={stakeholders.filter((s) => !slot.stakeholder.includes(s))}
+            placeholder={t('ph.stakeholder')}
+            onSelect={(v) => addSlotStakeholder(slot.id, v)}
+            onAdd={async (v) => {
+              await addStakeholder(v);
+              addSlotStakeholder(slot.id, v);
+            }}
+            addPlaceholder={t('ph.newStakeholder')}
+            color={c}
+          />
+        </div>
+
+        <InlinePicker
+          value={slot.projekt}
+          options={projects}
+          placeholder={t('ph.projekt')}
+          onSelect={(v) => updateSlotField(slot.id, 'projekt', v)}
+          onAdd={async (v) => { await addProject(v); }}
+          addPlaceholder={t('ph.newProjekt')}
+          color={isRunning ? 'var(--text)' : 'var(--text-secondary)'}
+        />
+
+        <InlinePicker
+          value={slot.format}
+          options={formats}
+          placeholder={t('ph.format')}
+          onSelect={(v) => updateSlotField(slot.id, 'format', v)}
+          onAdd={async (v) => { await addFormat(v); }}
+          addPlaceholder={t('ph.newFormat')}
+          color={c + '90'}
+        />
+
+        <InlinePicker
+          value={slot.taetigkeit}
+          options={activities}
+          placeholder={t('ph.taetigkeit')}
+          onSelect={(v) => updateSlotField(slot.id, 'taetigkeit', v)}
+          onAdd={async (v) => { await addActivity(v); }}
+          addPlaceholder={t('ph.newTaetigkeit')}
+          color={isRunning ? c : 'var(--text-secondary)'}
+        />
+      </div>
 
       {/* Notiz input row */}
       {showNotiz && (

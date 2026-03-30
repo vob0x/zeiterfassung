@@ -184,6 +184,10 @@ export const fr = {
     removeMemberConfirm: "Retirer ce membre de l'équipe ?",
     memberRemoved: "Membre retiré.",
     scanToJoin: "Scanner le QR code pour rejoindre",
+    scanQR: "Scanner le QR code",
+    scanFallback: "Utilisez l'appareil photo de votre téléphone ou une application QR pour scanner le code. Le lien ouvrira l'application et remplira le code automatiquement.",
+    scanHint: "Placez le QR code dans le cadre",
+    cameraError: "Impossible d'accéder à la caméra. Veuillez autoriser l'accès dans les paramètres du navigateur.",
   },
 
   // KPIs
@@ -378,12 +382,14 @@ export const fr = {
   // Stack Timer V3
   stack: {
     searchOrPlus: "Cherchez ci-dessus ou appuyez + pour un chrono vide",
-    searchPlaceholder: "Tapez... p.ex. \"Office fédéral\"",
+    searchPlaceholder: "Recherche rapide... p.ex. \"COM Meeting\" ou \"BAG Daily\"",
     startEmpty: "Démarrer un chrono",
     untitled: "Sans titre",
     frequent: "Fréquemment utilisé",
     search: "Recherche...",
     noMatch: "Aucun résultat",
+    noResults: "Aucun résultat",
+    searchHint: "Astuce: Stakeholder + Projet + Activité",
     addNew: "Ajouter",
   },
 

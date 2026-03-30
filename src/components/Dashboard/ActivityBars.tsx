@@ -24,7 +24,8 @@ export function ActivityBars({ entries, isFormat = false }: ActivityBarsProps) {
     const grouped: Record<string, Map<string, TimeEntry[]>> = {};
 
     for (const entry of entries) {
-      const key = isFormat ? (entry.format || 'Einzelarbeit') : entry.taetigkeit;
+      const rawKey = isFormat ? (entry.format || 'Einzelarbeit') : entry.taetigkeit;
+      const key = rawKey && rawKey.trim() ? rawKey.trim() : (isFormat ? 'Einzelarbeit' : '(ohne Bezeichnung)');
       if (!grouped[key]) grouped[key] = new Map();
       const dayMap = grouped[key];
       if (!dayMap.has(entry.date)) dayMap.set(entry.date, []);
