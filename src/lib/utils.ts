@@ -89,6 +89,8 @@ export function formatTime(date: Date): string {
  * This prevents stale/incorrect duration_ms from showing wrong totals.
  */
 export function getEffectiveDurationMs(entry: { start_time: string; end_time: string; duration_ms?: number }): number {
+  const dm = entry.duration_ms || 0;
+
   // Parse Von-Bis span
   let vonBisMs = 0;
   if (entry.start_time && entry.end_time && entry.start_time.includes(':') && entry.end_time.includes(':')) {
@@ -102,15 +104,10 @@ export function getEffectiveDurationMs(entry: { start_time: string; end_time: st
     }
   }
 
-  const dm = entry.duration_ms || 0;
+  // Prefer duration_ms when it has a valid value (from timer or CSV Dauer column)
+  if (dm > 0) return dm;
 
-  // If Von-Bis is zero or unparseable, trust duration_ms
-  if (vonBisMs <= 0) return dm > 0 ? dm : 0;
-
-  // If duration_ms is valid and plausible (≤ Von-Bis), use it (stack timer: pause/resume)
-  if (dm > 0 && dm <= vonBisMs) return dm;
-
-  // Otherwise fall back to Von-Bis
+  // Fallback to Von-Bis calculation
   return vonBisMs;
 }
 
