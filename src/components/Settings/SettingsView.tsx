@@ -4,7 +4,7 @@ import { useUiStore } from '../../stores/uiStore';
 import { useTeamStore } from '../../stores/teamStore';
 import { useAuthStore } from '../../stores/authStore';
 import ConfirmDialog from '../UI/ConfirmDialog';
-import { ClipboardCopy } from 'lucide-react';
+import { ClipboardCopy, Sun, Moon } from 'lucide-react';
 
 export function SettingsView() {
   const { t, language, setLanguage } = useI18n();
@@ -26,15 +26,17 @@ export function SettingsView() {
 
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <label style={{ color: 'var(--text-secondary)' }}>Theme</label>
+            <label style={{ color: 'var(--text-secondary)' }}>{t('settings.design')}</label>
             <button
               onClick={toggleTheme}
-              className="px-4 py-2 rounded-lg font-medium transition-all"
+              className="px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2"
               style={{ background: 'var(--surface-solid)', color: 'var(--text)' }}
               onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-hover)')}
               onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--surface-solid)')}
+              aria-label={t('title.themeToggle')}
             >
-              {theme === 'cyber' ? '🌙 Light' : '💻 Cyber'}
+              {theme === 'cyber' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              {theme === 'cyber' ? 'Light' : 'Dark'}
             </button>
           </div>
 

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { TimeEntry } from '@/types';
 import { useI18n } from '../../i18n';
+import { getEffectiveDurationMs } from '../../lib/utils';
 
 interface TeamWorkloadProps {
   memberEntries: Map<string, TimeEntry[]>;
@@ -35,7 +36,7 @@ export function TeamWorkload({ memberEntries, entries }: TeamWorkloadProps) {
 
         for (const date of [...new Set(projectEntries.map((e) => e.date))]) {
           const dateEntries = projectEntries.filter((e) => e.date === date);
-          total += dateEntries.reduce((sum, e) => sum + (e.duration_ms || 0), 0) / (1000 * 60 * 60);
+          total += dateEntries.reduce((sum, e) => sum + getEffectiveDurationMs(e), 0) / (1000 * 60 * 60);
         }
 
         projectHours[project] = total;

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { TimeEntry, TeamMember } from '@/types';
 import { useI18n } from '../../i18n';
+import { getEffectiveDurationMs } from '../../lib/utils';
 
 interface TeamTimelineProps {
   memberEntries: Map<string, TimeEntry[]>;
@@ -44,7 +45,7 @@ export function TeamTimeline({ memberEntries, members }: TeamTimelineProps) {
 
       for (const [memberId, entries_] of memberEntries) {
         const dateEntries = entries_.filter((e) => e.date === date);
-        const hours = dateEntries.reduce((sum, e) => sum + (e.duration_ms || 0), 0) / (1000 * 60 * 60);
+        const hours = dateEntries.reduce((sum, e) => sum + getEffectiveDurationMs(e), 0) / (1000 * 60 * 60);
         memberHours[memberId] = hours;
       }
 

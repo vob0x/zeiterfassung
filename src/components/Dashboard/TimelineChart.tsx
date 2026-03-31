@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { TimeEntry, FilterState } from '@/types';
 import { useI18n } from '../../i18n';
-import { formatHoursAdaptive } from '../../lib/utils';
+import { formatHoursAdaptive, getEffectiveDurationMs } from '../../lib/utils';
 
 interface TimelineChartProps {
   entries: TimeEntry[];
@@ -41,7 +41,7 @@ export function TimelineChart({ entries, onDrillDown }: TimelineChartProps) {
 
       for (const project of uniqueProjects) {
         const projectEntries = dayEntries.filter((e) => e.projekt === project);
-        const hours = projectEntries.reduce((sum, e) => sum + (e.duration_ms || 0), 0) / (1000 * 60 * 60);
+        const hours = projectEntries.reduce((sum, e) => sum + getEffectiveDurationMs(e), 0) / (1000 * 60 * 60);
         projectHours[project] = hours;
       }
 

@@ -1,4 +1,5 @@
 import { TimeEntry } from '@/types';
+import { getEffectiveDurationMs } from './utils';
 
 interface BackupData {
   version: string;
@@ -83,20 +84,9 @@ export function exportCSV(
   const defaultWeekdays = weekdayNames || ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
 
   const rows = entries.map((entry) => {
-    // Use effective duration (duration_ms) — NOT Von-Bis difference
-    // because stack timers run in parallel within the same time window.
-    let durationHours: string;
-    if (entry.duration_ms && entry.duration_ms > 0) {
-      durationHours = (entry.duration_ms / 3600000).toFixed(2);
-    } else {
-      // Fallback: compute from Von-Bis only when duration_ms is missing
-      const [sh, sm] = entry.start_time.split(':').map(Number);
-      const [eh, em] = entry.end_time.split(':').map(Number);
-      let startMin = sh * 60 + sm;
-      let endMin = eh * 60 + em;
-      if (endMin < startMin) endMin += 24 * 60;
-      durationHours = ((endMin - startMin) / 60).toFixed(2);
-    }
+    // Use effective duration with plausibility check (duration_ms ≤ Von-Bis span)
+    const effectiveMs = getEffectiveDurationMs(entry);
+    const durationHours = (effectiveMs / 3600000).toFixed(2);
 
     const dateObj = new Date(entry.date + 'T00:00:00');
     const weekday = defaultWeekdays[dateObj.getDay()];

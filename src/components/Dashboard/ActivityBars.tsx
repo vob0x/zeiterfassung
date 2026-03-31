@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { TimeEntry, FilterState } from '@/types';
 import { useI18n } from '../../i18n';
-import { formatHoursAdaptive } from '../../lib/utils';
+import { formatHoursAdaptive, getEffectiveDurationMs } from '../../lib/utils';
 
 interface ActivityBarsProps {
   entries: TimeEntry[];
@@ -28,7 +28,7 @@ export function ActivityBars({ entries, isFormat = false, onDrillDown }: Activit
     for (const entry of entries) {
       const rawKey = isFormat ? (entry.format || 'Einzelarbeit') : entry.taetigkeit;
       const key = rawKey && rawKey.trim() ? rawKey.trim() : (isFormat ? 'Einzelarbeit' : '(ohne Bezeichnung)');
-      itemMap[key] = (itemMap[key] || 0) + (entry.duration_ms || 0);
+      itemMap[key] = (itemMap[key] || 0) + getEffectiveDurationMs(entry);
     }
 
     const sorted = Object.entries(itemMap)

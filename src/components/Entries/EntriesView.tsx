@@ -4,7 +4,7 @@ import { useEntriesStore } from '../../stores/entriesStore';
 import { useI18n } from '../../i18n';
 import { useUiStore } from '../../stores/uiStore';
 import { X, Clock, Search } from 'lucide-react';
-import { formatDurationHM } from '../../lib/utils';
+import { formatDurationHM, getEffectiveDurationMs } from '../../lib/utils';
 import EntryRow from './EntryRow';
 import EditEntryModal from './EditEntryModal';
 
@@ -124,7 +124,7 @@ const EntriesView: React.FC = () => {
 
   // Calculate total duration
   const totalDurationMs = useMemo(() => {
-    return sortedEntries.reduce((sum, e) => sum + (e.duration_ms || 0), 0);
+    return sortedEntries.reduce((sum, e) => sum + getEffectiveDurationMs(e), 0);
   }, [sortedEntries]);
 
   // Handle sort column click

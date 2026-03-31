@@ -29,7 +29,11 @@ const Orb: React.FC<OrbProps> = ({
   return (
     <div
       onClick={onClick}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.(); } }}
       title={title}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      aria-label={title}
       style={{
         position: 'relative',
         width: s,

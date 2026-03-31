@@ -3,7 +3,7 @@ import { TimeEntry } from '@/types';
 import { useEntriesStore } from '../../stores/entriesStore';
 import { useI18n } from '../../i18n';
 import { Edit2, Trash2 } from 'lucide-react';
-import { formatDateDE, formatDurationHM } from '../../lib/utils';
+import { formatDateDE, formatDurationHM, getEffectiveDurationMs } from '../../lib/utils';
 import ConfirmDialog from '../UI/ConfirmDialog';
 
 interface EntryRowProps {
@@ -17,16 +17,8 @@ const EntryRow: React.FC<EntryRowProps> = ({ entry, onEdit }) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  // Use stored duration_ms (effective timer duration), fallback to Von-Bis calculation
-  let durationMs = entry.duration_ms;
-  if (!durationMs || durationMs <= 0) {
-    const [startH, startM] = entry.start_time.split(':').map(Number);
-    const [endH, endM] = entry.end_time.split(':').map(Number);
-    let startMins = startH * 60 + startM;
-    let endMins = endH * 60 + endM;
-    if (endMins < startMins) endMins += 24 * 60;
-    durationMs = (endMins - startMins) * 60000;
-  }
+  // Use effective duration: duration_ms if plausible, else Von-Bis
+  const durationMs = getEffectiveDurationMs(entry);
 
   const handleDelete = async () => {
     setIsDeleting(true);

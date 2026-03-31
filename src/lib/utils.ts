@@ -83,6 +83,26 @@ export function formatTime(date: Date): string {
 }
 
 /**
+ * Get the effective duration for an entry.
+ * Uses duration_ms if it is set AND plausible (≤ Von-Bis span).
+ * Falls back to Von-Bis calculation if duration_ms is missing, zero, or exceeds the span.
+ * This prevents stale/incorrect duration_ms from showing wrong totals.
+ */
+export function getEffectiveDurationMs(entry: { start_time: string; end_time: string; duration_ms?: number }): number {
+  const [sh, sm] = entry.start_time.split(':').map(Number);
+  const [eh, em] = entry.end_time.split(':').map(Number);
+  let startMins = sh * 60 + sm;
+  let endMins = eh * 60 + em;
+  if (endMins < startMins) endMins += 24 * 60;
+  const vonBisMs = (endMins - startMins) * 60000;
+
+  if (entry.duration_ms && entry.duration_ms > 0 && entry.duration_ms <= vonBisMs) {
+    return entry.duration_ms;
+  }
+  return vonBisMs;
+}
+
+/**
  * Generate a unique ID
  */
 export function generateId(): string {

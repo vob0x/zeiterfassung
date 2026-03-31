@@ -455,4 +455,35 @@ export const de = {
     toggleLanguage: "Sprache wechseln",
     viewContent: "Inhalt für",
   },
+
+  // Accessibility
+  a11y: {
+    skipToContent: "Zum Inhalt springen",
+    mainNav: "Hauptnavigation",
+    mobileNav: "Mobile Navigation",
+    closeModal: "Dialog schliessen",
+    timerControls: "Timer-Steuerung",
+    sortBy: "Sortieren nach",
+    filterActive: "Filter aktiv",
+    expandRow: "Zeile erweitern",
+    collapseRow: "Zeile einklappen",
+  },
+
+  // Error messages (localized)
+  errors: {
+    alreadyExists: "Existiert bereits",
+    stakeholderExists: "Stakeholder existiert bereits",
+    projectExists: "Projekt existiert bereits",
+    activityExists: "Tätigkeit existiert bereits",
+    formatExists: "Format existiert bereits",
+    nameExists: "Name existiert bereits",
+    notAuthenticated: "Nicht authentifiziert",
+    onlyCreatorCanRemove: "Nur der Team-Ersteller kann Mitglieder entfernen",
+    noProfile: "Kein Profil verfügbar",
+    wrongPassword: "Falsches Passwort",
+    syncFailed: "Synchronisation fehlgeschlagen",
+    saveFailed: "Speichern fehlgeschlagen",
+    deleteFailed: "Löschen fehlgeschlagen",
+    loadFailed: "Laden fehlgeschlagen",
+  },
 } as const;

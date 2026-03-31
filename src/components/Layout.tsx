@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, lazy, Suspense } from 'react'
 import {
   Clock,
   List,
@@ -19,12 +19,14 @@ import { useAuthStore } from '@/stores/authStore'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import Toast from '@/components/UI/Toast'
 
-// Views
+// Eager: Timer (most used view)
 import TimerView from '@/components/Timer/TimerView'
-import EntriesView from '@/components/Entries/EntriesView'
-import DashboardView from '@/components/Dashboard/DashboardView'
-import ManageView from '@/components/Manage/ManageView'
-import TeamView from '@/components/Team/TeamView'
+
+// Lazy: Heavy views loaded on demand
+const EntriesView = lazy(() => import('@/components/Entries/EntriesView'))
+const DashboardView = lazy(() => import('@/components/Dashboard/DashboardView'))
+const ManageView = lazy(() => import('@/components/Manage/ManageView'))
+const TeamView = lazy(() => import('@/components/Team/TeamView'))
 
 const VIEW_COMPONENTS: Record<string, React.ComponentType> = {
   timer: TimerView,
@@ -70,8 +72,17 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      {/* Skip to main content link (A11y) */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:rounded-lg focus:text-sm focus:font-medium"
+        style={{ background: 'var(--primary)', color: 'var(--bg)' }}
+      >
+        {t('a11y.skipToContent')}
+      </a>
+
       {/* Top Navigation Bar */}
-      <header className="top-bar">
+      <header className="top-bar" role="banner">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
@@ -87,12 +98,13 @@ export default function Layout() {
             </div>
 
             {/* Desktop Navigation Tabs */}
-            <nav className="hidden md:flex items-center gap-1 relative">
+            <nav className="hidden md:flex items-center gap-1 relative" aria-label={t('a11y.mainNav')}>
               {viewConfig.map(({ id, label }) => (
                 <button
                   key={id}
                   onClick={() => handleViewChange(id)}
-                  className={`nav-tab ${currentView === id ? 'active' : ''}`}>
+                  className={`nav-tab ${currentView === id ? 'active' : ''}`}
+                  aria-current={currentView === id ? 'page' : undefined}>
                   {label}
                 </button>
               ))}
@@ -189,21 +201,29 @@ export default function Layout() {
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 pt-20 pb-24 md:pb-8 w-full relative z-10">
+      <main id="main-content" className="flex-1 pt-20 pb-24 md:pb-8 w-full relative z-10" role="main">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <ActiveView />
+          <Suspense fallback={
+            <div className="flex items-center justify-center py-20">
+              <div className="skeleton w-8 h-8 rounded-full" />
+            </div>
+          }>
+            <ActiveView />
+          </Suspense>
         </div>
       </main>
 
       {/* Bottom Navigation (Mobile Only) */}
-      <nav className="bottom-nav md:hidden">
+      <nav className="bottom-nav md:hidden" aria-label={t('a11y.mobileNav')}>
         <div className="bottom-nav-content">
           {viewConfig.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               onClick={() => handleViewChange(id)}
-              className={`bottom-nav-item ${currentView === id ? 'active' : ''}`}>
-              <Icon className="bottom-nav-icon" />
+              className={`bottom-nav-item ${currentView === id ? 'active' : ''}`}
+              aria-current={currentView === id ? 'page' : undefined}
+              aria-label={label}>
+              <Icon className="bottom-nav-icon" aria-hidden="true" />
               <span className="bottom-nav-label">{label}</span>
             </button>
           ))}

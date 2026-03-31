@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { TimeEntry, FilterState } from '@/types';
 import { useI18n } from '../../i18n';
-import { formatHoursAdaptive } from '../../lib/utils';
+import { formatHoursAdaptive, getEffectiveDurationMs } from '../../lib/utils';
 
 interface HeatmapProps {
   entries: TimeEntry[];
@@ -49,7 +49,7 @@ export function Heatmap({ entries, onDrillDown }: HeatmapProps) {
           const shArray = Array.isArray(e.stakeholder) ? e.stakeholder : [e.stakeholder];
           return shArray.includes(sh) && e.projekt === pr;
         });
-        const totalMs = matchingEntries.reduce((sum, e) => sum + (e.duration_ms || 0), 0);
+        const totalMs = matchingEntries.reduce((sum, e) => sum + getEffectiveDurationMs(e), 0);
         const hours = totalMs / (1000 * 60 * 60);
         matrix[sh][pr] = hours;
         stakeholderTotals[sh] += hours;
