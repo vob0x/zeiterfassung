@@ -6,17 +6,31 @@ import { useUiStore } from '../../stores/uiStore';
 import { isSupabaseAvailable } from '../../lib/supabase';
 import ConfirmDialog from '../UI/ConfirmDialog';
 import { PeriodType, TimeEntry } from '@/types';
-import { formatDateISO } from '../../lib/utils';
+import { formatDateISO, formatDateDE } from '../../lib/utils';
 import { TeamDaily } from './TeamDaily';
 import { TeamMatrix } from './TeamMatrix';
 import { TeamWorkload } from './TeamWorkload';
 import { TeamTimeline } from './TeamTimeline';
 import { useAuthStore } from '../../stores/authStore';
-import { Copy, Users, UserPlus, UserMinus, Wifi, WifiOff, QrCode, Camera, RefreshCw } from 'lucide-react';
+import { Copy, Users, UserPlus, UserMinus, Wifi, WifiOff, QrCode, Camera, RefreshCw, ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
+
+// Helper: get ISO week number
+function getISOWeek(date: Date): number {
+  const d = new Date(date.getTime());
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
+  const week1 = new Date(d.getFullYear(), 0, 4);
+  return 1 + Math.round(((d.getTime() - week1.getTime()) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7);
+}
+
+const MONTH_NAMES_DE = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+const MONTH_NAMES_FR = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+const DAY_NAMES_DE = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+const DAY_NAMES_FR = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
 import QRScanner from './QRScanner';
 
 export default function TeamView() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const { team, members, memberEntries, connected, syncTeamData, leaveTeam, removeMember, createTeam, joinTeam } = useTeamStore();
   const profile = useAuthStore((s) => s.profile);
   const isCreator = team?.creator_id === profile?.id;
@@ -33,6 +47,10 @@ export default function TeamView() {
   const [isCreating, setIsCreating] = useState(false);
   const [showQR, setShowQR] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
+  const [teamOffset, setTeamOffset] = useState(0);
+
+  const monthNames = language === 'fr' ? MONTH_NAMES_FR : MONTH_NAMES_DE;
+  const dayNames = language === 'fr' ? DAY_NAMES_FR : DAY_NAMES_DE;
 
   const isOnline = isSupabaseAvailable();
 
@@ -128,35 +146,60 @@ export default function TeamView() {
     }
   };
 
-  // Compute date range from selected period
-  const dateRange = useMemo(() => {
+  // Compute date range from selected period + offset
+  const { dateRange, teamPeriodLabel } = useMemo(() => {
     const today = new Date();
     const todayISO = formatDateISO(today);
 
     switch (period) {
-      case 'day':
-        return { start: todayISO, end: todayISO };
+      case 'day': {
+        const d = new Date(today);
+        d.setDate(d.getDate() + teamOffset);
+        const iso = formatDateISO(d);
+        const label = teamOffset === 0
+          ? t('dash.today')
+          : `${dayNames[d.getDay()]}, ${formatDateDE(iso)}`;
+        return { dateRange: { start: iso, end: iso }, teamPeriodLabel: label };
+      }
       case 'week': {
         const day = today.getDay();
         const diff = day === 0 ? 6 : day - 1;
         const monday = new Date(today);
-        monday.setDate(today.getDate() - diff);
-        return { start: formatDateISO(monday), end: todayISO };
+        monday.setDate(today.getDate() - diff + teamOffset * 7);
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        const end = sunday > today && teamOffset === 0 ? todayISO : formatDateISO(sunday);
+        const weekNum = getISOWeek(monday);
+        const label = teamOffset === 0
+          ? `KW ${weekNum} (${t('dash.thisWeek')})`
+          : `KW ${weekNum} · ${formatDateDE(formatDateISO(monday))} – ${formatDateDE(end)}`;
+        return { dateRange: { start: formatDateISO(monday), end }, teamPeriodLabel: label };
       }
       case 'month': {
-        const first = new Date(today.getFullYear(), today.getMonth(), 1);
-        return { start: formatDateISO(first), end: todayISO };
+        const m = new Date(today.getFullYear(), today.getMonth() + teamOffset, 1);
+        const lastDay = new Date(m.getFullYear(), m.getMonth() + 1, 0);
+        const end = lastDay > today && teamOffset === 0 ? todayISO : formatDateISO(lastDay);
+        const label = teamOffset === 0
+          ? `${monthNames[m.getMonth()]} ${m.getFullYear()} (${t('dash.thisMonth')})`
+          : `${monthNames[m.getMonth()]} ${m.getFullYear()}`;
+        return { dateRange: { start: formatDateISO(m), end }, teamPeriodLabel: label };
       }
       case 'year': {
-        const jan1 = new Date(today.getFullYear(), 0, 1);
-        return { start: formatDateISO(jan1), end: todayISO };
+        const y = today.getFullYear() + teamOffset;
+        const jan1 = new Date(y, 0, 1);
+        const dec31 = new Date(y, 11, 31);
+        const end = dec31 > today && teamOffset === 0 ? todayISO : formatDateISO(dec31);
+        const label = teamOffset === 0
+          ? `${y} (${t('dash.thisYear')})`
+          : `${y}`;
+        return { dateRange: { start: formatDateISO(jan1), end }, teamPeriodLabel: label };
       }
       case 'all':
-        return { start: null, end: null };
+        return { dateRange: { start: null, end: null }, teamPeriodLabel: t('dash.all') };
       default:
-        return { start: null, end: null };
+        return { dateRange: { start: null, end: null }, teamPeriodLabel: '' };
     }
-  }, [period]);
+  }, [period, teamOffset, t, language, monthNames, dayNames]);
 
   // Filter entries by period
   const filterByPeriod = (entries: TimeEntry[]): TimeEntry[] => {
@@ -455,20 +498,63 @@ export default function TeamView() {
       </div>
 
       {/* Period Selector */}
-      <div className="flex gap-2 flex-wrap">
-        {(['day', 'week', 'month', 'year', 'all'] as PeriodType[]).map((p) => (
-          <button
-            key={p}
-            onClick={() => setTeamPeriod(p)}
-            className="px-4 py-2 rounded-lg font-medium transition-all"
-            style={period === p
-              ? { background: 'rgba(201,169,98,0.12)', border: '1px solid rgba(201,169,98,0.25)', color: 'var(--neon-cyan)' }
-              : { background: 'var(--surface-solid)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }
-            }
-          >
-            {t(`team.${p}`)}
-          </button>
-        ))}
+      <div className="space-y-3">
+        <div className="flex gap-2 flex-wrap">
+          {(['day', 'week', 'month', 'year', 'all'] as PeriodType[]).map((p) => (
+            <button
+              key={p}
+              onClick={() => { setTeamPeriod(p); setTeamOffset(0); }}
+              className="px-4 py-2 rounded-lg font-medium transition-all"
+              style={period === p
+                ? { background: 'rgba(201,169,98,0.12)', border: '1px solid rgba(201,169,98,0.25)', color: 'var(--neon-cyan)' }
+                : { background: 'var(--surface-solid)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }
+              }
+            >
+              {t(`team.${p}`)}
+            </button>
+          ))}
+        </div>
+
+        {/* Date Navigation */}
+        {period !== 'all' && (
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setTeamOffset(o => o - 1)}
+              className="btn-icon"
+              aria-label={t('dash.prev')}
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+
+            <span
+              className="text-sm font-medium min-w-[180px] text-center"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              {teamPeriodLabel}
+            </span>
+
+            <button
+              onClick={() => setTeamOffset(o => Math.min(o + 1, 0))}
+              className="btn-icon"
+              disabled={teamOffset >= 0}
+              style={{ opacity: teamOffset >= 0 ? 0.3 : 1 }}
+              aria-label={t('dash.next')}
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+
+            {teamOffset !== 0 && (
+              <button
+                onClick={() => setTeamOffset(0)}
+                className="btn btn-sm btn-secondary rounded-lg flex items-center gap-1"
+                style={{ background: 'var(--surface-solid)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
+              >
+                <RotateCcw className="w-3 h-3" />
+                {t('dash.today')}
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* KPI Strip */}

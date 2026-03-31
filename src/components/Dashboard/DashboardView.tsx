@@ -4,50 +4,94 @@ import { useEntriesStore } from '../../stores/entriesStore';
 import { useMasterStore } from '../../stores/masterStore';
 import { useUiStore } from '../../stores/uiStore';
 import { PeriodType, FilterState } from '@/types';
-import { formatDateISO, getEffectiveDurationMs } from '../../lib/utils';
+import { formatDateISO, formatDateDE, getEffectiveDurationMs } from '../../lib/utils';
 import { KpiCards } from './KpiCards';
 import { Heatmap } from './Heatmap';
 import { ActivityBars } from './ActivityBars';
 import { TimelineChart } from './TimelineChart';
-import { Inbox } from 'lucide-react';
+import { Inbox, ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
+
+// Helper: get ISO week number
+function getISOWeek(date: Date): number {
+  const d = new Date(date.getTime());
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
+  const week1 = new Date(d.getFullYear(), 0, 4);
+  return 1 + Math.round(((d.getTime() - week1.getTime()) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7);
+}
+
+const MONTH_NAMES_DE = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+const MONTH_NAMES_FR = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+const DAY_NAMES_DE = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+const DAY_NAMES_FR = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
 
 export default function DashboardView() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const entries = useEntriesStore((state) => state.entries);
   const { setFilter, clearFilters, filters } = useEntriesStore();
   const { stakeholders, projects, activities, formats } = useMasterStore();
-  const [period, setPeriod] = useState<PeriodType>('day');
+  const [period, setPeriod] = useState<PeriodType>('week');
+  // offset: 0 = current period, -1 = previous, +1 = next (capped at 0 for future)
+  const [offset, setOffset] = useState(0);
 
-  // Compute date range based on period
-  // Uses formatDateISO (local time) — NOT toISOString (UTC) to avoid
-  // date shift issues in CET/CEST timezone (Switzerland)
-  const dateRange = useMemo(() => {
+  const monthNames = language === 'fr' ? MONTH_NAMES_FR : MONTH_NAMES_DE;
+  const dayNames = language === 'fr' ? DAY_NAMES_FR : DAY_NAMES_DE;
+
+  // Compute date range based on period + offset
+  const { dateRange, periodLabel } = useMemo(() => {
     const today = new Date();
-    const todayISO = formatDateISO(today); // Local YYYY-MM-DD
+    const todayISO = formatDateISO(today);
 
     switch (period) {
-      case 'day':
-        return { start: todayISO, end: todayISO };
+      case 'day': {
+        const d = new Date(today);
+        d.setDate(d.getDate() + offset);
+        const iso = formatDateISO(d);
+        const label = offset === 0
+          ? t('dash.today')
+          : `${dayNames[d.getDay()]}, ${formatDateDE(iso)}`;
+        return { dateRange: { start: iso, end: iso }, periodLabel: label };
+      }
       case 'week': {
-        // European week: Monday = start (ISO 8601)
-        const day = today.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+        // Get Monday of current week, then shift by offset weeks
+        const day = today.getDay();
         const diff = day === 0 ? 6 : day - 1;
         const monday = new Date(today);
-        monday.setDate(today.getDate() - diff);
-        return { start: formatDateISO(monday), end: todayISO };
+        monday.setDate(today.getDate() - diff + offset * 7);
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        const end = sunday > today && offset === 0 ? todayISO : formatDateISO(sunday);
+        const weekNum = getISOWeek(monday);
+        const label = offset === 0
+          ? `KW ${weekNum} (${t('dash.thisWeek')})`
+          : `KW ${weekNum} · ${formatDateDE(formatDateISO(monday))} – ${formatDateDE(end)}`;
+        return { dateRange: { start: formatDateISO(monday), end }, periodLabel: label };
       }
       case 'month': {
-        const first = new Date(today.getFullYear(), today.getMonth(), 1);
-        return { start: formatDateISO(first), end: todayISO };
+        const m = new Date(today.getFullYear(), today.getMonth() + offset, 1);
+        const lastDay = new Date(m.getFullYear(), m.getMonth() + 1, 0);
+        const end = lastDay > today && offset === 0 ? todayISO : formatDateISO(lastDay);
+        const label = offset === 0
+          ? `${monthNames[m.getMonth()]} ${m.getFullYear()} (${t('dash.thisMonth')})`
+          : `${monthNames[m.getMonth()]} ${m.getFullYear()}`;
+        return { dateRange: { start: formatDateISO(m), end }, periodLabel: label };
       }
       case 'year': {
-        const jan1 = new Date(today.getFullYear(), 0, 1);
-        return { start: formatDateISO(jan1), end: todayISO };
+        const y = today.getFullYear() + offset;
+        const jan1 = new Date(y, 0, 1);
+        const dec31 = new Date(y, 11, 31);
+        const end = dec31 > today && offset === 0 ? todayISO : formatDateISO(dec31);
+        const label = offset === 0
+          ? `${y} (${t('dash.thisYear')})`
+          : `${y}`;
+        return { dateRange: { start: formatDateISO(jan1), end }, periodLabel: label };
       }
       case 'all':
-        return { start: null, end: null };
+        return { dateRange: { start: null, end: null }, periodLabel: t('dash.all') };
+      default:
+        return { dateRange: { start: null, end: null }, periodLabel: '' };
     }
-  }, [period]);
+  }, [period, offset, t, language, monthNames, dayNames]);
 
   // Filter entries by period
   const filteredEntries = useMemo(() => {
@@ -111,20 +155,62 @@ export default function DashboardView() {
   return (
     <div className="w-full max-w-7xl mx-auto p-4 space-y-6">
       {/* Period Selector */}
-      <div className="flex gap-2 flex-wrap">
-        {(['day', 'week', 'month', 'year', 'all'] as PeriodType[]).map((p) => (
-          <button
-            key={p}
-            onClick={() => setPeriod(p)}
-            className={`btn btn-sm rounded-lg font-medium transition-all ${
-              period === p
-                ? 'btn-primary'
-                : 'btn-secondary'
-            }`}
-          >
-            {t(`dash.${p}`)}
-          </button>
-        ))}
+      <div className="space-y-3">
+        <div className="flex gap-2 flex-wrap">
+          {(['day', 'week', 'month', 'year', 'all'] as PeriodType[]).map((p) => (
+            <button
+              key={p}
+              onClick={() => { setPeriod(p); setOffset(0); }}
+              className={`btn btn-sm rounded-lg font-medium transition-all ${
+                period === p
+                  ? 'btn-primary'
+                  : 'btn-secondary'
+              }`}
+            >
+              {t(`dash.${p}`)}
+            </button>
+          ))}
+        </div>
+
+        {/* Date Navigation */}
+        {period !== 'all' && (
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setOffset(o => o - 1)}
+              className="btn-icon"
+              aria-label={t('dash.prev')}
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+
+            <span
+              className="text-sm font-medium min-w-[180px] text-center"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              {periodLabel}
+            </span>
+
+            <button
+              onClick={() => setOffset(o => Math.min(o + 1, 0))}
+              className="btn-icon"
+              disabled={offset >= 0}
+              style={{ opacity: offset >= 0 ? 0.3 : 1 }}
+              aria-label={t('dash.next')}
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+
+            {offset !== 0 && (
+              <button
+                onClick={() => setOffset(0)}
+                className="btn btn-sm btn-secondary rounded-lg flex items-center gap-1"
+              >
+                <RotateCcw className="w-3 h-3" />
+                {t('dash.today')}
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Filters */}

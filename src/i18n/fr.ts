@@ -125,6 +125,8 @@ export const fr = {
     noData: "Aucune donnée disponible",
     noEntries: "Aucune entrée pour la période sélectionnée",
     clickToFilter: "Cliquer pour filtrer dans la vue Entrées",
+    prev: "Période précédente",
+    next: "Période suivante",
   },
 
   // Manage Section

@@ -125,6 +125,8 @@ export const de = {
     noData: "Keine Daten verfügbar",
     noEntries: "Keine Einträge im gewählten Zeitraum",
     clickToFilter: "Klicken zum Filtern in Einträge-Ansicht",
+    prev: "Vorheriger Zeitraum",
+    next: "Nächster Zeitraum",
   },
 
   // Manage Section
