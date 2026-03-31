@@ -119,12 +119,19 @@ function serializeSlots(slots: TimerSlot[]): SerializedSlot[] {
 
 // ── syncStateToSupabase: the ONE path for pushing timer state ──────────
 // Called directly by each user action. saveTimers() does NOT call this.
+// Debounced: coalesces rapid-fire calls into a single push.
+
+let _syncDebounce: ReturnType<typeof setTimeout> | null = null;
 
 function syncStateToSupabase(): void {
-  const state = useTimerStore.getState();
-  const serialized = serializeSlots(state.taskSlots);
-  _suppressUntil = Date.now() + 5000;
-  pushTimersToSupabase(serialized);
+  if (_syncDebounce) clearTimeout(_syncDebounce);
+  _syncDebounce = setTimeout(() => {
+    _syncDebounce = null;
+    const state = useTimerStore.getState();
+    const serialized = serializeSlots(state.taskSlots);
+    _suppressUntil = Date.now() + 5000;
+    pushTimersToSupabase(serialized);
+  }, 300);
 }
 
 export const useTimerStore = create<TimerState>((set, get) => ({
@@ -521,21 +528,46 @@ if (typeof window !== 'undefined') {
 }
 
 // ── Supabase Push (fire-and-forget) ─────────────────────────────────────
+// Includes session check and exponential backoff on auth/RLS errors
+// to prevent console spam when the JWT has expired.
+
+let _pushBackoffUntil = 0;
+let _pushBackoffMs = 2000; // starts at 2s, doubles on each failure, max 60s
 
 async function pushTimersToSupabase(slots: SerializedSlot[]): Promise<void> {
+  // Backoff: skip if we recently failed
+  if (Date.now() < _pushBackoffUntil) return;
+
   const profile = useAuthStore.getState().profile;
   if (!isSupabaseAvailable() || !supabaseClient || !profile?.id || profile.id.startsWith('local_')) return;
 
   try {
+    // Verify we have a valid session before attempting any DB operation
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session?.access_token) {
+      // No valid session — back off to avoid spamming
+      _pushBackoffUntil = Date.now() + _pushBackoffMs;
+      _pushBackoffMs = Math.min(_pushBackoffMs * 2, 60000);
+      return;
+    }
+
     // Delete all existing timers for this user
     const { error: delError } = await supabaseClient
       .from('running_timers')
       .delete()
       .eq('user_id', profile.id);
 
-    if (delError) return;
+    if (delError) {
+      // Auth or RLS error on delete — back off
+      _pushBackoffUntil = Date.now() + _pushBackoffMs;
+      _pushBackoffMs = Math.min(_pushBackoffMs * 2, 60000);
+      return;
+    }
 
-    if (slots.length === 0) return;
+    if (slots.length === 0) {
+      _pushBackoffMs = 2000; // reset on success
+      return;
+    }
 
     // Insert current timer state
     const rows = slots.map((s) => ({
@@ -560,10 +592,16 @@ async function pushTimersToSupabase(slots: SerializedSlot[]): Promise<void> {
       .insert(rows);
 
     if (insError) {
-      console.error('[TimerSync] INSERT failed:', insError.message);
+      console.warn('[TimerSync] push skipped — session may have expired');
+      _pushBackoffUntil = Date.now() + _pushBackoffMs;
+      _pushBackoffMs = Math.min(_pushBackoffMs * 2, 60000);
+    } else {
+      _pushBackoffMs = 2000; // reset on success
     }
   } catch (e) {
-    // silent
+    // silent — network error
+    _pushBackoffUntil = Date.now() + _pushBackoffMs;
+    _pushBackoffMs = Math.min(_pushBackoffMs * 2, 60000);
   }
 }
 
