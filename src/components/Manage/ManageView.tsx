@@ -263,7 +263,7 @@ export default function ManageView() {
         }
       }
       for (const fmt of importedFormats) {
-        if (!master.formats.includes(fmt)) {
+        if (fmt && !master.formats.includes(fmt)) {
           await master.addFormat(fmt);
         }
       }

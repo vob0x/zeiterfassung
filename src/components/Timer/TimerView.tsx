@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { useTimerStore } from '../../stores/timerStore';
 import { useEntriesStore } from '../../stores/entriesStore';
 import { useI18n } from '../../i18n';
-import { formatDuration, formatDurationHM, getTodayISO } from '../../lib/utils';
+import { formatDurationHM, getTodayISO } from '../../lib/utils';
 import { Plus } from 'lucide-react';
 import TimerLane from './TimerLane';
 import FuzzySearch from './FuzzySearch';

@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { supabaseClient, isSupabaseAvailable } from '@/lib/supabase'
 import { deriveEncryptionKey, clearEncryptionKey, hasEncryptionKey, clearTeamKey } from '@/lib/crypto'
-import { migrateUserData, clearAllUserData } from '@/lib/userStorage'
+import { migrateUserData } from '@/lib/userStorage'
 import type { Profile, Session } from '@/types'
 
 interface AuthState {

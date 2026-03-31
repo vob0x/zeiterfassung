@@ -637,6 +637,12 @@ async function pullTimersFromSupabase(): Promise<void> {
     // pushing device already prevents reading stale data during DELETE+INSERT.
     if (!data || data.length === 0) {
       if (localSlots.length > 0) {
+        // Safety: if a sync push is currently pending (debounced), don't
+        // clear — our local state hasn't been pushed yet and the remote
+        // is still stale. This prevents the 300ms debounce window from
+        // causing a race where a just-started timer gets cleared.
+        if (_syncDebounce) return;
+
         const s = useTimerStore.getState();
         if (s.tickInterval) clearInterval(s.tickInterval);
         useTimerStore.setState({ taskSlots: [], tickInterval: null, activeSlotId: null });

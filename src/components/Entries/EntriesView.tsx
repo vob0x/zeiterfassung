@@ -3,7 +3,6 @@ import { TimeEntry } from '@/types';
 import { useEntriesStore } from '../../stores/entriesStore';
 import { useI18n } from '../../i18n';
 import { useUiStore } from '../../stores/uiStore';
-import { useMasterStore } from '../../stores/masterStore';
 import { X, Clock, Search } from 'lucide-react';
 import { formatDurationHM } from '../../lib/utils';
 import EntryRow from './EntryRow';
@@ -16,7 +15,6 @@ const EntriesView: React.FC = () => {
   const { t } = useI18n();
   const { entries, filters, setFilter, clearFilters } = useEntriesStore();
   const { setCurrentView } = useUiStore();
-  const { formats } = useMasterStore();
 
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');

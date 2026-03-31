@@ -148,9 +148,10 @@ const QuickShortcuts: React.FC = () => {
   // Handle shortcut click
   const handleShortcutClick = (shortcut: ShortcutItem) => {
     addSlot({
-      stakeholder: shortcut.stakeholder,
+      stakeholder: [shortcut.stakeholder],
       projekt: shortcut.projekt,
       taetigkeit: shortcut.taetigkeit || '',
+      format: 'Einzelarbeit',
       notiz: '',
     });
   };

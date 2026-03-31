@@ -52,8 +52,8 @@ export default function DashboardView() {
   // Filter entries by period
   const filteredEntries = useMemo(() => {
     return entries.filter((entry) => {
-      if (dateRange.start && entry.date < dateRange.start) return false;
-      if (dateRange.end && entry.date > dateRange.end) return false;
+      if (dateRange?.start && entry.date < dateRange.start) return false;
+      if (dateRange?.end && entry.date > dateRange.end) return false;
 
       // Handle stakeholder as array
       if (filters.stakeholder) {
