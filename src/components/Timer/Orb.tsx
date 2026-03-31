@@ -22,9 +22,9 @@ const Orb: React.FC<OrbProps> = ({
   onClick,
   title,
 }) => {
-  // Slight growth over time (visual feedback for long tasks)
-  const growth = Math.min(elapsed / (4 * 3600000), 1); // max after 4h
-  const s = size + growth * 6;
+  // Growth over time — orb swells gently as hours accumulate (max +10px after 4h)
+  const growth = Math.min(elapsed / (4 * 3600000), 1); // 0→1 over 4h
+  const s = size + growth * 10;
 
   return (
     <div
@@ -43,10 +43,10 @@ const Orb: React.FC<OrbProps> = ({
         <div
           style={{
             position: 'absolute',
-            inset: -5,
+            inset: -6,
             borderRadius: '50%',
-            background: `radial-gradient(circle, ${color}30 0%, transparent 70%)`,
-            animation: 'orbBreathe 3s ease-in-out infinite',
+            background: `radial-gradient(circle, ${color}40 0%, transparent 70%)`,
+            animation: 'orbBreathe 3.5s ease-in-out infinite',
           }}
         />
       )}
@@ -59,7 +59,8 @@ const Orb: React.FC<OrbProps> = ({
           background: running
             ? `radial-gradient(circle at 35% 35%, ${color}, ${color}90)`
             : `radial-gradient(circle at 35% 35%, ${color}50, ${color}25)`,
-          boxShadow: running ? `0 0 16px ${color}35` : 'none',
+          boxShadow: running ? `0 0 18px ${color}40, 0 0 6px ${color}20` : 'none',
+          animation: running ? 'orbPulse 3.5s ease-in-out infinite' : 'none',
           transition: 'all 0.4s ease',
         }}
       />

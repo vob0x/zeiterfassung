@@ -16,8 +16,12 @@ if (typeof document !== 'undefined' && !document.getElementById(styleId)) {
   style.id = styleId;
   style.textContent = `
     @keyframes orbBreathe {
-      0%, 100% { transform: scale(1); opacity: 0.4; }
-      50% { transform: scale(1.25); opacity: 0.12; }
+      0%, 100% { transform: scale(1); opacity: 0.5; }
+      50% { transform: scale(1.35); opacity: 0.15; }
+    }
+    @keyframes orbPulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.07); }
     }
   `;
   document.head.appendChild(style);
