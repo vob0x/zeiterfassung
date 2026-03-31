@@ -89,16 +89,28 @@ export function formatTime(date: Date): string {
  * This prevents stale/incorrect duration_ms from showing wrong totals.
  */
 export function getEffectiveDurationMs(entry: { start_time: string; end_time: string; duration_ms?: number }): number {
-  const [sh, sm] = entry.start_time.split(':').map(Number);
-  const [eh, em] = entry.end_time.split(':').map(Number);
-  let startMins = sh * 60 + sm;
-  let endMins = eh * 60 + em;
-  if (endMins < startMins) endMins += 24 * 60;
-  const vonBisMs = (endMins - startMins) * 60000;
-
-  if (entry.duration_ms && entry.duration_ms > 0 && entry.duration_ms <= vonBisMs) {
-    return entry.duration_ms;
+  // Parse Von-Bis span
+  let vonBisMs = 0;
+  if (entry.start_time && entry.end_time && entry.start_time.includes(':') && entry.end_time.includes(':')) {
+    const [sh, sm] = entry.start_time.split(':').map(Number);
+    const [eh, em] = entry.end_time.split(':').map(Number);
+    if (!isNaN(sh) && !isNaN(sm) && !isNaN(eh) && !isNaN(em)) {
+      let startMins = sh * 60 + sm;
+      let endMins = eh * 60 + em;
+      if (endMins < startMins) endMins += 24 * 60;
+      vonBisMs = (endMins - startMins) * 60000;
+    }
   }
+
+  const dm = entry.duration_ms || 0;
+
+  // If Von-Bis is zero or unparseable, trust duration_ms
+  if (vonBisMs <= 0) return dm > 0 ? dm : 0;
+
+  // If duration_ms is valid and plausible (≤ Von-Bis), use it (stack timer: pause/resume)
+  if (dm > 0 && dm <= vonBisMs) return dm;
+
+  // Otherwise fall back to Von-Bis
   return vonBisMs;
 }
 
