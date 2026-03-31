@@ -9,6 +9,7 @@ import { X, MessageSquare } from 'lucide-react';
 import { formatDuration, formatDateISO } from '../../lib/utils';
 import InlinePicker from './InlinePicker';
 import Orb from './Orb';
+import NoteInput from '../UI/NoteInput';
 
 interface TimerLaneProps {
   slot: TimerSlot;
@@ -352,11 +353,11 @@ const TimerLane: React.FC<TimerLaneProps> = ({ slot }) => {
             marginLeft: isRunning ? 48 : 36,
           }}
         >
-          <input
-            type="text"
+          <NoteInput
             value={slot.notiz || ''}
-            onChange={(e) => updateSlotField(slot.id, 'notiz', e.target.value)}
+            onChange={(v) => updateSlotField(slot.id, 'notiz', v)}
             placeholder={t('ph.notiz')}
+            compact
             style={{
               width: '100%',
               padding: '5px 8px',
@@ -367,12 +368,6 @@ const TimerLane: React.FC<TimerLaneProps> = ({ slot }) => {
               fontSize: '11px',
               outline: 'none',
               fontFamily: 'var(--font)',
-            }}
-            onFocus={(e) => {
-              e.currentTarget.style.borderColor = c;
-            }}
-            onBlur={(e) => {
-              e.currentTarget.style.borderColor = isRunning ? c + '20' : 'var(--border)';
             }}
           />
         </div>

@@ -6,6 +6,7 @@ interface KpiCardsProps {
   today: number;   // hours (float)
   period: number;  // hours (float)
   entries: number;  // count
+  onDrillDown?: () => void;
 }
 
 /**
@@ -43,13 +44,18 @@ function AnimatedValue({ value, mode = 'hours' }: { value: number; mode?: 'hours
   return <span>{formatHoursAdaptive(displayValue)}</span>;
 }
 
-export function KpiCards({ today, period, entries }: KpiCardsProps) {
+export function KpiCards({ today, period, entries, onDrillDown }: KpiCardsProps) {
   const { t } = useI18n();
+  const cardCursor = onDrillDown ? 'pointer' : undefined;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       {/* Today's Hours */}
-      <div className="relative overflow-hidden rounded-lg backdrop-blur-xl border p-6 shadow-2xl" style={{ background: 'linear-gradient(to bottom right, rgba(var(--surface-rgb), 0.8), rgba(var(--surface-rgb), 0.8))', borderColor: 'rgba(0, 204, 255, 0.3)' }}>
+      <div
+        className="relative overflow-hidden rounded-lg backdrop-blur-xl border p-6 shadow-2xl"
+        style={{ background: 'linear-gradient(to bottom right, rgba(var(--surface-rgb), 0.8), rgba(var(--surface-rgb), 0.8))', borderColor: 'rgba(0, 204, 255, 0.3)', cursor: cardCursor }}
+        onClick={onDrillDown}
+      >
         <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-blue-500/5 pointer-events-none" />
         <div className="relative z-10">
           <div className="text-sm font-medium mb-2" style={{ color: 'var(--text-muted)' }}>{t('kpi.today')}</div>
@@ -61,7 +67,11 @@ export function KpiCards({ today, period, entries }: KpiCardsProps) {
       </div>
 
       {/* Period Hours */}
-      <div className="relative overflow-hidden rounded-lg backdrop-blur-xl border p-6 shadow-2xl" style={{ background: 'linear-gradient(to bottom right, rgba(var(--surface-rgb), 0.8), rgba(var(--surface-rgb), 0.8))', borderColor: 'rgba(59, 130, 246, 0.3)' }}>
+      <div
+        className="relative overflow-hidden rounded-lg backdrop-blur-xl border p-6 shadow-2xl"
+        style={{ background: 'linear-gradient(to bottom right, rgba(var(--surface-rgb), 0.8), rgba(var(--surface-rgb), 0.8))', borderColor: 'rgba(59, 130, 246, 0.3)', cursor: cardCursor }}
+        onClick={onDrillDown}
+      >
         <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 pointer-events-none" />
         <div className="relative z-10">
           <div className="text-sm font-medium mb-2" style={{ color: 'var(--text-muted)' }}>{t('period.label')}</div>
@@ -73,7 +83,11 @@ export function KpiCards({ today, period, entries }: KpiCardsProps) {
       </div>
 
       {/* Entry Count */}
-      <div className="relative overflow-hidden rounded-lg backdrop-blur-xl border p-6 shadow-2xl" style={{ background: 'linear-gradient(to bottom right, rgba(var(--surface-rgb), 0.8), rgba(var(--surface-rgb), 0.8))', borderColor: 'rgba(168, 85, 247, 0.3)' }}>
+      <div
+        className="relative overflow-hidden rounded-lg backdrop-blur-xl border p-6 shadow-2xl"
+        style={{ background: 'linear-gradient(to bottom right, rgba(var(--surface-rgb), 0.8), rgba(var(--surface-rgb), 0.8))', borderColor: 'rgba(168, 85, 247, 0.3)', cursor: cardCursor }}
+        onClick={onDrillDown}
+      >
         <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-pink-500/5 pointer-events-none" />
         <div className="relative z-10">
           <div className="text-sm font-medium mb-2" style={{ color: 'var(--text-muted)' }}>{t('kpi.entries')}</div>

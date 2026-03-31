@@ -1,10 +1,11 @@
 import React, { useMemo } from 'react';
-import { TimeEntry } from '@/types';
+import { TimeEntry, FilterState } from '@/types';
 import { useI18n } from '../../i18n';
 import { formatHoursAdaptive } from '../../lib/utils';
 
 interface HeatmapProps {
   entries: TimeEntry[];
+  onDrillDown?: (filters: Partial<FilterState>) => void;
 }
 
 function getIntensityStyle(hours: number): React.CSSProperties {
@@ -16,7 +17,7 @@ function getIntensityStyle(hours: number): React.CSSProperties {
   return { background: 'rgba(212, 112, 110, 0.3)', border: '1px solid rgba(212, 112, 110, 0.4)' };
 }
 
-export function Heatmap({ entries }: HeatmapProps) {
+export function Heatmap({ entries, onDrillDown }: HeatmapProps) {
   const { t } = useI18n();
   const { stakeholders, projects, matrix, totals } = useMemo(() => {
     // Handle stakeholder as array: flatten all stakeholders
@@ -76,7 +77,8 @@ export function Heatmap({ entries }: HeatmapProps) {
               <th
                 key={pr}
                 className="p-2 text-center text-sm font-semibold border"
-                style={{ color: 'var(--text-secondary)', background: 'rgba(var(--surface-rgb), 0.5)', borderColor: 'rgba(var(--border-rgb), 0.3)' }}
+                style={{ color: 'var(--text-secondary)', background: 'rgba(var(--surface-rgb), 0.5)', borderColor: 'rgba(var(--border-rgb), 0.3)', cursor: onDrillDown ? 'pointer' : undefined }}
+                onClick={() => onDrillDown?.({ project: pr })}
               >
                 {pr}
               </th>
@@ -89,7 +91,11 @@ export function Heatmap({ entries }: HeatmapProps) {
         <tbody>
           {stakeholders.map((sh) => (
             <tr key={sh}>
-              <td className="p-2 text-sm font-medium border sticky left-0" style={{ color: 'var(--text-secondary)', background: 'rgba(var(--surface-rgb), 0.3)', borderColor: 'rgba(var(--border-rgb), 0.3)' }}>
+              <td
+                className="p-2 text-sm font-medium border sticky left-0"
+                style={{ color: 'var(--text-secondary)', background: 'rgba(var(--surface-rgb), 0.3)', borderColor: 'rgba(var(--border-rgb), 0.3)', cursor: onDrillDown ? 'pointer' : undefined }}
+                onClick={() => onDrillDown?.({ stakeholder: sh })}
+              >
                 {sh}
               </td>
               {projects.map((pr) => {
@@ -98,13 +104,18 @@ export function Heatmap({ entries }: HeatmapProps) {
                   <td
                     key={`${sh}-${pr}`}
                     className="p-2 text-center text-sm font-medium rounded"
-                    style={{ ...getIntensityStyle(hours), color: 'var(--text)' }}
+                    style={{ ...getIntensityStyle(hours), color: 'var(--text)', cursor: hours > 0 && onDrillDown ? 'pointer' : undefined }}
+                    onClick={() => hours > 0 && onDrillDown?.({ stakeholder: sh, project: pr })}
                   >
                     {hours > 0 ? formatHoursAdaptive(hours) : '—'}
                   </td>
                 );
               })}
-              <td className="p-2 text-center text-sm font-semibold border" style={{ color: 'var(--neon-cyan)', background: 'rgba(var(--surface-rgb), 0.5)', borderColor: 'rgba(var(--border-rgb), 0.3)' }}>
+              <td
+                className="p-2 text-center text-sm font-semibold border"
+                style={{ color: 'var(--neon-cyan)', background: 'rgba(var(--surface-rgb), 0.5)', borderColor: 'rgba(var(--border-rgb), 0.3)', cursor: onDrillDown ? 'pointer' : undefined }}
+                onClick={() => onDrillDown?.({ stakeholder: sh })}
+              >
                 {formatHoursAdaptive(totals.stakeholder[sh] || 0)}
               </td>
             </tr>
@@ -117,7 +128,8 @@ export function Heatmap({ entries }: HeatmapProps) {
               <td
                 key={`total-${pr}`}
                 className="p-2 text-center text-sm font-semibold border"
-                style={{ color: 'var(--neon-cyan)', background: 'rgba(var(--surface-rgb), 0.5)', borderColor: 'rgba(var(--border-rgb), 0.3)' }}
+                style={{ color: 'var(--neon-cyan)', background: 'rgba(var(--surface-rgb), 0.5)', borderColor: 'rgba(var(--border-rgb), 0.3)', cursor: onDrillDown ? 'pointer' : undefined }}
+                onClick={() => onDrillDown?.({ project: pr })}
               >
                 {formatHoursAdaptive(totals.project[pr] || 0)}
               </td>

@@ -5,6 +5,7 @@ import { useMasterStore } from '../../stores/masterStore';
 import { useUiStore } from '../../stores/uiStore';
 import { useI18n } from '../../i18n';
 import { Plus, X } from 'lucide-react';
+import NoteInput, { saveNoteToHistory } from '../UI/NoteInput';
 
 interface EditEntryModalProps {
   entry: TimeEntry;
@@ -80,6 +81,9 @@ const EditEntryModal: React.FC<EditEntryModalProps> = ({ entry, isOpen, onClose 
         end_time: formData.end_time,
         notiz: formData.notiz,
       });
+
+      // Save note to suggestion history
+      if (formData.notiz) saveNoteToHistory(formData.notiz);
 
       showToast(t('toast.entryUpdated'), 'success');
       onClose();
@@ -375,15 +379,14 @@ const EditEntryModal: React.FC<EditEntryModalProps> = ({ entry, isOpen, onClose 
             {errors.end_time && <div className="text-xs mt-1" style={{ color: 'var(--danger)' }}>{errors.end_time}</div>}
           </div>
 
-          {/* Note */}
+          {/* Note with suggestions */}
           <div>
             <label className="block text-sm font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>
               {t('label.notiz')}
             </label>
-            <input
-              type="text"
+            <NoteInput
               value={formData.notiz}
-              onChange={(e) => setFormData({ ...formData, notiz: e.target.value })}
+              onChange={(v) => setFormData({ ...formData, notiz: v })}
               className="w-full px-3 py-2 rounded text-sm"
               style={inputStyle}
             />

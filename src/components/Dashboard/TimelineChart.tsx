@@ -1,10 +1,11 @@
 import { useMemo } from 'react';
-import { TimeEntry } from '@/types';
+import { TimeEntry, FilterState } from '@/types';
 import { useI18n } from '../../i18n';
 import { formatHoursAdaptive } from '../../lib/utils';
 
 interface TimelineChartProps {
   entries: TimeEntry[];
+  onDrillDown?: (filters: Partial<FilterState>) => void;
 }
 
 const PROJECT_COLORS = [
@@ -18,7 +19,7 @@ const PROJECT_COLORS = [
   '#14b8a6', // teal-500
 ];
 
-export function TimelineChart({ entries }: TimelineChartProps) {
+export function TimelineChart({ entries, onDrillDown }: TimelineChartProps) {
   const { t, tArray } = useI18n();
   const wdShort = tArray('wd.short');
 
@@ -165,6 +166,8 @@ export function TimelineChart({ entries }: TimelineChartProps) {
                       fill={color}
                       opacity="0.85"
                       rx="2"
+                      style={{ cursor: onDrillDown ? 'pointer' : undefined }}
+                      onClick={() => onDrillDown?.({ project, from: data.date, to: data.date })}
                     />
                   );
 
@@ -190,7 +193,12 @@ export function TimelineChart({ entries }: TimelineChartProps) {
       {/* Legend */}
       <div className="flex flex-wrap gap-4 mt-4 justify-center">
         {uniqueProjects.map((project, idx) => (
-          <div key={project} className="flex items-center gap-2">
+          <div
+            key={project}
+            className="flex items-center gap-2"
+            style={{ cursor: onDrillDown ? 'pointer' : undefined }}
+            onClick={() => onDrillDown?.({ project })}
+          >
             <div
               className="w-4 h-4 rounded"
               style={{ backgroundColor: PROJECT_COLORS[idx % PROJECT_COLORS.length] }}

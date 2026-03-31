@@ -5,6 +5,7 @@ import { useUiStore } from '../../stores/uiStore';
 import { useI18n } from '../../i18n';
 import { formatDateISO } from '../../lib/utils';
 import { getTodayISO } from '../../lib/utils';
+import NoteInput, { saveNoteToHistory } from '../UI/NoteInput';
 
 interface ManualEntryProps {
   embedded?: boolean;
@@ -114,6 +115,9 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ embedded = false }) => {
       for (const entry of entries) {
         await addEntry(entry);
       }
+
+      // Save note to suggestion history
+      if (formData.notiz) saveNoteToHistory(formData.notiz);
 
       setFormData({
         date: getTodayISO(),
@@ -319,13 +323,12 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ embedded = false }) => {
           </div>
         )}
 
-        {/* Note input */}
+        {/* Note input with suggestions */}
         <div style={{ marginBottom: '8px' }}>
-          <input
-            type="text"
-            placeholder={t('ph.notiz')}
+          <NoteInput
             value={formData.notiz}
-            onChange={(e) => setFormData({ ...formData, notiz: e.target.value })}
+            onChange={(v) => setFormData({ ...formData, notiz: v })}
+            placeholder={t('ph.notiz')}
             style={selectStyle}
           />
         </div>

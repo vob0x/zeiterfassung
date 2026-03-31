@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { useI18n } from '../../i18n';
 import { useEntriesStore } from '../../stores/entriesStore';
 import { useMasterStore } from '../../stores/masterStore';
-import { PeriodType } from '@/types';
+import { useUiStore } from '../../stores/uiStore';
+import { PeriodType, FilterState } from '@/types';
 import { formatDateISO } from '../../lib/utils';
 import { KpiCards } from './KpiCards';
 import { Heatmap } from './Heatmap';
@@ -84,6 +85,25 @@ export default function DashboardView() {
   const kpiEntries = filteredEntries.length;
 
   const hasActiveFilters = Object.values(filters).some((v) => v !== '');
+  const { setCurrentView } = useUiStore();
+
+  // Drill-down: set filters and navigate to entries view
+  const drillDown = useCallback((drillFilters: Partial<FilterState>) => {
+    clearFilters();
+    // Apply date range from current period
+    if (dateRange?.start) setFilter('from', dateRange.start);
+    if (dateRange?.end) setFilter('to', dateRange.end);
+    // Apply any active dashboard filters first
+    if (filters.stakeholder) setFilter('stakeholder', filters.stakeholder);
+    if (filters.project) setFilter('project', filters.project);
+    if (filters.activity) setFilter('activity', filters.activity);
+    if (filters.format) setFilter('format', filters.format);
+    // Then override with drill-down specific filters
+    for (const [key, value] of Object.entries(drillFilters)) {
+      if (value) setFilter(key as keyof FilterState, value);
+    }
+    setCurrentView('entries');
+  }, [dateRange, filters, clearFilters, setFilter, setCurrentView]);
 
   return (
     <div className="w-full max-w-7xl mx-auto p-4 space-y-6">
@@ -185,7 +205,7 @@ export default function DashboardView() {
       </div>
 
       {/* KPI Cards */}
-      <KpiCards today={kpiToday} period={kpiPeriod} entries={kpiEntries} />
+      <KpiCards today={kpiToday} period={kpiPeriod} entries={kpiEntries} onDrillDown={() => drillDown({})} />
 
       {/* Empty State */}
       {filteredEntries.length === 0 ? (
@@ -200,25 +220,25 @@ export default function DashboardView() {
           {/* Heatmap */}
           <div className="card p-4">
             <h2 style={{ color: 'var(--text)' }} className="text-lg font-semibold mb-4">{t('dash.shxpr')}</h2>
-            <Heatmap entries={filteredEntries} />
+            <Heatmap entries={filteredEntries} onDrillDown={drillDown} />
           </div>
 
           {/* Activity Breakdown */}
           <div className="card p-4">
             <h2 style={{ color: 'var(--text)' }} className="text-lg font-semibold mb-4">{t('dash.byActivity')}</h2>
-            <ActivityBars entries={filteredEntries} />
+            <ActivityBars entries={filteredEntries} onDrillDown={drillDown} />
           </div>
 
           {/* Format Breakdown */}
           <div className="card p-4">
             <h2 style={{ color: 'var(--text)' }} className="text-lg font-semibold mb-4">{t('dash.byFormat')}</h2>
-            <ActivityBars entries={filteredEntries} isFormat />
+            <ActivityBars entries={filteredEntries} isFormat onDrillDown={drillDown} />
           </div>
 
           {/* Timeline Chart */}
           <div className="card p-4">
             <h2 style={{ color: 'var(--text)' }} className="text-lg font-semibold mb-4">{t('dash.timeline')}</h2>
-            <TimelineChart entries={filteredEntries} />
+            <TimelineChart entries={filteredEntries} onDrillDown={drillDown} />
           </div>
         </>
       )}

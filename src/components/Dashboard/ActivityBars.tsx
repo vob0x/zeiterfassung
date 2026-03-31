@@ -1,11 +1,12 @@
 import { useMemo } from 'react';
-import { TimeEntry } from '@/types';
+import { TimeEntry, FilterState } from '@/types';
 import { useI18n } from '../../i18n';
 import { formatHoursAdaptive } from '../../lib/utils';
 
 interface ActivityBarsProps {
   entries: TimeEntry[];
   isFormat?: boolean;
+  onDrillDown?: (filters: Partial<FilterState>) => void;
 }
 
 const COLORS = [
@@ -17,7 +18,7 @@ const COLORS = [
   'bg-gradient-to-r from-blue-500 to-purple-500',
 ];
 
-export function ActivityBars({ entries, isFormat = false }: ActivityBarsProps) {
+export function ActivityBars({ entries, isFormat = false, onDrillDown }: ActivityBarsProps) {
   const { t } = useI18n();
   const { activities, totalHours } = useMemo(() => {
     // Group entries by key, sum duration_ms
@@ -52,7 +53,12 @@ export function ActivityBars({ entries, isFormat = false }: ActivityBarsProps) {
         const colorClass = COLORS[index % COLORS.length];
 
         return (
-          <div key={activity.name} className="space-y-1">
+          <div
+            key={activity.name}
+            className="space-y-1"
+            style={{ cursor: onDrillDown ? 'pointer' : undefined }}
+            onClick={() => onDrillDown?.(isFormat ? { format: activity.name } : { activity: activity.name })}
+          >
             <div className="flex justify-between items-center text-sm">
               <span className="font-medium" style={{ color: 'var(--text-secondary)' }}>{activity.name}</span>
               <span className="font-semibold" style={{ color: 'var(--neon-cyan)' }}>{formatHoursAdaptive(activity.hours)}</span>

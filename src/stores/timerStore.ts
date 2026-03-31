@@ -4,6 +4,7 @@ import { useEntriesStore } from './entriesStore';
 import { useAuthStore } from './authStore';
 import { getUserData, setUserData, removeUserData } from '@/lib/userStorage';
 import { formatDateISO } from '@/lib/utils';
+import { saveNoteToHistory } from '@/components/UI/NoteInput';
 import { supabaseClient, isSupabaseAvailable } from '@/lib/supabase';
 
 // Serializable version for localStorage (Date → ISO string)
@@ -325,6 +326,9 @@ export const useTimerStore = create<TimerState>((set, get) => ({
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       });
+
+      // Save note to suggestion history
+      if (slot.notiz) saveNoteToHistory(slot.notiz);
     } catch (e) {
       console.error('[TimerSync] entriesStore.add failed:', e);
     }
