@@ -144,6 +144,9 @@ export const de = {
     warning: "Achtung",
     confirmDeleteAll: "Ja, alle Daten löschen",
     addNew: "Neu hinzufügen...",
+    removeDuplicates: "Duplikate entfernen",
+    duplicatesRemoved: "Duplikate entfernt",
+    noDuplicates: "Keine Duplikate gefunden",
   },
 
   // Team Section

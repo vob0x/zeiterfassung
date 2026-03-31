@@ -6,7 +6,7 @@ import { useUiStore } from '../../stores/uiStore';
 import { exportBackup, importBackup, exportCSV, importCSV } from '../../lib/backup';
 import { clearAllUserData } from '../../lib/userStorage';
 import ConfirmDialog from '../UI/ConfirmDialog';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Trash2, Copy } from 'lucide-react';
 
 export default function ManageView() {
   const { t, tArray } = useI18n();
@@ -448,6 +448,29 @@ export default function ManageView() {
         </div>
 
         <p style={{ color: 'var(--text-muted)' }} className="text-xs italic">{t('manage.backupHint')}</p>
+
+        {/* Deduplicate */}
+        <div className="pt-2" style={{ borderTop: '1px solid var(--border)' }}>
+          <button
+            onClick={async () => {
+              try {
+                const count = await useEntriesStore.getState().removeDuplicates();
+                if (count > 0) {
+                  showToast(`${count} ${t('manage.duplicatesRemoved')}`, 'success');
+                } else {
+                  showToast(t('manage.noDuplicates'), 'success');
+                }
+              } catch (error) {
+                showToast(error instanceof Error ? error.message : t('toast.error'), 'error');
+              }
+            }}
+            className="btn btn-secondary flex items-center gap-2"
+            disabled={entries.length === 0}
+          >
+            <Copy className="w-4 h-4" />
+            {t('manage.removeDuplicates')}
+          </button>
+        </div>
       </div>
 
       {/* Delete All Data */}

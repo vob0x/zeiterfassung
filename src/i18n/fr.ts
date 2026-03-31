@@ -144,6 +144,9 @@ export const fr = {
     warning: "Attention",
     confirmDeleteAll: "Oui, supprimer toutes les données",
     addNew: "Ajouter...",
+    removeDuplicates: "Supprimer les doublons",
+    duplicatesRemoved: "doublons supprimés",
+    noDuplicates: "Aucun doublon trouvé",
   },
 
   // Team Section

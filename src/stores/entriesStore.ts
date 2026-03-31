@@ -78,6 +78,7 @@ interface EntriesState {
   bulkAdd: (entries: Record<string, any>[]) => Promise<void>;
   update: (id: string, updates: Partial<TimeEntry>) => Promise<void>;
   delete: (id: string) => Promise<void>;
+  removeDuplicates: () => Promise<number>;
   setFilter: (key: keyof FilterState, value: string) => void;
   clearFilters: () => void;
   getFilteredEntries: () => TimeEntry[];
@@ -297,7 +298,17 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
     try {
       const state = get();
       const now = new Date().toISOString();
-      const newEntries: TimeEntry[] = rawEntries.map((entry) => {
+
+      // Build a fingerprint set from existing entries to detect duplicates
+      const fingerprint = (e: { date: string; start_time: string; end_time: string; projekt: string; taetigkeit: string; stakeholder: string | string[] }) => {
+        const sh = Array.isArray(e.stakeholder) ? e.stakeholder.sort().join(',') : (e.stakeholder || '');
+        return `${e.date}|${e.start_time}|${e.end_time}|${e.projekt}|${e.taetigkeit}|${sh}`;
+      };
+      const existingFingerprints = new Set(state.entries.map((e) => fingerprint(e)));
+      let skippedCount = 0;
+
+      const newEntries: TimeEntry[] = [];
+      for (const entry of rawEntries) {
         let duration_ms = (entry as any).duration_ms || 0;
         if (!duration_ms && entry.start_time && entry.end_time) {
           const [sh, sm] = entry.start_time.split(':').map(Number);
@@ -314,22 +325,43 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
         } else if (!stakeholder || (Array.isArray(stakeholder) && stakeholder.length === 0)) {
           stakeholder = '';
         }
-        return {
-          id: generateUUID(),
-          user_id: (entry as any).user_id || 'local',
+
+        const candidate = {
           date: entry.date,
-          stakeholder: stakeholder,
-          projekt: entry.projekt || (entry as any).project || '',
-          taetigkeit: entry.taetigkeit || (entry as any).activity || '',
-          format: entry.format || 'Einzelarbeit', // NEW: default format
           start_time: entry.start_time || (entry as any).startTime || '',
           end_time: entry.end_time || (entry as any).endTime || '',
+          projekt: entry.projekt || (entry as any).project || '',
+          taetigkeit: entry.taetigkeit || (entry as any).activity || '',
+          stakeholder,
+        };
+
+        const fp = fingerprint(candidate);
+        if (existingFingerprints.has(fp)) {
+          skippedCount++;
+          continue; // Duplicate — skip
+        }
+        existingFingerprints.add(fp); // Also deduplicate within the import batch
+
+        newEntries.push({
+          id: generateUUID(),
+          user_id: (entry as any).user_id || 'local',
+          date: candidate.date,
+          stakeholder: candidate.stakeholder,
+          projekt: candidate.projekt,
+          taetigkeit: candidate.taetigkeit,
+          format: entry.format || 'Einzelarbeit',
+          start_time: candidate.start_time,
+          end_time: candidate.end_time,
           duration_ms,
           notiz: entry.notiz || '',
           created_at: (entry as any).created_at || now,
           updated_at: (entry as any).updated_at || now,
-        };
-      });
+        });
+      }
+
+      if (skippedCount > 0) {
+        console.info(`[Import] Skipped ${skippedCount} duplicate entries`);
+      }
 
       const updated = [...state.entries, ...newEntries];
       set({ entries: updated });
@@ -451,6 +483,56 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to delete entry';
+      set({ error: message });
+      throw error;
+    }
+  },
+
+  removeDuplicates: async () => {
+    set({ error: null });
+    try {
+      const state = get();
+      const seen = new Set<string>();
+      const duplicateIds: string[] = [];
+      const unique: TimeEntry[] = [];
+
+      // Fingerprint: date + start_time + end_time + projekt + taetigkeit + stakeholder
+      for (const entry of state.entries) {
+        const sh = Array.isArray(entry.stakeholder) ? entry.stakeholder.sort().join(',') : (entry.stakeholder || '');
+        const fp = `${entry.date}|${entry.start_time}|${entry.end_time}|${entry.projekt}|${entry.taetigkeit}|${sh}`;
+
+        if (seen.has(fp)) {
+          duplicateIds.push(entry.id);
+        } else {
+          seen.add(fp);
+          unique.push(entry);
+        }
+      }
+
+      if (duplicateIds.length === 0) return 0;
+
+      set({ entries: unique });
+      setUserData('entries', unique);
+
+      // Delete duplicates from Supabase
+      if (isSupabaseAvailable() && supabaseClient) {
+        const profile = useAuthStore.getState().profile;
+        if (profile?.id && !profile.id.startsWith('local_')) {
+          // Delete in batches of 50
+          for (let i = 0; i < duplicateIds.length; i += 50) {
+            const batch = duplicateIds.slice(i, i + 50);
+            await supabaseClient
+              .from('time_entries')
+              .delete()
+              .in('id', batch);
+          }
+        }
+      }
+
+      console.info(`[Dedup] Removed ${duplicateIds.length} duplicate entries`);
+      return duplicateIds.length;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to remove duplicates';
       set({ error: message });
       throw error;
     }
