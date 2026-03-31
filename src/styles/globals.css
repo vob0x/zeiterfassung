@@ -363,6 +363,19 @@ a:hover {
     box-shadow: 0 0 16px rgba(201, 169, 98, 0.2);
   }
 
+  /* Fix native <option> elements for dark mode readability */
+  .select option,
+  select option {
+    background-color: var(--surface-solid);
+    color: var(--text);
+  }
+
+  /* Ensure all selects have readable options even with inline styles */
+  select {
+    background-color: var(--surface-solid);
+    color: var(--text);
+  }
+
   .label {
     @apply block text-sm font-medium mb-2;
     color: var(--text);

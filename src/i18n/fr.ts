@@ -109,6 +109,7 @@ export const fr = {
 
   // Dashboard Section
   dash: {
+    day: "Jour",
     today: "Aujourd'hui",
     week: "Semaine",
     month: "Mois",
@@ -152,6 +153,7 @@ export const fr = {
     connected: "Connecté en tant que",
     sync: "🔄 Sync",
     nodata: "Pas encore de données.",
+    day: "Jour",
     week: "Semaine",
     month: "Mois",
     year: "Année",

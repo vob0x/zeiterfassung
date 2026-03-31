@@ -188,7 +188,7 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ embedded = false }) => {
     padding: '5px 8px',
     border: '1px solid var(--border)',
     borderRadius: 'var(--radius-sm)',
-    background: 'transparent',
+    background: 'var(--surface-solid)',
     color: 'var(--text)',
     fontFamily: 'var(--font)',
     fontSize: '12px',

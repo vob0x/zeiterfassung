@@ -401,7 +401,7 @@ export default function TeamView() {
 
       {/* Period Selector */}
       <div className="flex gap-2 flex-wrap">
-        {(['week', 'month', 'year', 'all'] as PeriodType[]).map((p) => (
+        {(['day', 'week', 'month', 'year', 'all'] as PeriodType[]).map((p) => (
           <button
             key={p}
             onClick={() => setTeamPeriod(p)}

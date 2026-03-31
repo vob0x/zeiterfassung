@@ -15,7 +15,7 @@ export default function DashboardView() {
   const entries = useEntriesStore((state) => state.entries);
   const { setFilter, clearFilters, filters } = useEntriesStore();
   const { stakeholders, projects, activities, formats } = useMasterStore();
-  const [period, setPeriod] = useState<PeriodType>('week');
+  const [period, setPeriod] = useState<PeriodType>('day');
 
   // Compute date range based on period
   // Uses formatDateISO (local time) — NOT toISOString (UTC) to avoid
@@ -25,6 +25,8 @@ export default function DashboardView() {
     const todayISO = formatDateISO(today); // Local YYYY-MM-DD
 
     switch (period) {
+      case 'day':
+        return { start: todayISO, end: todayISO };
       case 'week': {
         // European week: Monday = start (ISO 8601)
         const day = today.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
@@ -109,7 +111,7 @@ export default function DashboardView() {
     <div className="w-full max-w-7xl mx-auto p-4 space-y-6">
       {/* Period Selector */}
       <div className="flex gap-2 flex-wrap">
-        {(['week', 'month', 'year', 'all'] as PeriodType[]).map((p) => (
+        {(['day', 'week', 'month', 'year', 'all'] as PeriodType[]).map((p) => (
           <button
             key={p}
             onClick={() => setPeriod(p)}

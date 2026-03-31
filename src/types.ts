@@ -336,7 +336,7 @@ export interface DatabaseUserSettings {
 export type Language = 'de' | 'fr';
 export type Theme = 'cyber' | 'light';
 export type ViewType = 'timer' | 'entries' | 'dashboard' | 'manage' | 'team';
-export type PeriodType = 'week' | 'month' | 'year' | 'all' | 'custom';
+export type PeriodType = 'day' | 'week' | 'month' | 'year' | 'all' | 'custom';
 
 // ============================================================================
 // Session & Auth
