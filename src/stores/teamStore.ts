@@ -203,35 +203,81 @@ export const useTeamStore = create<TeamState>((set, get) => ({
 
       // ── Supabase mode ──
       if (isSupabaseAvailable() && supabaseClient) {
-        // Call RPC function to validate code and join
-        const { data, error: rpcError } = await supabaseClient
-          .rpc('join_team_by_code', {
-            p_invite_code: inviteCode.toUpperCase(),
-          });
+        // Try RPC first (SECURITY DEFINER — bypasses RLS), fall back to direct query
+        // if the function doesn't exist yet (400 = function not found in DB).
+        let teamRow: Record<string, any> | null = null;
 
-        if (rpcError) {
+        const { data: rpcData, error: rpcError } = await supabaseClient
+          .rpc('join_team_by_code', { p_invite_code: inviteCode.toUpperCase() });
+
+        if (!rpcError && rpcData) {
+          // RPC succeeded — it already inserted team_members if needed
+          teamRow = rpcData as Record<string, any>;
+
+          // RPC doesn't return encrypted_team_key — fetch it separately
+          if (!teamRow.encrypted_team_key) {
+            const { data: fullTeam } = await supabaseClient
+              .from('teams')
+              .select('encrypted_team_key')
+              .eq('id', teamRow.id)
+              .maybeSingle();
+            if (fullTeam?.encrypted_team_key) {
+              teamRow.encrypted_team_key = fullTeam.encrypted_team_key;
+            }
+          }
+        } else if (rpcError && (rpcError.code === 'PGRST202' || rpcError.message?.includes('could not find'))) {
+          // RPC function not deployed — fallback to direct queries.
+          // Requires the teams_select_by_code RLS policy (migration 20260331).
+          const { data: lookupRow, error: lookupErr } = await supabaseClient
+            .from('teams')
+            .select('*')
+            .eq('invite_code', inviteCode.toUpperCase())
+            .maybeSingle();
+
+          if (lookupErr) throw new Error(lookupErr.message);
+          if (!lookupRow) throw new Error('INVALID_INVITE_CODE');
+
+          teamRow = lookupRow;
+
+          // Check if already a member
+          const { data: existing } = await supabaseClient
+            .from('team_members')
+            .select('id')
+            .eq('team_id', lookupRow.id)
+            .eq('user_id', userId)
+            .maybeSingle();
+
+          if (!existing) {
+            const { error: insertErr } = await supabaseClient
+              .from('team_members')
+              .insert({ team_id: lookupRow.id, user_id: userId });
+            if (insertErr) throw new Error(insertErr.message);
+          }
+        } else if (rpcError) {
+          // Real RPC error (not "function not found")
           if (rpcError.message?.includes('INVALID_INVITE_CODE')) {
             throw new Error('INVALID_INVITE_CODE');
           }
           throw new Error(rpcError.message);
         }
 
-        const teamData = data as Record<string, any>;
+        if (!teamRow) throw new Error('INVALID_INVITE_CODE');
+
         const team: Team = {
-          id: teamData.id,
-          name: teamData.name,
-          creator_id: teamData.creator_id,
-          invite_code: teamData.invite_code,
-          created_at: teamData.created_at,
-          updated_at: teamData.updated_at,
+          id: teamRow.id,
+          name: teamRow.name,
+          creator_id: teamRow.creator_id,
+          invite_code: teamRow.invite_code,
+          created_at: teamRow.created_at,
+          updated_at: teamRow.updated_at,
         };
 
         // Decrypt Team Key using invite code (E2E key exchange)
         let teamKeyB64 = '';
-        if (teamData.encrypted_team_key) {
+        if (teamRow.encrypted_team_key) {
           try {
             teamKeyB64 = await decryptTeamKeyFromTransport(
-              teamData.encrypted_team_key,
+              teamRow.encrypted_team_key,
               inviteCode.toUpperCase(),
               team.id
             );

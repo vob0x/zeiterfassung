@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useI18n } from '../../i18n';
 import { useTeamStore } from '../../stores/teamStore';
 import { useEntriesStore } from '../../stores/entriesStore';
 import { useUiStore } from '../../stores/uiStore';
 import { isSupabaseAvailable } from '../../lib/supabase';
 import ConfirmDialog from '../UI/ConfirmDialog';
-import { PeriodType } from '@/types';
+import { PeriodType, TimeEntry } from '@/types';
+import { formatDateISO } from '../../lib/utils';
 import { TeamDaily } from './TeamDaily';
 import { TeamMatrix } from './TeamMatrix';
 import { TeamWorkload } from './TeamWorkload';
@@ -127,8 +128,61 @@ export default function TeamView() {
     }
   };
 
-  // Compute KPIs
-  const allTeamEntries = Array.from(memberEntries.values()).flat();
+  // Compute date range from selected period
+  const dateRange = useMemo(() => {
+    const today = new Date();
+    const todayISO = formatDateISO(today);
+
+    switch (period) {
+      case 'day':
+        return { start: todayISO, end: todayISO };
+      case 'week': {
+        const day = today.getDay();
+        const diff = day === 0 ? 6 : day - 1;
+        const monday = new Date(today);
+        monday.setDate(today.getDate() - diff);
+        return { start: formatDateISO(monday), end: todayISO };
+      }
+      case 'month': {
+        const first = new Date(today.getFullYear(), today.getMonth(), 1);
+        return { start: formatDateISO(first), end: todayISO };
+      }
+      case 'year': {
+        const jan1 = new Date(today.getFullYear(), 0, 1);
+        return { start: formatDateISO(jan1), end: todayISO };
+      }
+      case 'all':
+        return { start: null, end: null };
+      default:
+        return { start: null, end: null };
+    }
+  }, [period]);
+
+  // Filter entries by period
+  const filterByPeriod = (entries: TimeEntry[]): TimeEntry[] => {
+    if (!dateRange.start && !dateRange.end) return entries;
+    return entries.filter((e) => {
+      if (dateRange.start && e.date < dateRange.start) return false;
+      if (dateRange.end && e.date > dateRange.end) return false;
+      return true;
+    });
+  };
+
+  // Period-filtered team entries and member entries
+  const filteredMemberEntries = useMemo(() => {
+    const filtered = new Map<string, TimeEntry[]>();
+    memberEntries.forEach((entries, memberId) => {
+      filtered.set(memberId, filterByPeriod(entries));
+    });
+    return filtered;
+  }, [memberEntries, dateRange]);
+
+  const allTeamEntries = useMemo(() =>
+    Array.from(filteredMemberEntries.values()).flat(),
+    [filteredMemberEntries]
+  );
+
+  // Compute KPIs from filtered data
   const totalHours = allTeamEntries.reduce((sum, entry) => sum + (entry.duration_ms || 0) / (1000 * 60 * 60), 0);
   const personCount = members.length;
   const entryCount = allTeamEntries.length;
@@ -446,7 +500,7 @@ export default function TeamView() {
         <>
           <div className="rounded-lg p-4 backdrop-blur-sm" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
             <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text)' }}>{t('team.attendance')}</h3>
-            <TeamDaily memberEntries={memberEntries} entries={entries} />
+            <TeamDaily memberEntries={filteredMemberEntries} entries={filterByPeriod(entries)} />
           </div>
 
           <div className="rounded-lg p-4 backdrop-blur-sm" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
@@ -461,12 +515,12 @@ export default function TeamView() {
 
           <div className="rounded-lg p-4 backdrop-blur-sm" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
             <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text)' }}>{t('team.workload')}</h3>
-            <TeamWorkload memberEntries={memberEntries} entries={allTeamEntries} />
+            <TeamWorkload memberEntries={filteredMemberEntries} entries={allTeamEntries} />
           </div>
 
           <div className="rounded-lg p-4 backdrop-blur-sm" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
             <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text)' }}>{t('team.timeline')}</h3>
-            <TeamTimeline memberEntries={memberEntries} members={members} />
+            <TeamTimeline memberEntries={filteredMemberEntries} members={members} />
           </div>
         </>
       )}
