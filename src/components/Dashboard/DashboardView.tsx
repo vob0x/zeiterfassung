@@ -9,6 +9,7 @@ import { KpiCards } from './KpiCards';
 import { Heatmap } from './Heatmap';
 import { ActivityBars } from './ActivityBars';
 import { TimelineChart } from './TimelineChart';
+import { Inbox } from 'lucide-react';
 
 export default function DashboardView() {
   const { t } = useI18n();
@@ -212,7 +213,7 @@ export default function DashboardView() {
       {/* Empty State */}
       {filteredEntries.length === 0 ? (
         <div className="card text-center py-16 px-6">
-          <div className="text-4xl mb-4" style={{ opacity: 0.4 }}>📭</div>
+          <Inbox className="w-10 h-10 mx-auto mb-4" style={{ opacity: 0.4, color: 'var(--text-muted)' }} />
           <p className="text-lg font-semibold mb-2" style={{ color: 'var(--text-secondary)' }}>
             {t('dash.noEntries')}
           </p>

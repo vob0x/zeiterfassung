@@ -12,7 +12,7 @@ import { TeamMatrix } from './TeamMatrix';
 import { TeamWorkload } from './TeamWorkload';
 import { TeamTimeline } from './TeamTimeline';
 import { useAuthStore } from '../../stores/authStore';
-import { Copy, Users, UserPlus, UserMinus, Wifi, WifiOff, QrCode, Camera } from 'lucide-react';
+import { Copy, Users, UserPlus, UserMinus, Wifi, WifiOff, QrCode, Camera, RefreshCw } from 'lucide-react';
 import QRScanner from './QRScanner';
 
 export default function TeamView() {
@@ -367,9 +367,10 @@ export default function TeamView() {
           <div className="flex gap-2">
             <button
               onClick={handleSync}
-              className="px-4 py-2 rounded font-medium transition-all"
+              className="px-4 py-2 rounded font-medium transition-all flex items-center gap-2"
               style={{ background: 'rgba(201,169,98,0.07)', border: '1px solid rgba(201,169,98,0.18)', color: 'var(--neon-cyan)' }}
             >
+              <RefreshCw className="w-4 h-4" />
               {t('team.sync')}
             </button>
             <button

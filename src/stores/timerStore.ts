@@ -631,21 +631,17 @@ async function pullTimersFromSupabase(): Promise<void> {
 
     const localSlots = useTimerStore.getState().taskSlots;
 
-    // ── Remote is empty → clear local timers (only if no active timers running locally) ──
+    // ── Remote is empty → clear local timers ──
+    // Trust the remote state: if timers were stopped on another device,
+    // that device deleted them from Supabase. The suppress window on the
+    // pushing device already prevents reading stale data during DELETE+INSERT.
     if (!data || data.length === 0) {
       if (localSlots.length > 0) {
-        // Safety: if local timers are actively running, don't clear them —
-        // push local state to Supabase instead. This prevents Firefox/slow-connection
-        // race conditions where a poll returns empty before the push settles.
-        const hasActiveLocal = localSlots.some(s => !s.isPaused);
-        if (hasActiveLocal) {
-          // Re-push local state to Supabase (it's likely a stale read)
-          syncStateToSupabase();
-          return;
-        }
         const s = useTimerStore.getState();
         if (s.tickInterval) clearInterval(s.tickInterval);
         useTimerStore.setState({ taskSlots: [], tickInterval: null, activeSlotId: null });
+        // Also clear localStorage so a page refresh doesn't restore ghost timers
+        removeUserData('timerSlots');
       }
       return;
     }

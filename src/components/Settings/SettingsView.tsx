@@ -4,6 +4,7 @@ import { useUiStore } from '../../stores/uiStore';
 import { useTeamStore } from '../../stores/teamStore';
 import { useAuthStore } from '../../stores/authStore';
 import ConfirmDialog from '../UI/ConfirmDialog';
+import { ClipboardCopy } from 'lucide-react';
 
 export function SettingsView() {
   const { t, language, setLanguage } = useI18n();
@@ -136,7 +137,7 @@ export function SettingsView() {
                     onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--surface-solid)')}
                     aria-label={t('settings.copied')}
                   >
-                    📋
+                    <ClipboardCopy className="w-4 h-4" />
                   </button>
                 </div>
               </div>

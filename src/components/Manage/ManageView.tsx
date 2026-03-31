@@ -6,6 +6,7 @@ import { useUiStore } from '../../stores/uiStore';
 import { exportBackup, importBackup, exportCSV, importCSV } from '../../lib/backup';
 import { clearAllUserData } from '../../lib/userStorage';
 import ConfirmDialog from '../UI/ConfirmDialog';
+import { Pencil, Trash2 } from 'lucide-react';
 
 export default function ManageView() {
   const { t, tArray } = useI18n();
@@ -328,7 +329,7 @@ export default function ManageView() {
                   className="px-2 py-1 hover:opacity-60 transition-colors text-sm"
                   title={t('title.rename')}
                 >
-                  ✏️
+                  <Pencil className="w-3.5 h-3.5" />
                 </button>
                 <button
                   onClick={() => setDeleteItemPending({ type, name: item })}
@@ -336,7 +337,7 @@ export default function ManageView() {
                   className="px-2 py-1 hover:opacity-60 transition-colors text-sm"
                   title={t('title.delete')}
                 >
-                  🗑️
+                  <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>

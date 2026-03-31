@@ -83,17 +83,20 @@ export function exportCSV(
   const defaultWeekdays = weekdayNames || ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
 
   const rows = entries.map((entry) => {
-    // Calculate duration in hours
-    const [sh, sm] = entry.start_time.split(':').map(Number);
-    const [eh, em] = entry.end_time.split(':').map(Number);
-    let startMin = sh * 60 + sm;
-    let endMin = eh * 60 + em;
-
-    if (endMin < startMin) {
-      endMin += 24 * 60;
+    // Use effective duration (duration_ms) — NOT Von-Bis difference
+    // because stack timers run in parallel within the same time window.
+    let durationHours: string;
+    if (entry.duration_ms && entry.duration_ms > 0) {
+      durationHours = (entry.duration_ms / 3600000).toFixed(2);
+    } else {
+      // Fallback: compute from Von-Bis only when duration_ms is missing
+      const [sh, sm] = entry.start_time.split(':').map(Number);
+      const [eh, em] = entry.end_time.split(':').map(Number);
+      let startMin = sh * 60 + sm;
+      let endMin = eh * 60 + em;
+      if (endMin < startMin) endMin += 24 * 60;
+      durationHours = ((endMin - startMin) / 60).toFixed(2);
     }
-
-    const durationHours = ((endMin - startMin) / 60).toFixed(2);
 
     const dateObj = new Date(entry.date + 'T00:00:00');
     const weekday = defaultWeekdays[dateObj.getDay()];
@@ -269,15 +272,19 @@ export async function importCSV(file: File): Promise<Omit<TimeEntry, 'id' | 'use
             }
           }
 
-          // Calculate duration_ms from start/end times
-          const startMin = parseTimeToMinutes(startTime);
-          let endMin = parseTimeToMinutes(endTime);
-          if (endMin < startMin) endMin += 24 * 60;
-          let duration_ms = (endMin - startMin) * 60000;
-
-          // If time-based duration is 0 but we have a hours value, use that
-          if (duration_ms === 0 && !isNaN(durationHours) && durationHours > 0) {
+          // Calculate duration_ms — prefer the Dauer column (effective duration)
+          // over Von-Bis (time window) because stack timers can run in parallel
+          // within the same Von-Bis window, making Von-Bis wildly inflated.
+          let duration_ms = 0;
+          if (!isNaN(durationHours) && durationHours > 0) {
+            // Dauer column has the actual effective duration — always prefer this
             duration_ms = Math.round(durationHours * 3600000);
+          } else {
+            // Fallback: compute from Von-Bis only when Dauer is missing
+            const startMin = parseTimeToMinutes(startTime);
+            let endMin = parseTimeToMinutes(endTime);
+            if (endMin < startMin) endMin += 24 * 60;
+            duration_ms = (endMin - startMin) * 60000;
           }
 
           // Handle stakeholder as comma-separated string -> split into array

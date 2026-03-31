@@ -9,13 +9,14 @@ interface ActivityBarsProps {
   onDrillDown?: (filters: Partial<FilterState>) => void;
 }
 
-const COLORS = [
-  'bg-gradient-to-r from-cyan-500 to-blue-500',
-  'bg-gradient-to-r from-purple-500 to-pink-500',
-  'bg-gradient-to-r from-green-500 to-emerald-500',
-  'bg-gradient-to-r from-yellow-500 to-orange-500',
-  'bg-gradient-to-r from-red-500 to-pink-500',
-  'bg-gradient-to-r from-blue-500 to-purple-500',
+// Muted palette matching the app's earth/gold design language
+const BAR_COLORS = [
+  '#C9A962', // gold (--primary)
+  '#6EC49E', // sage green (--success)
+  '#9B8EC4', // soft violet (--neon-violet)
+  '#D4706E', // muted coral (--danger)
+  '#E5A84B', // warm amber (--warning)
+  '#5BA4D9', // soft steel blue
 ];
 
 export function ActivityBars({ entries, isFormat = false, onDrillDown }: ActivityBarsProps) {
@@ -50,7 +51,7 @@ export function ActivityBars({ entries, isFormat = false, onDrillDown }: Activit
     <div className="space-y-4">
       {activities.map((activity, index) => {
         const percentage = (activity.hours / totalHours) * 100;
-        const colorClass = COLORS[index % COLORS.length];
+        const barColor = BAR_COLORS[index % BAR_COLORS.length];
 
         return (
           <div
@@ -65,8 +66,8 @@ export function ActivityBars({ entries, isFormat = false, onDrillDown }: Activit
             </div>
             <div className="w-full rounded-full h-8 overflow-hidden border" style={{ background: 'var(--surface)', borderColor: 'rgba(var(--border-rgb), 0.5)' }}>
               <div
-                className={`h-full ${colorClass} flex items-center justify-end pr-3 transition-all duration-500`}
-                style={{ width: `${percentage}%` }}
+                className="h-full flex items-center justify-end pr-3 transition-all duration-500"
+                style={{ width: `${percentage}%`, background: barColor, opacity: 0.75 }}
               >
                 {percentage > 10 && <span className="text-xs font-semibold" style={{ color: 'var(--text)' }}>{percentage.toFixed(0)}%</span>}
               </div>

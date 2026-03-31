@@ -7,15 +7,16 @@ interface TeamTimelineProps {
   members: TeamMember[];
 }
 
+// Muted palette matching the app's earth/gold design language
 const MEMBER_COLORS = [
-  '#06b6d4', // cyan
-  '#3b82f6', // blue
-  '#8b5cf6', // purple
-  '#ec4899', // pink
-  '#f59e0b', // amber
-  '#10b981', // emerald
-  '#6366f1', // indigo
-  '#14b8a6', // teal
+  '#C9A962', // gold (--primary)
+  '#6EC49E', // sage green (--success)
+  '#9B8EC4', // soft violet (--neon-violet)
+  '#D4706E', // muted coral (--danger)
+  '#E5A84B', // warm amber (--warning)
+  '#5BA4D9', // soft steel blue
+  '#D4956A', // warm terracotta
+  '#C48B9F', // dusty rose
 ];
 
 export function TeamTimeline({ memberEntries, members }: TeamTimelineProps) {

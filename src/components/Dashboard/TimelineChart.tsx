@@ -8,15 +8,16 @@ interface TimelineChartProps {
   onDrillDown?: (filters: Partial<FilterState>) => void;
 }
 
+// Muted palette matching the app's earth/gold design language
 const PROJECT_COLORS = [
-  '#06b6d4', // cyan-500
-  '#3b82f6', // blue-500
-  '#8b5cf6', // purple-500
-  '#ec4899', // pink-500
-  '#f59e0b', // amber-500
-  '#10b981', // emerald-500
-  '#6366f1', // indigo-500
-  '#14b8a6', // teal-500
+  '#C9A962', // gold (--neon-cyan / --primary)
+  '#6EC49E', // sage green (--success)
+  '#9B8EC4', // soft violet (--neon-violet)
+  '#D4706E', // muted coral (--danger)
+  '#E5A84B', // warm amber (--warning)
+  '#5BA4D9', // soft steel blue
+  '#D4956A', // warm terracotta (--neon-orange)
+  '#C48B9F', // dusty rose (--neon-magenta)
 ];
 
 export function TimelineChart({ entries, onDrillDown }: TimelineChartProps) {

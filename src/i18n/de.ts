@@ -123,7 +123,7 @@ export const de = {
     byFormat: "Nach Format",
     timeline: "Zeitverlauf",
     noData: "Keine Daten verfügbar",
-    noEntries: "📭 Keine Einträge im gewählten Zeitraum",
+    noEntries: "Keine Einträge im gewählten Zeitraum",
   },
 
   // Manage Section
@@ -151,7 +151,7 @@ export const de = {
     setupText: "Team-Setup",
     connect: "Ordner verbinden",
     connected: "Verbunden als",
-    sync: "🔄 Sync",
+    sync: "Sync",
     nodata: "Noch keine Daten. Drücke \"Sync\".",
     day: "Tag",
     week: "Woche",
@@ -159,8 +159,8 @@ export const de = {
     year: "Jahr",
     all: "Gesamt",
     custom: "Zeitraum",
-    export: "📊 Excel-Export",
-    attendance: "📅 Tagesübersicht — Wer war wann aktiv",
+    export: "Excel-Export",
+    attendance: "Tagesübersicht — Wer war wann aktiv",
     shxperson: "Stakeholder × Person",
     prxperson: "Projekt × Person",
     workload: "Auslastung pro Person",
@@ -208,14 +208,14 @@ export const de = {
 
   // Buttons
   btn: {
-    backup: "💾 Komplett-Backup",
-    restore: "📦 Backup wiederherstellen",
-    csvExport: "📥 CSV Export",
-    csvImport: "📤 CSV Import",
+    backup: "Komplett-Backup",
+    restore: "Backup wiederherstellen",
+    csvExport: "CSV Export",
+    csvImport: "CSV Import",
     save: "Speichern",
     cancel: "Abbrechen",
     close: "Schliessen",
-    deleteAll: "🗑️ Alle Daten löschen",
+    deleteAll: "Alle Daten löschen",
     undo: "Rückgängig",
   },
 
@@ -258,7 +258,7 @@ export const de = {
   // Confirmations
   confirm: {
     delete: "Eintrag löschen?",
-    deleteAll: "⚠️ ACHTUNG: Alle Daten werden unwiderruflich gelöscht...",
+    deleteAll: "ACHTUNG: Alle Daten werden unwiderruflich gelöscht...",
     deleteItem: "wirklich löschen?",
     disconnect: "Team-Verbindung trennen?",
   },
