@@ -28,19 +28,34 @@ function AppContent() {
 
   // Load user-scoped data once authenticated AND encryption key is available
   // (needsPassword=false means key is ready → safe to decrypt Supabase data)
+  //
+  // CRITICAL: syncTeam MUST complete first to restore the Team Key before
+  // fetching entries/master data. Otherwise decryptFieldSmart fails because
+  // the Team Key isn't in sessionStorage yet, causing all encrypted text
+  // fields (stakeholder, projekt, etc.) to decrypt as empty strings.
   useEffect(() => {
     if (isAuthenticated && !needsPassword) {
-      fetchEntries().then(() => {
-        subscribeToEntriesSync()
-      })
-      fetchMaster()
+      // Step 1: Restore team key first (fast — single row query)
       syncTeam().then(() => {
         subscribeToTeamSync()
+        // Step 2: Now safe to decrypt — fetch entries & master data
+        fetchEntries().then(() => {
+          subscribeToEntriesSync()
+        })
+        fetchMaster()
+        subscribeToMasterSync()
+      }).catch(() => {
+        // Team sync failed (offline?) — still load data with personal key
+        fetchEntries().then(() => {
+          subscribeToEntriesSync()
+        })
+        fetchMaster()
+        subscribeToMasterSync()
       })
+      // Timers don't contain encrypted text fields, safe to start in parallel
       restoreTimers().then(() => {
         subscribeToTimerSync()
       })
-      subscribeToMasterSync()
     }
 
     return () => {

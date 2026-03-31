@@ -4,7 +4,8 @@ import { getUserData, setUserData } from '@/lib/userStorage';
 import { formatDateISO } from '@/lib/utils';
 import { supabaseClient, isSupabaseAvailable } from '@/lib/supabase';
 import { useAuthStore } from './authStore';
-import { hasEncryptionKey, encryptFieldForTeam, decryptFieldSmart } from '@/lib/crypto';
+import { hasEncryptionKey, hasTeamKey, encryptFieldForTeam, decryptFieldSmart } from '@/lib/crypto';
+import { useTeamStore } from './teamStore';
 
 // Generate a proper UUID v4 (required by Supabase)
 function generateUUID(): string {
@@ -108,8 +109,11 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
       set({ entries: localEntries, loading: false });
 
       // Then merge with Supabase data (only if encryption key is available for decryption)
+      // Also require Team Key if user is in a team (entries are team-key encrypted)
       const profile = useAuthStore.getState().profile;
-      if (isSupabaseAvailable() && supabaseClient && hasEncryptionKey() && profile?.id && !profile.id.startsWith('local_')) {
+      const { connected: inTeam } = useTeamStore.getState();
+      const keyReady = hasEncryptionKey() && (!inTeam || hasTeamKey());
+      if (isSupabaseAvailable() && supabaseClient && keyReady && profile?.id && !profile.id.startsWith('local_')) {
         const { data, error: sbErr } = await supabaseClient
           .from('time_entries')
           .select('*')
@@ -537,6 +541,11 @@ async function pullEntriesFromSupabase(): Promise<void> {
 
   const profile = useAuthStore.getState().profile;
   if (!isSupabaseAvailable() || !supabaseClient || !hasEncryptionKey() || !profile?.id || profile.id.startsWith('local_')) return;
+
+  // If user is in a team, wait for Team Key to be available before decrypting
+  // (entries are encrypted with the Team Key when in a team)
+  const { connected } = useTeamStore.getState();
+  if (connected && !hasTeamKey()) return; // Team Key not yet restored — skip this poll cycle
 
   try {
     const { data, error: sbErr } = await supabaseClient

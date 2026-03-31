@@ -49,43 +49,43 @@ const EntryRow: React.FC<EntryRowProps> = ({ entry, onEdit }) => {
       {/* Date */}
       <td className="px-4 py-3 text-sm" style={{ color: 'var(--text-secondary)' }}>{formatDateDE(entry.date)}</td>
 
-      {/* Stakeholder Badge - V5.15: cyan */}
+      {/* Stakeholder Badge */}
       <td className="px-4 py-3">
         <span
-          className="inline-block px-2 py-0.5 rounded-xl text-xs font-semibold max-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap"
-          style={{ background: 'rgba(201, 169, 98, 0.07)', color: 'var(--neon-cyan)', border: '1px solid rgba(201, 169, 98, 0.08)' }}
+          className="inline-block px-2 py-0.5 rounded-xl text-xs font-semibold"
+          style={{ background: 'rgba(201, 169, 98, 0.07)', color: 'var(--neon-cyan)', border: '1px solid rgba(201, 169, 98, 0.08)', whiteSpace: 'nowrap' }}
         >
-          {Array.isArray(entry.stakeholder) ? entry.stakeholder.join(', ') : entry.stakeholder}
+          {(Array.isArray(entry.stakeholder) ? entry.stakeholder.join(', ') : entry.stakeholder) || '–'}
         </span>
       </td>
 
-      {/* Project Badge - V5.15: violet */}
+      {/* Project Badge */}
       <td className="px-4 py-3">
         <span
-          className="inline-block px-2 py-0.5 rounded-xl text-xs font-semibold max-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap"
-          style={{ background: 'rgba(155, 142, 196, 0.07)', color: 'var(--neon-violet, #9B8EC4)', border: '1px solid rgba(155, 142, 196, 0.08)' }}
+          className="inline-block px-2 py-0.5 rounded-xl text-xs font-semibold"
+          style={{ background: 'rgba(155, 142, 196, 0.07)', color: 'var(--neon-violet, #9B8EC4)', border: '1px solid rgba(155, 142, 196, 0.08)', whiteSpace: 'nowrap' }}
         >
-          {entry.projekt}
+          {entry.projekt || '–'}
         </span>
       </td>
 
-      {/* Format Badge - NEW */}
+      {/* Format Badge */}
       <td className="px-4 py-3">
         <span
-          className="inline-block px-2 py-0.5 rounded-xl text-xs font-semibold max-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap"
-          style={{ background: 'rgba(168, 162, 198, 0.08)', color: '#B8ACDC', border: '1px solid rgba(168, 162, 198, 0.08)' }}
+          className="inline-block px-2 py-0.5 rounded-xl text-xs font-semibold"
+          style={{ background: 'rgba(168, 162, 198, 0.08)', color: '#B8ACDC', border: '1px solid rgba(168, 162, 198, 0.08)', whiteSpace: 'nowrap' }}
         >
           {entry.format || 'Einzelarbeit'}
         </span>
       </td>
 
-      {/* Activity Badge - V5.15: green */}
+      {/* Activity Badge */}
       <td className="px-4 py-3">
         <span
-          className="inline-block px-2 py-0.5 rounded-xl text-xs font-semibold max-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap"
-          style={{ background: 'rgba(110, 196, 158, 0.08)', color: 'var(--success)', border: '1px solid rgba(110, 196, 158, 0.08)' }}
+          className="inline-block px-2 py-0.5 rounded-xl text-xs font-semibold"
+          style={{ background: 'rgba(110, 196, 158, 0.08)', color: 'var(--success)', border: '1px solid rgba(110, 196, 158, 0.08)', whiteSpace: 'nowrap' }}
         >
-          {entry.taetigkeit}
+          {entry.taetigkeit || '–'}
         </span>
       </td>
 

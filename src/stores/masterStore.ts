@@ -2,7 +2,8 @@ import { create } from 'zustand';
 import { getUserData, setUserData } from '@/lib/userStorage';
 import { supabaseClient, isSupabaseAvailable } from '@/lib/supabase';
 import { useAuthStore } from './authStore';
-import { hasEncryptionKey, encryptFieldForTeam, decryptFieldSmart } from '@/lib/crypto';
+import { hasEncryptionKey, hasTeamKey, encryptFieldForTeam, decryptFieldSmart } from '@/lib/crypto';
+import { useTeamStore } from './teamStore';
 
 interface MasterState {
   stakeholders: string[];
@@ -435,6 +436,10 @@ async function pullMasterDataFromSupabase(): Promise<void> {
 
   const userId = getSupabaseUserId();
   if (!isSupabaseAvailable() || !supabaseClient || !userId) return;
+
+  // If user is in a team, wait for Team Key before decrypting
+  const { connected } = useTeamStore.getState();
+  if (connected && !hasTeamKey()) return;
 
   try {
     const [shRes, prRes, actRes, fmtRes] = await Promise.all([
