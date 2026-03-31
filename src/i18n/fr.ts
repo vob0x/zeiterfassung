@@ -124,6 +124,7 @@ export const fr = {
     timeline: "Chronologie",
     noData: "Aucune donnée disponible",
     noEntries: "Aucune entrée pour la période sélectionnée",
+    clickToFilter: "Cliquer pour filtrer dans la vue Entrées",
   },
 
   // Manage Section

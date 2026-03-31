@@ -53,10 +53,10 @@ export function KpiCards({ today, period, entries, onDrillDown }: KpiCardsProps)
       {/* Today's Hours */}
       <div
         className="relative overflow-hidden rounded-lg backdrop-blur-xl border p-6 shadow-2xl"
-        style={{ background: 'linear-gradient(to bottom right, rgba(var(--surface-rgb), 0.8), rgba(var(--surface-rgb), 0.8))', borderColor: 'rgba(0, 204, 255, 0.3)', cursor: cardCursor }}
+        style={{ background: 'linear-gradient(to bottom right, rgba(var(--surface-rgb), 0.8), rgba(var(--surface-rgb), 0.8))', borderColor: 'rgba(201, 169, 98, 0.3)', cursor: cardCursor }}
         onClick={onDrillDown}
       >
-        <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-blue-500/5 pointer-events-none" />
+        <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom right, rgba(201,169,98,0.05), rgba(110,196,158,0.05))' }} />
         <div className="relative z-10">
           <div className="text-sm font-medium mb-2" style={{ color: 'var(--text-muted)' }}>{t('kpi.today')}</div>
           <div className="text-4xl font-bold" style={{ color: 'var(--neon-cyan)' }}>
@@ -69,13 +69,13 @@ export function KpiCards({ today, period, entries, onDrillDown }: KpiCardsProps)
       {/* Period Hours */}
       <div
         className="relative overflow-hidden rounded-lg backdrop-blur-xl border p-6 shadow-2xl"
-        style={{ background: 'linear-gradient(to bottom right, rgba(var(--surface-rgb), 0.8), rgba(var(--surface-rgb), 0.8))', borderColor: 'rgba(59, 130, 246, 0.3)', cursor: cardCursor }}
+        style={{ background: 'linear-gradient(to bottom right, rgba(var(--surface-rgb), 0.8), rgba(var(--surface-rgb), 0.8))', borderColor: 'rgba(110, 196, 158, 0.3)', cursor: cardCursor }}
         onClick={onDrillDown}
       >
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 pointer-events-none" />
+        <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom right, rgba(110,196,158,0.05), rgba(91,164,217,0.05))' }} />
         <div className="relative z-10">
           <div className="text-sm font-medium mb-2" style={{ color: 'var(--text-muted)' }}>{t('period.label')}</div>
-          <div className="text-4xl font-bold" style={{ color: '#60a5fa' }}>
+          <div className="text-4xl font-bold" style={{ color: '#6EC49E' }}>
             <AnimatedValue value={period} mode="hours" />
           </div>
           <div className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>{t('kpi.periodSubtitle')}</div>
@@ -85,13 +85,13 @@ export function KpiCards({ today, period, entries, onDrillDown }: KpiCardsProps)
       {/* Entry Count */}
       <div
         className="relative overflow-hidden rounded-lg backdrop-blur-xl border p-6 shadow-2xl"
-        style={{ background: 'linear-gradient(to bottom right, rgba(var(--surface-rgb), 0.8), rgba(var(--surface-rgb), 0.8))', borderColor: 'rgba(168, 85, 247, 0.3)', cursor: cardCursor }}
+        style={{ background: 'linear-gradient(to bottom right, rgba(var(--surface-rgb), 0.8), rgba(var(--surface-rgb), 0.8))', borderColor: 'rgba(155, 142, 196, 0.3)', cursor: cardCursor }}
         onClick={onDrillDown}
       >
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-pink-500/5 pointer-events-none" />
+        <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom right, rgba(155,142,196,0.05), rgba(212,112,110,0.05))' }} />
         <div className="relative z-10">
           <div className="text-sm font-medium mb-2" style={{ color: 'var(--text-muted)' }}>{t('kpi.entries')}</div>
-          <div className="text-4xl font-bold" style={{ color: '#c084fc' }}>
+          <div className="text-4xl font-bold" style={{ color: '#9B8EC4' }}>
             <AnimatedValue value={entries} mode="count" />
           </div>
           <div className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>{t('kpi.entriesSubtitle')}</div>

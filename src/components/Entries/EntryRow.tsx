@@ -17,17 +17,16 @@ const EntryRow: React.FC<EntryRowProps> = ({ entry, onEdit }) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  // Calculate duration in milliseconds
-  const [startH, startM] = entry.start_time.split(':').map(Number);
-  const [endH, endM] = entry.end_time.split(':').map(Number);
-  let startMins = startH * 60 + startM;
-  let endMins = endH * 60 + endM;
-
-  if (endMins < startMins) {
-    endMins += 24 * 60;
+  // Use stored duration_ms (effective timer duration), fallback to Von-Bis calculation
+  let durationMs = entry.duration_ms;
+  if (!durationMs || durationMs <= 0) {
+    const [startH, startM] = entry.start_time.split(':').map(Number);
+    const [endH, endM] = entry.end_time.split(':').map(Number);
+    let startMins = startH * 60 + startM;
+    let endMins = endH * 60 + endM;
+    if (endMins < startMins) endMins += 24 * 60;
+    durationMs = (endMins - startMins) * 60000;
   }
-
-  const durationMs = (endMins - startMins) * 60000;
 
   const handleDelete = async () => {
     setIsDeleting(true);

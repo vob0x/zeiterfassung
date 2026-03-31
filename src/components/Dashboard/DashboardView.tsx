@@ -210,6 +210,13 @@ export default function DashboardView() {
       {/* KPI Cards */}
       <KpiCards today={kpiToday} period={kpiPeriod} entries={kpiEntries} onDrillDown={() => drillDown({})} />
 
+      {/* Drill-down hint */}
+      {filteredEntries.length > 0 && (
+        <p style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center', margin: '-8px 0 0' }}>
+          {t('dash.clickToFilter')}
+        </p>
+      )}
+
       {/* Empty State */}
       {filteredEntries.length === 0 ? (
         <div className="card text-center py-16 px-6">

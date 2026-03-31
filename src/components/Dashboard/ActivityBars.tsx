@@ -56,9 +56,12 @@ export function ActivityBars({ entries, isFormat = false, onDrillDown }: Activit
         return (
           <div
             key={activity.name}
-            className="space-y-1"
+            className="space-y-1 transition-opacity"
             style={{ cursor: onDrillDown ? 'pointer' : undefined }}
             onClick={() => onDrillDown?.(isFormat ? { format: activity.name } : { activity: activity.name })}
+            onMouseEnter={(e) => { if (onDrillDown) e.currentTarget.style.opacity = '0.8'; }}
+            onMouseLeave={(e) => { if (onDrillDown) e.currentTarget.style.opacity = '1'; }}
+            title={onDrillDown ? t('dash.clickToFilter') : undefined}
           >
             <div className="flex justify-between items-center text-sm">
               <span className="font-medium" style={{ color: 'var(--text-secondary)' }}>{activity.name}</span>

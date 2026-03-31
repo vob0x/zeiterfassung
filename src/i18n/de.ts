@@ -124,6 +124,7 @@ export const de = {
     timeline: "Zeitverlauf",
     noData: "Keine Daten verfügbar",
     noEntries: "Keine Einträge im gewählten Zeitraum",
+    clickToFilter: "Klicken zum Filtern in Einträge-Ansicht",
   },
 
   // Manage Section

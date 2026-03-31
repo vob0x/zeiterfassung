@@ -196,9 +196,12 @@ export function TimelineChart({ entries, onDrillDown }: TimelineChartProps) {
         {uniqueProjects.map((project, idx) => (
           <div
             key={project}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 transition-opacity"
             style={{ cursor: onDrillDown ? 'pointer' : undefined }}
             onClick={() => onDrillDown?.({ project })}
+            onMouseEnter={(e) => { if (onDrillDown) e.currentTarget.style.opacity = '0.7'; }}
+            onMouseLeave={(e) => { if (onDrillDown) e.currentTarget.style.opacity = '1'; }}
+            title={onDrillDown ? t('dash.clickToFilter') : undefined}
           >
             <div
               className="w-4 h-4 rounded"

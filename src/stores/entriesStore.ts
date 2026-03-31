@@ -411,6 +411,24 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
     try {
       const state = get();
       const updatedAt = new Date().toISOString();
+
+      // Recalculate duration_ms when start_time or end_time changed
+      if ((updates.start_time || updates.end_time) && !updates.duration_ms) {
+        const existing = state.entries.find((e) => e.id === id);
+        if (existing) {
+          const st = updates.start_time || existing.start_time;
+          const et = updates.end_time || existing.end_time;
+          if (st && et) {
+            const [sh, sm] = st.split(':').map(Number);
+            const [eh, em] = et.split(':').map(Number);
+            let startMins = sh * 60 + sm;
+            let endMins = eh * 60 + em;
+            if (endMins < startMins) endMins += 24 * 60;
+            updates.duration_ms = (endMins - startMins) * 60000;
+          }
+        }
+      }
+
       const updated = state.entries.map((e) =>
         e.id === id
           ? {
