@@ -6,7 +6,8 @@ import { useUiStore } from '../../stores/uiStore';
 import { exportBackup, importBackup, exportCSV, importCSV } from '../../lib/backup';
 import { clearAllUserData } from '../../lib/userStorage';
 import ConfirmDialog from '../UI/ConfirmDialog';
-import { Pencil, Trash2, Copy } from 'lucide-react';
+import DuplicateReview from './DuplicateReview';
+import { Pencil, Trash2, Search } from 'lucide-react';
 
 export default function ManageView() {
   const { t, tArray } = useI18n();
@@ -21,6 +22,7 @@ export default function ManageView() {
   const [deleteItemPending, setDeleteItemPending] = useState<{ type: 'stakeholder' | 'project' | 'activity' | 'format'; name: string } | null>(null);
   const [pendingBackup, setPendingBackup] = useState<any>(null);
   const [showRestoreConfirm, setShowRestoreConfirm] = useState(false);
+  const [dupGroups, setDupGroups] = useState<{ fingerprint: string; entries: any[] }[] | null>(null);
 
   const handleAddItem = async (type: 'stakeholder' | 'project' | 'activity' | 'format', name: string) => {
     if (!name.trim()) return;
@@ -452,22 +454,23 @@ export default function ManageView() {
         {/* Deduplicate */}
         <div className="pt-2" style={{ borderTop: '1px solid var(--border)' }}>
           <button
-            onClick={async () => {
-              try {
-                const count = await useEntriesStore.getState().removeDuplicates();
-                if (count > 0) {
-                  showToast(`${count} ${t('manage.duplicatesRemoved')}`, 'success');
-                } else {
-                  showToast(t('manage.noDuplicates'), 'success');
-                }
-              } catch (error) {
-                showToast(error instanceof Error ? error.message : t('toast.error'), 'error');
+            onClick={() => {
+              const dupes = useEntriesStore.getState().findDuplicates();
+              if (dupes.size === 0) {
+                showToast(t('manage.noDuplicates'), 'success');
+                return;
               }
+              // Convert Map to array for the review component
+              const groups = Array.from(dupes.entries()).map(([fp, entries]) => ({
+                fingerprint: fp,
+                entries,
+              }));
+              setDupGroups(groups);
             }}
             className="btn btn-secondary flex items-center gap-2"
             disabled={entries.length === 0}
           >
-            <Copy className="w-4 h-4" />
+            <Search className="w-4 h-4" />
             {t('manage.removeDuplicates')}
           </button>
         </div>
@@ -539,6 +542,23 @@ export default function ManageView() {
         }}
         isDanger
       />
+
+      {/* Duplicate Review Modal */}
+      {dupGroups && (
+        <DuplicateReview
+          groups={dupGroups}
+          onRemove={async (ids) => {
+            try {
+              const count = await useEntriesStore.getState().removeByIds(ids);
+              showToast(`${count} ${t('manage.duplicatesRemoved')}`, 'success');
+              setDupGroups(null);
+            } catch (error) {
+              showToast(error instanceof Error ? error.message : t('toast.error'), 'error');
+            }
+          }}
+          onClose={() => setDupGroups(null)}
+        />
+      )}
     </div>
   );
 }

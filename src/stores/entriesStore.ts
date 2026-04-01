@@ -20,6 +20,26 @@ function generateUUID(): string {
   });
 }
 
+/**
+ * Normalized fingerprint for duplicate detection.
+ * Includes: date, start_time, end_time, projekt, taetigkeit, format, stakeholder.
+ * Normalizes case and trims whitespace to avoid false negatives.
+ */
+function entryFingerprint(e: { date: string; start_time: string; end_time: string; projekt: string; taetigkeit: string; format?: string; stakeholder: string | string[] }): string {
+  const sh = Array.isArray(e.stakeholder)
+    ? e.stakeholder.map(s => s.trim().toLowerCase()).sort().join(',')
+    : (e.stakeholder || '').trim().toLowerCase();
+  return [
+    e.date,
+    e.start_time,
+    e.end_time,
+    (e.projekt || '').trim().toLowerCase(),
+    (e.taetigkeit || '').trim().toLowerCase(),
+    (e.format || '').trim().toLowerCase(),
+    sh,
+  ].join('|');
+}
+
 // Check if a string is a valid UUID
 function isValidUUID(str: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
@@ -78,6 +98,8 @@ interface EntriesState {
   bulkAdd: (entries: Record<string, any>[]) => Promise<void>;
   update: (id: string, updates: Partial<TimeEntry>) => Promise<void>;
   delete: (id: string) => Promise<void>;
+  findDuplicates: () => Map<string, TimeEntry[]>;
+  removeByIds: (ids: string[]) => Promise<number>;
   removeDuplicates: () => Promise<number>;
   setFilter: (key: keyof FilterState, value: string) => void;
   clearFilters: () => void;
@@ -300,11 +322,7 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
       const now = new Date().toISOString();
 
       // Build a fingerprint set from existing entries to detect duplicates
-      const fingerprint = (e: { date: string; start_time: string; end_time: string; projekt: string; taetigkeit: string; stakeholder: string | string[] }) => {
-        const sh = Array.isArray(e.stakeholder) ? e.stakeholder.sort().join(',') : (e.stakeholder || '');
-        return `${e.date}|${e.start_time}|${e.end_time}|${e.projekt}|${e.taetigkeit}|${sh}`;
-      };
-      const existingFingerprints = new Set(state.entries.map((e) => fingerprint(e)));
+      const existingFingerprints = new Set(state.entries.map((e) => entryFingerprint(e)));
       let skippedCount = 0;
 
       const newEntries: TimeEntry[] = [];
@@ -332,10 +350,11 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
           end_time: entry.end_time || (entry as any).endTime || '',
           projekt: entry.projekt || (entry as any).project || '',
           taetigkeit: entry.taetigkeit || (entry as any).activity || '',
+          format: entry.format || 'Einzelarbeit',
           stakeholder,
         };
 
-        const fp = fingerprint(candidate);
+        const fp = entryFingerprint(candidate);
         if (existingFingerprints.has(fp)) {
           skippedCount++;
           continue; // Duplicate — skip
@@ -506,6 +525,64 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
     }
   },
 
+  /**
+   * Find duplicate groups without deleting.
+   * Returns Map<fingerprint, TimeEntry[]> where each group has 2+ entries.
+   */
+  findDuplicates: (): Map<string, TimeEntry[]> => {
+    const state = get();
+    const groups = new Map<string, TimeEntry[]>();
+
+    for (const entry of state.entries) {
+      const fp = entryFingerprint(entry);
+      if (!groups.has(fp)) {
+        groups.set(fp, []);
+      }
+      groups.get(fp)!.push(entry);
+    }
+
+    // Only return groups with 2+ entries (actual duplicates)
+    const dupes = new Map<string, TimeEntry[]>();
+    groups.forEach((entries, fp) => {
+      if (entries.length > 1) dupes.set(fp, entries);
+    });
+    return dupes;
+  },
+
+  /**
+   * Remove specific entries by ID (for manual dedup selection).
+   */
+  removeByIds: async (ids: string[]) => {
+    set({ error: null });
+    try {
+      if (ids.length === 0) return 0;
+      const state = get();
+      const idSet = new Set(ids);
+      const updated = state.entries.filter((e) => !idSet.has(e.id));
+      set({ entries: updated });
+      setUserData('entries', updated);
+
+      // Delete from Supabase
+      if (isSupabaseAvailable() && supabaseClient) {
+        const profile = useAuthStore.getState().profile;
+        if (profile?.id && !profile.id.startsWith('local_')) {
+          for (let i = 0; i < ids.length; i += 50) {
+            const batch = ids.slice(i, i + 50);
+            await supabaseClient
+              .from('time_entries')
+              .delete()
+              .in('id', batch);
+          }
+        }
+      }
+      return ids.length;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to remove entries';
+      set({ error: message });
+      throw error;
+    }
+  },
+
   removeDuplicates: async () => {
     set({ error: null });
     try {
@@ -514,11 +591,8 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
       const duplicateIds: string[] = [];
       const unique: TimeEntry[] = [];
 
-      // Fingerprint: date + start_time + end_time + projekt + taetigkeit + stakeholder
       for (const entry of state.entries) {
-        const sh = Array.isArray(entry.stakeholder) ? entry.stakeholder.sort().join(',') : (entry.stakeholder || '');
-        const fp = `${entry.date}|${entry.start_time}|${entry.end_time}|${entry.projekt}|${entry.taetigkeit}|${sh}`;
-
+        const fp = entryFingerprint(entry);
         if (seen.has(fp)) {
           duplicateIds.push(entry.id);
         } else {
@@ -536,7 +610,6 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
       if (isSupabaseAvailable() && supabaseClient) {
         const profile = useAuthStore.getState().profile;
         if (profile?.id && !profile.id.startsWith('local_')) {
-          // Delete in batches of 50
           for (let i = 0; i < duplicateIds.length; i += 50) {
             const batch = duplicateIds.slice(i, i + 50);
             await supabaseClient
