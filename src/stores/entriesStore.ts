@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { TimeEntry, FilterState } from '@/types';
 import { getUserData, setUserData } from '@/lib/userStorage';
 import { formatDateISO } from '@/lib/utils';
-import { supabaseClient, isSupabaseAvailable } from '@/lib/supabase';
+import { supabaseClient, isSupabaseAvailable, ensureValidSession } from '@/lib/supabase';
 import { useAuthStore } from './authStore';
 import { hasEncryptionKey, hasTeamKey, encryptFieldForTeam, decryptFieldSmart } from '@/lib/crypto';
 import { useTeamStore } from './teamStore';
@@ -714,6 +714,10 @@ async function pullEntriesFromSupabase(): Promise<void> {
 
   const profile = useAuthStore.getState().profile;
   if (!isSupabaseAvailable() || !supabaseClient || !hasEncryptionKey() || !profile?.id || profile.id.startsWith('local_')) return;
+
+  // Ensure auth session is valid before querying (avoids 401 spam)
+  const sessionOk = await ensureValidSession();
+  if (!sessionOk) return;
 
   // If user is in a team, wait for Team Key to be available before decrypting
   // (entries are encrypted with the Team Key when in a team)

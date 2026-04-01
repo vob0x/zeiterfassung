@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { getUserData, setUserData } from '@/lib/userStorage';
-import { supabaseClient, isSupabaseAvailable } from '@/lib/supabase';
+import { supabaseClient, isSupabaseAvailable, ensureValidSession } from '@/lib/supabase';
 import { useAuthStore } from './authStore';
 import { hasEncryptionKey, hasTeamKey, encryptFieldForTeam, decryptFieldSmart } from '@/lib/crypto';
 import { useTeamStore } from './teamStore';
@@ -52,29 +52,35 @@ async function syncListToSupabase(
   if (!isSupabaseAvailable() || !supabaseClient || names.length === 0) return;
 
   // Abort sync if no encryption key — never send plaintext to Supabase
-  if (!hasEncryptionKey()) {
-    console.warn(`[Sync] Skipping ${table} sync — no encryption key available`);
-    return;
-  }
+  if (!hasEncryptionKey()) return;
 
-  // Encrypt names before sending to Supabase (Team Key if in team, personal key otherwise)
-  const encryptedRows = await Promise.all(
-    names.map(async (name, idx) => ({
-      user_id: userId,
-      name: await encryptFieldForTeam(name),
-      sort_order: idx,
-    }))
-  );
+  // Ensure auth session is still valid (avoids 401 / RLS errors)
+  const sessionOk = await ensureValidSession();
+  if (!sessionOk) return;
 
-  // Delete existing rows first (encrypted values differ each time due to random IV)
-  await supabaseClient.from(table).delete().eq('user_id', userId);
+  try {
+    // Encrypt names before sending to Supabase (Team Key if in team, personal key otherwise)
+    const encryptedRows = await Promise.all(
+      names.map(async (name, idx) => ({
+        user_id: userId,
+        name: await encryptFieldForTeam(name),
+        sort_order: idx,
+      }))
+    );
 
-  // Insert fresh (await to catch errors)
-  const { error } = await supabaseClient
-    .from(table)
-    .insert(encryptedRows);
-  if (error) {
-    console.error(`[Sync] Supabase ${table} sync failed:`, error.message);
+    // Delete existing rows first (encrypted values differ each time due to random IV)
+    const { error: delErr } = await supabaseClient.from(table).delete().eq('user_id', userId);
+    if (delErr) return; // Auth issue — don't attempt insert
+
+    // Insert fresh
+    const { error } = await supabaseClient
+      .from(table)
+      .insert(encryptedRows);
+    if (error) {
+      console.warn(`[Sync] ${table} sync skipped:`, error.message);
+    }
+  } catch {
+    // Silent — network or auth issue, will retry on next sync cycle
   }
 }
 
@@ -106,8 +112,9 @@ export const useMasterStore = create<MasterState>((set, get) => ({
 
       // Then try to merge with Supabase data (own + teammates via RLS)
       const userId = getSupabaseUserId();
+      const sessionValid = userId ? await ensureValidSession() : false;
 
-      if (isSupabaseAvailable() && supabaseClient && userId) {
+      if (isSupabaseAvailable() && supabaseClient && userId && sessionValid) {
         // RLS automatically includes teammates' data if user is in a team
         const [shRes, prRes, actRes, fmtRes] = await Promise.all([
           supabaseClient.from('stakeholders').select('name').order('sort_order'),
