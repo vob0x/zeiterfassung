@@ -735,10 +735,10 @@ export function subscribeToTeamSync(): void {
   unsubscribeFromTeamSync();
 
   const teamId = state.team.id;
-  // Poll every 15s (team data is heavy due to multi-user encryption)
+  // Poll every 120s as safety net (Realtime is the primary sync mechanism)
   _teamPollInterval = setInterval(() => {
     pullTeamDataFromSupabase();
-  }, 15000);
+  }, 120000);
 
   // Realtime: listen for team_members changes
   try {

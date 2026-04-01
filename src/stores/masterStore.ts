@@ -542,10 +542,10 @@ export function subscribeToMasterSync(): void {
   const state = useMasterStore.getState();
   _lastMasterFingerprint = getMasterFingerprint(state.stakeholders, state.projects, state.activities, state.formats);
 
-  // Poll every 5 seconds (master data changes less frequently than timers)
+  // Poll every 120s as safety net (Realtime is the primary sync mechanism)
   _masterPollInterval = setInterval(() => {
     pullMasterDataFromSupabase();
-  }, 5000);
+  }, 120000);
 
   // Realtime subscriptions for each table
   const tables = ['stakeholders', 'projects', 'activities', 'formats'];

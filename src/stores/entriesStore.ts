@@ -979,10 +979,10 @@ export function subscribeToEntriesSync(): void {
 
   unsubscribeFromEntriesSync();
 
-  // Poll every 10s (entries are heavier due to encryption)
+  // Poll every 60s as safety net (Realtime is the primary sync mechanism)
   _entriesPollInterval = setInterval(() => {
     pullEntriesFromSupabase();
-  }, 10000);
+  }, 60000);
 
   // Realtime for faster updates
   try {

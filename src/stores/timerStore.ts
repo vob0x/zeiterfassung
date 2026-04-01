@@ -740,14 +740,14 @@ export function subscribeToTimerSync(): void {
 
   unsubscribeFromTimerSync();
 
-  // Poll every 3s + Realtime for instant updates
+  // Realtime is primary for instant updates; polling is safety net only
 
-  // Primary: polling every 3 seconds (reliable)
+  // Safety-net polling every 30s (Realtime handles real-time sync)
   _pollInterval = setInterval(() => {
     pullTimersFromSupabase();
-  }, 3000);
+  }, 30_000);
 
-  // Bonus: Realtime for faster updates (best-effort)
+  // Primary: Realtime for instant cross-device updates
   try {
     _realtimeChannel = supabaseClient
       .channel(`timers-${profile.id}`)
