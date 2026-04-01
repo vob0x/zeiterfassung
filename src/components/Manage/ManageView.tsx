@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useI18n } from '../../i18n';
-import { useMasterStore } from '../../stores/masterStore';
+import { useMasterStore, syncAllMasterData } from '../../stores/masterStore';
 import { useEntriesStore } from '../../stores/entriesStore';
 import { useUiStore } from '../../stores/uiStore';
 import { exportBackup, importBackup, exportCSV, importCSV } from '../../lib/backup';
@@ -196,6 +196,9 @@ export default function ManageView() {
         await entriesState.add(entry);
       }
 
+      // Final sync: write complete master data with current encryption key
+      syncAllMasterData().catch(() => { /* silent */ });
+
       showToast(t('toast.restoreOk'), 'success');
     } catch (error) {
       showToast(error instanceof Error ? error.message : t('toast.error'), 'error');
@@ -263,6 +266,10 @@ export default function ManageView() {
       for (const fmt of importedFormats) {
         try { await useMasterStore.getState().addFormat(fmt); } catch { /* skip */ }
       }
+
+      // Final sync: write the complete master data state to Supabase
+      // with the current encryption key (replaces any stale/partial data)
+      syncAllMasterData().catch(() => { /* silent — will retry on next sync cycle */ });
 
       showToast(`${t('toast.importOk')} (${newEntries.length})`, 'success');
     } catch (error) {

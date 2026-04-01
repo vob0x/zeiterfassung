@@ -99,6 +99,35 @@ async function syncListToSupabase(
   }
 }
 
+/**
+ * Force-sync ALL master data categories to Supabase with the current encryption key.
+ * Call after bulk operations (CSV import, backup restore) to ensure Supabase has
+ * a complete, consistently encrypted snapshot — avoids partial writes from
+ * individual addXxx() calls that get skipped by the concurrency lock.
+ */
+export async function syncAllMasterData(): Promise<void> {
+  const userId = getSupabaseUserId();
+  if (!userId) return;
+
+  // Wait for any in-progress fire-and-forget syncs to settle
+  const maxWait = 3000;
+  const start = Date.now();
+  while (_syncInProgress.size > 0 && Date.now() - start < maxWait) {
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  // If locks are still held after timeout, clear them (stale locks)
+  _syncInProgress.clear();
+
+  // Read the FINAL state after all addXxx() calls completed
+  const { stakeholders, projects, activities, formats } = useMasterStore.getState();
+
+  // Sync each category sequentially to avoid overwhelming Supabase
+  if (stakeholders.length > 0) await syncListToSupabase('stakeholders', stakeholders, userId);
+  if (projects.length > 0) await syncListToSupabase('projects', projects, userId);
+  if (activities.length > 0) await syncListToSupabase('activities', activities, userId);
+  if (formats.length > 0) await syncListToSupabase('formats', formats, userId);
+}
+
 export const useMasterStore = create<MasterState>((set, get) => ({
   stakeholders: [],
   projects: [],
@@ -163,10 +192,31 @@ export const useMasterStore = create<MasterState>((set, get) => ({
           // (fresh account or formats table never populated).
           const DEFAULT_FORMATS = ['Einzelarbeit', 'Meeting', 'Telefonat', 'Workshop'];
 
-          const finalStakeholders = [...new Set(sbStakeholders)].sort();
-          const finalProjects = [...new Set(sbProjects)].sort();
-          const finalActivities = [...new Set(sbActivities)].sort();
-          const finalFormats = sbFormats.length > 0 ? [...new Set(sbFormats)].sort() : DEFAULT_FORMATS;
+          // Detect key mismatch: Supabase had rows but decryption yielded nothing.
+          // In this case, keep local data (which is still useful) and re-encrypt to Supabase.
+          const shHadRows = (shRes.data || []).length > 0;
+          const prHadRows = (prRes.data || []).length > 0;
+          const actHadRows = (actRes.data || []).length > 0;
+          const fmtHadRows = (fmtRes.data || []).length > 0;
+          const shKeyMismatch = shHadRows && sbStakeholders.length === 0;
+          const prKeyMismatch = prHadRows && sbProjects.length === 0;
+          const actKeyMismatch = actHadRows && sbActivities.length === 0;
+          const fmtKeyMismatch = fmtHadRows && sbFormats.length === 0;
+
+          // If key mismatch, prefer localStorage data over empty decryption result
+          const localState = get();
+          const finalStakeholders = sbStakeholders.length > 0
+            ? [...new Set(sbStakeholders)].sort()
+            : (shKeyMismatch ? localState.stakeholders : []);
+          const finalProjects = sbProjects.length > 0
+            ? [...new Set(sbProjects)].sort()
+            : (prKeyMismatch ? localState.projects : []);
+          const finalActivities = sbActivities.length > 0
+            ? [...new Set(sbActivities)].sort()
+            : (actKeyMismatch ? localState.activities : []);
+          const finalFormats = sbFormats.length > 0
+            ? [...new Set(sbFormats)].sort()
+            : (fmtKeyMismatch ? localState.formats : DEFAULT_FORMATS);
 
           set({
             stakeholders: finalStakeholders,
@@ -181,8 +231,8 @@ export const useMasterStore = create<MasterState>((set, get) => ({
           setUserData('activities', finalActivities);
           setUserData('formats', finalFormats);
 
-          // Push data back to Supabase only if non-empty
-          // (don't re-push empty lists after intentional cleanup)
+          // Re-encrypt and push to Supabase: always push if we have data
+          // (this also cleans up old undecryptable rows via DELETE + INSERT)
           if (finalStakeholders.length > 0) syncListToSupabase('stakeholders', finalStakeholders, userId);
           if (finalProjects.length > 0) syncListToSupabase('projects', finalProjects, userId);
           if (finalActivities.length > 0) syncListToSupabase('activities', finalActivities, userId);
@@ -493,17 +543,39 @@ async function pullMasterDataFromSupabase(): Promise<void> {
     )).filter(Boolean) as string[];
 
     // Supabase is source of truth — use its data directly, don't merge with local.
-    // This matches the fetch() logic: once Supabase responds, local stale data is replaced.
+    // Detect key mismatch: Supabase had rows but decryption yielded nothing.
     const DEFAULT_FORMATS = ['Einzelarbeit', 'Meeting', 'Telefonat', 'Workshop'];
-    const hasAnySbData = sbStakeholders.length > 0 || sbProjects.length > 0
-      || sbActivities.length > 0 || sbFormats.length > 0;
+    const localState = useMasterStore.getState();
+
+    const shKeyMismatch = (shRes.data || []).length > 0 && sbStakeholders.length === 0;
+    const prKeyMismatch = (prRes.data || []).length > 0 && sbProjects.length === 0;
+    const actKeyMismatch = (actRes.data || []).length > 0 && sbActivities.length === 0;
+    const fmtKeyMismatch = (fmtRes.data || []).length > 0 && sbFormats.length === 0;
 
     const result = {
-      stakeholders: [...new Set(sbStakeholders)].sort(),
-      projects: [...new Set(sbProjects)].sort(),
-      activities: [...new Set(sbActivities)].sort(),
-      formats: sbFormats.length > 0 ? [...new Set(sbFormats)].sort() : (hasAnySbData ? DEFAULT_FORMATS : useMasterStore.getState().formats),
+      stakeholders: sbStakeholders.length > 0
+        ? [...new Set(sbStakeholders)].sort()
+        : (shKeyMismatch ? localState.stakeholders : []),
+      projects: sbProjects.length > 0
+        ? [...new Set(sbProjects)].sort()
+        : (prKeyMismatch ? localState.projects : []),
+      activities: sbActivities.length > 0
+        ? [...new Set(sbActivities)].sort()
+        : (actKeyMismatch ? localState.activities : []),
+      formats: sbFormats.length > 0
+        ? [...new Set(sbFormats)].sort()
+        : (fmtKeyMismatch ? localState.formats : DEFAULT_FORMATS),
     };
+
+    // If key mismatch detected, re-encrypt local data to Supabase (cleans up old ciphertext)
+    const userId = getSupabaseUserId();
+    if (userId && (shKeyMismatch || prKeyMismatch || actKeyMismatch || fmtKeyMismatch)) {
+      console.info('[Sync] Key mismatch detected — re-encrypting master data to Supabase');
+      if (result.stakeholders.length > 0) syncListToSupabase('stakeholders', result.stakeholders, userId);
+      if (result.projects.length > 0) syncListToSupabase('projects', result.projects, userId);
+      if (result.activities.length > 0) syncListToSupabase('activities', result.activities, userId);
+      if (result.formats.length > 0) syncListToSupabase('formats', result.formats, userId);
+    }
 
     // Check fingerprint — skip if unchanged
     const newFp = getMasterFingerprint(result.stakeholders, result.projects, result.activities, result.formats);
