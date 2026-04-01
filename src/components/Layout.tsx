@@ -201,7 +201,8 @@ export default function Layout() {
       </header>
 
       {/* Main Content Area */}
-      <main id="main-content" className="flex-1 pt-20 pb-24 md:pb-8 w-full relative z-10" role="main">
+      <main id="main-content" className="flex-1 pb-24 md:pb-8 w-full relative z-10" role="main"
+        style={{ paddingTop: 'calc(5rem + env(safe-area-inset-top, 0px))' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <Suspense fallback={
             <div className="flex items-center justify-center py-20">

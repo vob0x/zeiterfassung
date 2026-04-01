@@ -700,9 +700,20 @@ async function pullEntriesFromSupabase(): Promise<void> {
       })
     );
 
-    // Merge: Supabase as base, add local-only
+    // Merge: Supabase is the source of truth.
+    // Only keep local-only entries if they were created very recently
+    // (within last 30s — likely not yet pushed to Supabase).
+    // This prevents "zombie" entries: entries deleted on another device
+    // that reappear locally because they still exist in localStorage.
     const sbIds = new Set(sbEntries.map(e => e.id));
-    const localOnly = localEntries.filter(e => !sbIds.has(e.id));
+    const now = Date.now();
+    const RECENT_THRESHOLD_MS = 30000; // 30 seconds
+    const localOnly = localEntries.filter(e => {
+      if (sbIds.has(e.id)) return false; // Already in Supabase
+      // Keep only if created very recently (not yet synced)
+      const createdAt = e.created_at ? new Date(e.created_at).getTime() : 0;
+      return (now - createdAt) < RECENT_THRESHOLD_MS;
+    });
     const merged = [...sbEntries, ...localOnly];
 
     useEntriesStore.setState({ entries: merged });

@@ -672,6 +672,8 @@ a:hover {
     border-bottom: 1px solid var(--border);
     backdrop-filter: blur(24px) saturate(1.5);
     -webkit-backdrop-filter: blur(24px) saturate(1.5);
+    /* iPhone notch / Dynamic Island: push content below safe area */
+    padding-top: env(safe-area-inset-top);
   }
 
   /* ============================================

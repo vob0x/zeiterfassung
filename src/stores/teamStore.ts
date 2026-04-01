@@ -422,7 +422,8 @@ export const useTeamStore = create<TeamState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const profile = useAuthStore.getState().profile;
-      const displayName = profile?.codename || 'User';
+      // displayName will be overridden by profileMap (from Supabase) for consistency
+      let displayName = profile?.codename || 'User';
 
       // ── Supabase mode ──
       if (isSupabaseAvailable() && supabaseClient && profile?.id) {
@@ -493,10 +494,24 @@ export const useTeamStore = create<TeamState>((set, get) => ({
           .select('id, codename')
           .in('id', memberUserIds);
 
+        // Normalize codenames: use original casing from Supabase profiles (source of truth)
+        // This prevents "Gnac" vs "gnac" appearing as two different users
         const profileMap = new Map<string, string>();
+        const seenNames = new Map<string, string>(); // lowercase → first-seen original casing
         (profilesData || []).forEach((p: any) => {
-          profileMap.set(p.id, p.codename || p.id);
+          const raw = p.codename || p.id;
+          const lower = raw.toLowerCase();
+          // Use first-seen casing for consistency
+          if (!seenNames.has(lower)) {
+            seenNames.set(lower, raw);
+          }
+          profileMap.set(p.id, seenNames.get(lower)!);
         });
+
+        // Override displayName for current user from profileMap (single source of truth)
+        if (profile?.id && profileMap.has(profile.id)) {
+          displayName = profileMap.get(profile.id)!;
+        }
 
         const members: TeamMember[] = (membersData || []).map((m: any) => ({
           id: m.id,
@@ -550,13 +565,23 @@ export const useTeamStore = create<TeamState>((set, get) => ({
           }
         }
 
-        // Also include current user's local entries if they're not in Supabase yet
+        // Also include current user's VERY RECENT local entries not yet in Supabase
+        // (prevents zombie entries from re-syncing after deletion on another device)
         const localEntries = getUserData<TimeEntry[]>('entries', []);
         if (localEntries.length > 0) {
           const existing = memberEntriesMap.get(displayName) || [];
           const existingIds = new Set(existing.map((e) => e.id));
-          const newLocal = localEntries.filter((e) => !existingIds.has(e.id));
-          memberEntriesMap.set(displayName, [...existing, ...newLocal]);
+          const now = Date.now();
+          const RECENT_MS = 30000; // 30 seconds
+          const newLocal = localEntries.filter((e) => {
+            if (existingIds.has(e.id)) return false;
+            // Only add if very recently created (not yet pushed to Supabase)
+            const createdAt = e.created_at ? new Date(e.created_at).getTime() : 0;
+            return (now - createdAt) < RECENT_MS;
+          });
+          if (newLocal.length > 0) {
+            memberEntriesMap.set(displayName, [...existing, ...newLocal]);
+          }
         }
 
         set({
