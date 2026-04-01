@@ -281,6 +281,9 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
       set({ entries: updated });
       setUserData('entries', updated);
 
+      // Track as pending until confirmed in Supabase
+      markEntryPending(newEntry.id);
+
       // Sync to Supabase (non-blocking — local is source of truth, but log errors visibly)
       if (isSupabaseAvailable() && supabaseClient && hasEncryptionKey()) {
         const profile = useAuthStore.getState().profile;
@@ -305,6 +308,9 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
             .upsert(row, { onConflict: 'id' });
           if (sbErr) {
             console.error('[Sync] Entry upsert failed:', sbErr.message, sbErr.details);
+          } else {
+            // Confirmed in Supabase — remove from pending
+            _pendingLocalIds.delete(newEntry.id);
           }
         }
       }
@@ -386,6 +392,9 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
       set({ entries: updated });
       setUserData('entries', updated);
 
+      // Track all new entries as pending
+      newEntries.forEach(e => markEntryPending(e.id));
+
       // Bulk sync to Supabase (encrypted)
       if (isSupabaseAvailable() && supabaseClient && hasEncryptionKey()) {
         const profile = useAuthStore.getState().profile;
@@ -460,12 +469,43 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
       set({ entries: updated });
       setUserData('entries', updated);
 
-      // Sync to Supabase (non-blocking)
+      // Sync to Supabase with conflict detection (non-blocking)
       if (isSupabaseAvailable() && supabaseClient && hasEncryptionKey()) {
         const profile = useAuthStore.getState().profile;
         if (profile?.id && !profile.id.startsWith('local_')) {
           const entry = updated.find((e) => e.id === id);
           if (entry) {
+            // Conflict detection: check if Supabase has a newer version
+            try {
+              const { data: remoteRow } = await supabaseClient
+                .from('time_entries')
+                .select('updated_at')
+                .eq('id', id)
+                .maybeSingle();
+
+              if (remoteRow?.updated_at) {
+                const remoteTime = new Date(remoteRow.updated_at).getTime();
+                const localPrevTime = updates.updated_at
+                  ? 0 // Explicitly set — always push
+                  : new Date(updatedAt).getTime();
+                // If the remote entry was updated AFTER our local base version,
+                // the remote wins (another device edited more recently)
+                const originalEntry = get().entries.find(e => e.id === id);
+                const localBaseTime = originalEntry?.updated_at
+                  ? new Date(originalEntry.updated_at).getTime()
+                  : 0;
+                if (remoteTime > localBaseTime && remoteTime > localPrevTime) {
+                  // Remote is newer — pull the remote version instead of pushing
+                  console.info(`[Sync] Conflict detected for entry ${id}: remote is newer, pulling remote version`);
+                  // Trigger a pull to get the latest version
+                  setTimeout(() => pullEntriesFromSupabase(), 100);
+                  return; // Don't push our local changes
+                }
+              }
+            } catch {
+              // Conflict check failed — proceed with upsert (best-effort)
+            }
+
             const row = await encryptEntryForSupabase({
               id: entry.id,
               user_id: profile.id,
@@ -709,6 +749,19 @@ let _entriesPollInterval: ReturnType<typeof setInterval> | null = null;
 let _entriesRealtimeChannel: any = null;
 let _entriesSuppressUntil: number = 0;
 
+/**
+ * Track IDs of entries that were created locally but not yet confirmed
+ * in Supabase. This prevents data loss when entries take longer than
+ * 30s to push (e.g. due to network issues). Entries are removed from
+ * this set once they appear in a Supabase pull response.
+ */
+const _pendingLocalIds = new Set<string>();
+
+/** Mark an entry as pending local push (call after local add/bulkAdd) */
+export function markEntryPending(id: string): void {
+  _pendingLocalIds.add(id);
+}
+
 async function pullEntriesFromSupabase(): Promise<void> {
   if (Date.now() < _entriesSuppressUntil) return;
 
@@ -777,26 +830,81 @@ async function pullEntriesFromSupabase(): Promise<void> {
       })
     );
 
-    // Merge: Supabase is the source of truth.
-    // Only keep local-only entries if they were created very recently
-    // (within last 30s — likely not yet pushed to Supabase).
-    // This prevents "zombie" entries: entries deleted on another device
-    // that reappear locally because they still exist in localStorage.
+    // Clear pending IDs that now appear in Supabase (confirmed synced)
     const sbIds = new Set(sbEntries.map(e => e.id));
+    for (const id of Array.from(_pendingLocalIds)) {
+      if (sbIds.has(id)) _pendingLocalIds.delete(id);
+    }
+
+    // Merge strategy:
+    // 1. Supabase entries are the base (source of truth for synced data)
+    // 2. Keep local-only entries if they are PENDING push (tracked explicitly)
+    //    OR if they were created very recently (< 30s, fallback safety net)
+    // This prevents zombie entries (deleted on another device) while also
+    // preventing data loss for entries that haven't been pushed yet.
     const now = Date.now();
     const RECENT_THRESHOLD_MS = 30000; // 30 seconds
     const localOnly = localEntries.filter(e => {
       if (sbIds.has(e.id)) return false; // Already in Supabase
-      // Keep only if created very recently (not yet synced)
+      // Keep if explicitly tracked as pending push
+      if (_pendingLocalIds.has(e.id)) return true;
+      // Fallback: keep if created very recently (not yet tracked or race condition)
       const createdAt = e.created_at ? new Date(e.created_at).getTime() : 0;
       return (now - createdAt) < RECENT_THRESHOLD_MS;
     });
+
+    // For local-only entries that survived, attempt to push them to Supabase
+    if (localOnly.length > 0 && hasEncryptionKey()) {
+      pushLocalEntriesToSupabase(localOnly, profile.id);
+    }
+
     const merged = [...sbEntries, ...localOnly];
 
     useEntriesStore.setState({ entries: merged });
     setUserData('entries', merged);
   } catch (e) {
     // silent
+  }
+}
+
+/**
+ * Push local-only entries to Supabase (retry mechanism for offline-created entries).
+ * Non-blocking — fires and forgets. On success, entries will appear in next pull.
+ */
+async function pushLocalEntriesToSupabase(entries: TimeEntry[], userId: string): Promise<void> {
+  if (!supabaseClient || !hasEncryptionKey()) return;
+  try {
+    const rows = await Promise.all(
+      entries.map(async (e) => {
+        const row = {
+          id: e.id,
+          user_id: userId,
+          date: e.date,
+          stakeholder: e.stakeholder,
+          projekt: e.projekt,
+          taetigkeit: e.taetigkeit,
+          format: e.format || 'Einzelarbeit',
+          start_time: e.start_time,
+          end_time: e.end_time,
+          duration_ms: e.duration_ms,
+          notiz: e.notiz || '',
+          created_at: e.created_at,
+          updated_at: e.updated_at,
+        };
+        return encryptEntryForSupabase(row);
+      })
+    );
+    const { error } = await supabaseClient
+      .from('time_entries')
+      .upsert(rows, { onConflict: 'id' });
+    if (error) {
+      console.warn('[Sync] Retry push failed:', error.message);
+    } else {
+      // Successfully pushed — clear from pending set
+      entries.forEach(e => _pendingLocalIds.delete(e.id));
+    }
+  } catch {
+    // Silent — will retry on next pull cycle
   }
 }
 

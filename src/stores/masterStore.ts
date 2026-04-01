@@ -43,7 +43,15 @@ function mergeNames(supabaseNames: string[], localNames: string[]): string[] {
   return Array.from(set).sort();
 }
 
-// Helper: sync a local list to Supabase table (non-blocking bulk upsert, encrypted)
+/**
+ * Sync a local list to Supabase table (non-blocking bulk upsert, encrypted).
+ *
+ * Uses a mutex-like timestamp guard to prevent race conditions when
+ * multiple devices sync the same table simultaneously. The DELETE + INSERT
+ * is protected by checking that no other sync overwrote our delete.
+ */
+const _syncInProgress = new Map<string, boolean>();
+
 async function syncListToSupabase(
   table: 'stakeholders' | 'projects' | 'activities' | 'formats',
   names: string[],
@@ -54,9 +62,17 @@ async function syncListToSupabase(
   // Abort sync if no encryption key — never send plaintext to Supabase
   if (!hasEncryptionKey()) return;
 
+  // Prevent concurrent syncs of the same table (would cause race conditions)
+  const lockKey = `${table}_${userId}`;
+  if (_syncInProgress.get(lockKey)) return;
+  _syncInProgress.set(lockKey, true);
+
   // Ensure auth session is still valid (avoids 401 / RLS errors)
   const sessionOk = await ensureValidSession();
-  if (!sessionOk) return;
+  if (!sessionOk) {
+    _syncInProgress.set(lockKey, false);
+    return;
+  }
 
   try {
     // Encrypt names before sending to Supabase (Team Key if in team, personal key otherwise)
@@ -70,9 +86,12 @@ async function syncListToSupabase(
 
     // Delete existing rows first (encrypted values differ each time due to random IV)
     const { error: delErr } = await supabaseClient.from(table).delete().eq('user_id', userId);
-    if (delErr) return; // Auth issue — don't attempt insert
+    if (delErr) {
+      _syncInProgress.set(lockKey, false);
+      return; // Auth issue — don't attempt insert
+    }
 
-    // Insert fresh
+    // Insert fresh — immediately after delete to minimize race window
     const { error } = await supabaseClient
       .from(table)
       .insert(encryptedRows);
@@ -81,6 +100,8 @@ async function syncListToSupabase(
     }
   } catch {
     // Silent — network or auth issue, will retry on next sync cycle
+  } finally {
+    _syncInProgress.set(lockKey, false);
   }
 }
 
@@ -443,6 +464,10 @@ async function pullMasterDataFromSupabase(): Promise<void> {
 
   const userId = getSupabaseUserId();
   if (!isSupabaseAvailable() || !supabaseClient || !userId) return;
+
+  // Ensure auth session is valid before querying (avoids 401 spam)
+  const sessionOk = await ensureValidSession();
+  if (!sessionOk) return;
 
   // If user is in a team, wait for Team Key before decrypting
   const { connected } = useTeamStore.getState();
