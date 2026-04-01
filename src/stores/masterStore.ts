@@ -158,30 +158,41 @@ export const useMasterStore = create<MasterState>((set, get) => ({
           (fmtRes.data || []).map((r: any) => decryptFieldSmart(r.name))
         )).filter(Boolean);
 
-        // Merge: Supabase + local (dedup)
-        const mergedStakeholders = mergeNames(sbStakeholders, localStakeholders);
-        const mergedProjects = mergeNames(sbProjects, localProjects);
-        const mergedActivities = mergeNames(sbActivities, localActivities);
-        const mergedFormats = mergeNames(sbFormats, localFormats);
+        // Supabase responded successfully — it is the source of truth.
+        // Use Supabase data directly; only fall back to defaults for formats
+        // if Supabase has no data at all (fresh account).
+        const DEFAULT_FORMATS = ['Einzelarbeit', 'Meeting', 'Telefonat', 'Workshop'];
+
+        // If Supabase has data for a category, use it exclusively.
+        // If Supabase is empty for a category, check if the query succeeded
+        // (no error = intentionally empty). Don't re-merge stale localStorage.
+        const hasAnySbData = sbStakeholders.length > 0 || sbProjects.length > 0
+          || sbActivities.length > 0 || sbFormats.length > 0;
+
+        const finalStakeholders = sbStakeholders.length > 0 ? [...new Set(sbStakeholders)].sort() : (hasAnySbData ? [] : localStakeholders);
+        const finalProjects = sbProjects.length > 0 ? [...new Set(sbProjects)].sort() : (hasAnySbData ? [] : localProjects);
+        const finalActivities = sbActivities.length > 0 ? [...new Set(sbActivities)].sort() : (hasAnySbData ? [] : localActivities);
+        const finalFormats = sbFormats.length > 0 ? [...new Set(sbFormats)].sort() : (hasAnySbData ? DEFAULT_FORMATS : localFormats);
 
         set({
-          stakeholders: mergedStakeholders,
-          projects: mergedProjects,
-          activities: mergedActivities,
-          formats: mergedFormats,
+          stakeholders: finalStakeholders,
+          projects: finalProjects,
+          activities: finalActivities,
+          formats: finalFormats,
         });
 
-        // Persist merged result locally
-        setUserData('stakeholders', mergedStakeholders);
-        setUserData('projects', mergedProjects);
-        setUserData('activities', mergedActivities);
-        setUserData('formats', mergedFormats);
+        // Persist Supabase result locally (replaces stale localStorage)
+        setUserData('stakeholders', finalStakeholders);
+        setUserData('projects', finalProjects);
+        setUserData('activities', finalActivities);
+        setUserData('formats', finalFormats);
 
-        // Push any local-only items to Supabase
-        syncListToSupabase('stakeholders', mergedStakeholders, userId);
-        syncListToSupabase('projects', mergedProjects, userId);
-        syncListToSupabase('activities', mergedActivities, userId);
-        syncListToSupabase('formats', mergedFormats, userId);
+        // Only push to Supabase if there's actual data to sync
+        // (don't re-push empty lists or defaults after intentional cleanup)
+        if (finalStakeholders.length > 0) syncListToSupabase('stakeholders', finalStakeholders, userId);
+        if (finalProjects.length > 0) syncListToSupabase('projects', finalProjects, userId);
+        if (finalActivities.length > 0) syncListToSupabase('activities', finalActivities, userId);
+        if (finalFormats.length > 0) syncListToSupabase('formats', finalFormats, userId);
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to fetch master data';

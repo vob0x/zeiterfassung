@@ -171,15 +171,27 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
             })
           );
 
-          // Merge: use Supabase as base, add any local-only entries
+          // Supabase responded successfully — it is the source of truth.
+          // Only keep local entries that are PENDING push (just created locally,
+          // not yet confirmed in Supabase). This prevents stale localStorage
+          // entries from being re-pushed after Supabase data was intentionally cleared.
           const sbIds = new Set(sbEntries.map((e) => e.id));
-          const localOnly = localEntries.filter((e) => !sbIds.has(e.id));
+          const now = Date.now();
+          const RECENT_THRESHOLD_MS = 30000; // 30 seconds
+          const localOnly = localEntries.filter((e) => {
+            if (sbIds.has(e.id)) return false; // Already in Supabase
+            // Keep if explicitly tracked as pending push (just created this session)
+            if (_pendingLocalIds.has(e.id)) return true;
+            // Fallback: keep if created very recently (safety net for race conditions)
+            const createdAt = e.created_at ? new Date(e.created_at).getTime() : 0;
+            return (now - createdAt) < RECENT_THRESHOLD_MS;
+          });
           const merged = [...sbEntries, ...localOnly];
 
           set({ entries: merged });
           setUserData('entries', merged);
 
-          // Push local-only entries to Supabase (fix non-UUID IDs first)
+          // Push genuinely pending local entries to Supabase (fix non-UUID IDs first)
           if (localOnly.length > 0 && hasEncryptionKey()) {
             let needsLocalUpdate = false;
             const fixedEntries = localOnly.map((e) => {
