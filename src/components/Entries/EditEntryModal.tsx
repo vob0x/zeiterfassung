@@ -163,16 +163,20 @@ const EditEntryModal: React.FC<EditEntryModalProps> = ({ entry, isOpen, onClose 
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-black/50 z-50 overflow-y-auto"
       onClick={(e) => e.target === e.currentTarget && onClose()}
       role="dialog"
       aria-modal="true"
       aria-labelledby="edit-modal-title"
+      style={{ WebkitOverflowScrolling: 'touch' }}
     >
+      {/* Scroll wrapper: centers on desktop, full-height scroll on mobile */}
+      <div className="min-h-full flex items-center justify-center p-4 sm:p-6">
       <div
         ref={modalRef}
-        className="rounded-lg border p-6 shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto"
+        className="rounded-lg border p-5 sm:p-6 shadow-xl max-w-md w-full"
         style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
@@ -411,6 +415,7 @@ const EditEntryModal: React.FC<EditEntryModalProps> = ({ entry, isOpen, onClose 
             </button>
           </div>
         </form>
+      </div>
       </div>
     </div>
   );
