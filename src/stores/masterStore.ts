@@ -199,9 +199,7 @@ export const useMasterStore = create<MasterState>((set, get) => ({
     set({ error: null });
     try {
       const state = get();
-      if (state.stakeholders.includes(name)) {
-        throw new Error('Stakeholder already exists');
-      }
+      if (state.stakeholders.includes(name)) return; // Silently skip duplicates
       const updated = [...state.stakeholders, name].sort();
       set({ stakeholders: updated });
       setUserData('stakeholders', updated);
@@ -212,7 +210,6 @@ export const useMasterStore = create<MasterState>((set, get) => ({
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to add stakeholder';
       set({ error: message });
-      throw error;
     }
   },
 
@@ -220,9 +217,7 @@ export const useMasterStore = create<MasterState>((set, get) => ({
     set({ error: null });
     try {
       const state = get();
-      if (state.projects.includes(name)) {
-        throw new Error('Project already exists');
-      }
+      if (state.projects.includes(name)) return; // Silently skip duplicates
       const updated = [...state.projects, name].sort();
       set({ projects: updated });
       setUserData('projects', updated);
@@ -240,9 +235,7 @@ export const useMasterStore = create<MasterState>((set, get) => ({
     set({ error: null });
     try {
       const state = get();
-      if (state.activities.includes(name)) {
-        throw new Error('Activity already exists');
-      }
+      if (state.activities.includes(name)) return; // Silently skip duplicates
       const updated = [...state.activities, name].sort();
       set({ activities: updated });
       setUserData('activities', updated);
@@ -252,7 +245,6 @@ export const useMasterStore = create<MasterState>((set, get) => ({
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to add activity';
       set({ error: message });
-      throw error;
     }
   },
 
@@ -378,9 +370,7 @@ export const useMasterStore = create<MasterState>((set, get) => ({
     set({ error: null });
     try {
       const state = get();
-      if (state.formats.includes(name)) {
-        throw new Error('Format already exists');
-      }
+      if (state.formats.includes(name)) return; // Silently skip duplicates
       const updated = [...state.formats, name].sort();
       set({ formats: updated });
       setUserData('formats', updated);
@@ -390,7 +380,6 @@ export const useMasterStore = create<MasterState>((set, get) => ({
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to add format';
       set({ error: message });
-      throw error;
     }
   },
 

@@ -234,12 +234,11 @@ export default function ManageView() {
       }
       await useEntriesStore.getState().bulkAdd(newEntries);
 
-      // Extract unique dimension values from imported entries and add to masterStore
-      const master = useMasterStore.getState();
+      // Extract unique dimension values from imported entries
       const importedStakeholders = new Set<string>();
       const importedProjects = new Set(newEntries.map((e) => e.projekt).filter(Boolean));
       const importedActivities = new Set(newEntries.map((e) => e.taetigkeit).filter(Boolean));
-      const importedFormats = new Set(newEntries.map((e) => e.format).filter(Boolean));
+      const importedFormats = new Set(newEntries.map((e) => e.format).filter((f): f is string => !!f));
 
       // Handle stakeholder as string or array
       newEntries.forEach((e) => {
@@ -249,25 +248,20 @@ export default function ManageView() {
         });
       });
 
+      // Add all missing dimension values to masterStore.
+      // Each addXxx() silently skips duplicates and uses get() for fresh state,
+      // so no stale-reference issues. Individual failures don't abort the loop.
       for (const sh of importedStakeholders) {
-        if (!master.stakeholders.includes(sh)) {
-          await master.addStakeholder(sh);
-        }
+        try { await useMasterStore.getState().addStakeholder(sh); } catch { /* skip */ }
       }
       for (const pr of importedProjects) {
-        if (!master.projects.includes(pr)) {
-          await master.addProject(pr);
-        }
+        try { await useMasterStore.getState().addProject(pr); } catch { /* skip */ }
       }
       for (const act of importedActivities) {
-        if (!master.activities.includes(act)) {
-          await master.addActivity(act);
-        }
+        try { await useMasterStore.getState().addActivity(act); } catch { /* skip */ }
       }
       for (const fmt of importedFormats) {
-        if (fmt && !master.formats.includes(fmt)) {
-          await master.addFormat(fmt);
-        }
+        try { await useMasterStore.getState().addFormat(fmt); } catch { /* skip */ }
       }
 
       showToast(`${t('toast.importOk')} (${newEntries.length})`, 'success');
