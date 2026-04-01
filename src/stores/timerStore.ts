@@ -5,7 +5,7 @@ import { useAuthStore } from './authStore';
 import { getUserData, setUserData, removeUserData } from '@/lib/userStorage';
 import { formatDateISO } from '@/lib/utils';
 import { saveNoteToHistory } from '@/components/UI/NoteInput';
-import { supabaseClient, isSupabaseAvailable } from '@/lib/supabase';
+import { supabaseClient, isSupabaseAvailable, ensureValidSession } from '@/lib/supabase';
 
 // Serializable version for localStorage (Date → ISO string)
 interface SerializedSlot {
@@ -616,6 +616,10 @@ async function pullTimersFromSupabase(): Promise<void> {
 
   const profile = useAuthStore.getState().profile;
   if (!isSupabaseAvailable() || !supabaseClient || !profile?.id) return;
+
+  // Ensure auth session is valid before querying (avoids 401 spam)
+  const sessionOk = await ensureValidSession();
+  if (!sessionOk) return;
 
   try {
     const { data, error } = await supabaseClient

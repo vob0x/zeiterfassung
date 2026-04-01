@@ -52,21 +52,23 @@ async function encryptEntryForSupabase(row: Record<string, any>): Promise<Record
   if (!hasEncryptionKey()) return row;
   const encrypted = { ...row };
   for (const field of ENCRYPTED_ENTRY_FIELDS) {
-    if (encrypted[field]) {
-      // For stakeholder (now an array), serialize before encrypting
-      let valueToEncrypt = encrypted[field];
-      if (field === 'stakeholder' && Array.isArray(valueToEncrypt)) {
-        valueToEncrypt = JSON.stringify(valueToEncrypt);
-      }
-      // Use encryptFieldForTeam: uses Team Key if available, personal key otherwise
-      // This ensures team members can decrypt each other's entries
-      encrypted[field] = await encryptFieldForTeam(valueToEncrypt);
+    const value = encrypted[field];
+    // For stakeholder (now an array), serialize before encrypting
+    if (field === 'stakeholder' && Array.isArray(value)) {
+      encrypted[field] = await encryptFieldForTeam(JSON.stringify(value));
+    } else if (typeof value === 'string' && value !== '') {
+      // Encrypt non-empty strings
+      encrypted[field] = await encryptFieldForTeam(value);
+    } else {
+      // Explicitly set empty string for cleared fields — ensures old ciphertext
+      // is overwritten in Supabase when a field is emptied.
+      encrypted[field] = '';
     }
   }
   return encrypted;
 }
 
-async function decryptEntryFromSupabase(row: any): Promise<any> {
+export async function decryptEntryFromSupabase(row: any): Promise<any> {
   const decrypted = { ...row };
   for (const field of ENCRYPTED_ENTRY_FIELDS) {
     if (decrypted[field]) {
@@ -323,6 +325,7 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
           } else {
             // Confirmed in Supabase — remove from pending
             _pendingLocalIds.delete(newEntry.id);
+            _savePendingIds(_pendingLocalIds);
           }
         }
       }
@@ -436,6 +439,10 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
             .upsert(rows, { onConflict: 'id' });
           if (sbErr) {
             console.error('[Sync] Bulk entry sync failed:', sbErr.message, sbErr.details);
+          } else {
+            // Confirmed in Supabase — clear from pending
+            newEntries.forEach(e => _pendingLocalIds.delete(e.id));
+            _savePendingIds(_pendingLocalIds);
           }
         }
       }
@@ -452,12 +459,18 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
       const state = get();
       const updatedAt = new Date().toISOString();
 
+      // IMPORTANT: Capture the original updated_at BEFORE applying the local update.
+      // This is needed for conflict detection against the Supabase remote version.
+      const originalEntry = state.entries.find((e) => e.id === id);
+      const localBaseTime = originalEntry?.updated_at
+        ? new Date(originalEntry.updated_at).getTime()
+        : 0;
+
       // Recalculate duration_ms when start_time or end_time changed
       if ((updates.start_time || updates.end_time) && !updates.duration_ms) {
-        const existing = state.entries.find((e) => e.id === id);
-        if (existing) {
-          const st = updates.start_time || existing.start_time;
-          const et = updates.end_time || existing.end_time;
+        if (originalEntry) {
+          const st = updates.start_time || originalEntry.start_time;
+          const et = updates.end_time || originalEntry.end_time;
           if (st && et) {
             const [sh, sm] = st.split(':').map(Number);
             const [eh, em] = et.split(':').map(Number);
@@ -488,6 +501,7 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
           const entry = updated.find((e) => e.id === id);
           if (entry) {
             // Conflict detection: check if Supabase has a newer version
+            // Uses localBaseTime captured BEFORE the local update was applied
             try {
               const { data: remoteRow } = await supabaseClient
                 .from('time_entries')
@@ -497,19 +511,9 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
 
               if (remoteRow?.updated_at) {
                 const remoteTime = new Date(remoteRow.updated_at).getTime();
-                const localPrevTime = updates.updated_at
-                  ? 0 // Explicitly set — always push
-                  : new Date(updatedAt).getTime();
-                // If the remote entry was updated AFTER our local base version,
-                // the remote wins (another device edited more recently)
-                const originalEntry = get().entries.find(e => e.id === id);
-                const localBaseTime = originalEntry?.updated_at
-                  ? new Date(originalEntry.updated_at).getTime()
-                  : 0;
-                if (remoteTime > localBaseTime && remoteTime > localPrevTime) {
-                  // Remote is newer — pull the remote version instead of pushing
+                if (remoteTime > localBaseTime) {
+                  // Remote was updated after our base version — another device edited it
                   console.info(`[Sync] Conflict detected for entry ${id}: remote is newer, pulling remote version`);
-                  // Trigger a pull to get the latest version
                   setTimeout(() => pullEntriesFromSupabase(), 100);
                   return; // Don't push our local changes
                 }
@@ -561,14 +565,22 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
       if (isSupabaseAvailable() && supabaseClient) {
         const profile = useAuthStore.getState().profile;
         if (profile?.id && !profile.id.startsWith('local_')) {
-          const { error: sbErr } = await supabaseClient
-            .from('time_entries')
-            .delete()
-            .eq('id', id);
-          if (sbErr) {
-            console.error('[Sync] Entry delete failed:', sbErr.message, sbErr.details);
+          const sessionOk = await ensureValidSession();
+          if (sessionOk) {
+            const { error: sbErr } = await supabaseClient
+              .from('time_entries')
+              .delete()
+              .eq('id', id);
+            if (sbErr) {
+              console.error('[Sync] Entry delete failed:', sbErr.message, sbErr.details);
+            }
           }
         }
+      }
+      // Also remove from pending set if it was there
+      if (_pendingLocalIds.has(id)) {
+        _pendingLocalIds.delete(id);
+        _savePendingIds(_pendingLocalIds);
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to delete entry';
@@ -618,15 +630,27 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
       if (isSupabaseAvailable() && supabaseClient) {
         const profile = useAuthStore.getState().profile;
         if (profile?.id && !profile.id.startsWith('local_')) {
-          for (let i = 0; i < ids.length; i += 50) {
-            const batch = ids.slice(i, i + 50);
-            await supabaseClient
-              .from('time_entries')
-              .delete()
-              .in('id', batch);
+          const sessionOk = await ensureValidSession();
+          if (sessionOk) {
+            for (let i = 0; i < ids.length; i += 50) {
+              const batch = ids.slice(i, i + 50);
+              const { error: batchErr } = await supabaseClient
+                .from('time_entries')
+                .delete()
+                .in('id', batch);
+              if (batchErr) {
+                console.error('[Sync] Batch delete failed:', batchErr.message);
+              }
+            }
           }
         }
       }
+      // Clean up pending set
+      let pendingChanged = false;
+      for (const id of ids) {
+        if (_pendingLocalIds.has(id)) { _pendingLocalIds.delete(id); pendingChanged = true; }
+      }
+      if (pendingChanged) _savePendingIds(_pendingLocalIds);
       return ids.length;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to remove entries';
@@ -662,12 +686,15 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
       if (isSupabaseAvailable() && supabaseClient) {
         const profile = useAuthStore.getState().profile;
         if (profile?.id && !profile.id.startsWith('local_')) {
-          for (let i = 0; i < duplicateIds.length; i += 50) {
-            const batch = duplicateIds.slice(i, i + 50);
-            await supabaseClient
-              .from('time_entries')
-              .delete()
-              .in('id', batch);
+          const sessionOk = await ensureValidSession();
+          if (sessionOk) {
+            for (let i = 0; i < duplicateIds.length; i += 50) {
+              const batch = duplicateIds.slice(i, i + 50);
+              await supabaseClient
+                .from('time_entries')
+                .delete()
+                .in('id', batch);
+            }
           }
         }
       }
@@ -766,12 +793,35 @@ let _entriesSuppressUntil: number = 0;
  * in Supabase. This prevents data loss when entries take longer than
  * 30s to push (e.g. due to network issues). Entries are removed from
  * this set once they appear in a Supabase pull response.
+ *
+ * Persisted to localStorage so they survive page reload / PWA restart.
  */
-const _pendingLocalIds = new Set<string>();
+const PENDING_IDS_KEY = 'ze_pending_entry_ids';
+
+function _loadPendingIds(): Set<string> {
+  try {
+    const stored = localStorage.getItem(PENDING_IDS_KEY);
+    if (stored) return new Set(JSON.parse(stored));
+  } catch { /* ignore */ }
+  return new Set();
+}
+
+function _savePendingIds(ids: Set<string>): void {
+  try {
+    if (ids.size === 0) {
+      localStorage.removeItem(PENDING_IDS_KEY);
+    } else {
+      localStorage.setItem(PENDING_IDS_KEY, JSON.stringify([...ids]));
+    }
+  } catch { /* ignore */ }
+}
+
+const _pendingLocalIds = _loadPendingIds();
 
 /** Mark an entry as pending local push (call after local add/bulkAdd) */
 export function markEntryPending(id: string): void {
   _pendingLocalIds.add(id);
+  _savePendingIds(_pendingLocalIds);
 }
 
 async function pullEntriesFromSupabase(): Promise<void> {
@@ -844,9 +894,11 @@ async function pullEntriesFromSupabase(): Promise<void> {
 
     // Clear pending IDs that now appear in Supabase (confirmed synced)
     const sbIds = new Set(sbEntries.map(e => e.id));
+    let pendingChanged = false;
     for (const id of Array.from(_pendingLocalIds)) {
-      if (sbIds.has(id)) _pendingLocalIds.delete(id);
+      if (sbIds.has(id)) { _pendingLocalIds.delete(id); pendingChanged = true; }
     }
+    if (pendingChanged) _savePendingIds(_pendingLocalIds);
 
     // Merge strategy:
     // 1. Supabase entries are the base (source of truth for synced data)
@@ -914,6 +966,7 @@ async function pushLocalEntriesToSupabase(entries: TimeEntry[], userId: string):
     } else {
       // Successfully pushed — clear from pending set
       entries.forEach(e => _pendingLocalIds.delete(e.id));
+      _savePendingIds(_pendingLocalIds);
     }
   } catch {
     // Silent — will retry on next pull cycle

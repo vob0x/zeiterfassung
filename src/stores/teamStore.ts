@@ -2,10 +2,10 @@ import { create } from 'zustand';
 import { Team, TeamMember, TimeEntry, PeriodType } from '@/types';
 import { getUserData, setUserData, removeUserData } from '@/lib/userStorage';
 import { useAuthStore } from './authStore';
-import { supabaseClient, isSupabaseAvailable } from '@/lib/supabase';
+import { supabaseClient, isSupabaseAvailable, ensureValidSession } from '@/lib/supabase';
 import { formatDateISO } from '@/lib/utils';
+import { decryptEntryFromSupabase } from './entriesStore';
 import {
-  decryptFieldSmart,
   hasEncryptionKey,
   generateTeamKey,
   encryptTeamKeyForTransport,
@@ -427,6 +427,13 @@ export const useTeamStore = create<TeamState>((set, get) => ({
 
       // ── Supabase mode ──
       if (isSupabaseAvailable() && supabaseClient && profile?.id) {
+        // Ensure auth session is valid before querying (avoids 401 spam)
+        const sessionOk = await ensureValidSession();
+        if (!sessionOk) {
+          set({ loading: false });
+          return;
+        }
+
         // Check if user is in any team (also fetch encrypted_team_key for E2E)
         const { data: membershipData } = await supabaseClient
           .from('team_members')
@@ -532,32 +539,29 @@ export const useTeamStore = create<TeamState>((set, get) => ({
             .order('date', { ascending: false });
 
           if (entriesData) {
+            // Use shared decryptEntryFromSupabase for consistent decryption
+            // (same defaults, stakeholder migration, format fallback as entriesStore)
             const entries: TimeEntry[] = await Promise.all(
               entriesData.map(async (row: any) => {
-                // Use decryptFieldSmart: tries Team Key first, then personal key
-                // This handles both team-encrypted and personally-encrypted entries
-                let stakeholder: string | string[] = await decryptFieldSmart(row.stakeholder || '');
-                // Parse JSON array if stakeholder was serialized
-                if (typeof stakeholder === 'string' && stakeholder.startsWith('[')) {
-                  try { stakeholder = JSON.parse(stakeholder); } catch {}
-                }
+                const decrypted = await decryptEntryFromSupabase(row);
+                let stakeholder: string | string[] = decrypted.stakeholder || '';
                 if (typeof stakeholder === 'string' && stakeholder) {
                   stakeholder = [stakeholder];
                 }
                 return {
-                  id: row.id,
-                  user_id: row.user_id,
-                  date: typeof row.date === 'string' ? row.date : formatDateISO(new Date(row.date)),
+                  id: decrypted.id,
+                  user_id: decrypted.user_id,
+                  date: typeof decrypted.date === 'string' ? decrypted.date : formatDateISO(new Date(decrypted.date)),
                   stakeholder,
-                  projekt: await decryptFieldSmart(row.projekt || ''),
-                  taetigkeit: await decryptFieldSmart(row.taetigkeit || ''),
-                  format: await decryptFieldSmart(row.format || ''),
-                  start_time: row.start_time || '',
-                  end_time: row.end_time || '',
-                  duration_ms: row.duration_ms || 0,
-                  notiz: await decryptFieldSmart(row.notiz || ''),
-                  created_at: row.created_at || '',
-                  updated_at: row.updated_at || '',
+                  projekt: decrypted.projekt || '',
+                  taetigkeit: decrypted.taetigkeit || '',
+                  format: decrypted.format || 'Einzelarbeit',
+                  start_time: decrypted.start_time || '',
+                  end_time: decrypted.end_time || '',
+                  duration_ms: decrypted.duration_ms || 0,
+                  notiz: decrypted.notiz || '',
+                  created_at: decrypted.created_at || '',
+                  updated_at: decrypted.updated_at || '',
                 };
               })
             );
@@ -677,6 +681,10 @@ async function pullTeamDataFromSupabase(): Promise<void> {
     // Don't set loading to true for background sync
     const profile = useAuthStore.getState().profile;
     if (!isSupabaseAvailable() || !supabaseClient || !profile?.id) return;
+
+    // Ensure auth session is valid before querying (avoids 401 spam)
+    const sessionOk = await ensureValidSession();
+    if (!sessionOk) return;
 
     const teamId = state.team.id;
 
