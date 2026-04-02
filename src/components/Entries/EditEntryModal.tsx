@@ -56,7 +56,8 @@ const EditEntryModal: React.FC<EditEntryModalProps> = ({ entry, isOpen, onClose 
     if (!formData.start_time) newErrors.start_time = t('toast.selectTime');
     if (!formData.end_time) newErrors.end_time = t('toast.selectTime');
 
-    if (formData.start_time && formData.end_time && formData.start_time >= formData.end_time) {
+    // Allow overnight entries (e.g., 23:00 → 01:00) — only reject identical times
+    if (formData.start_time && formData.end_time && formData.start_time === formData.end_time) {
       newErrors.end_time = t('toast.endAfterStart');
     }
 

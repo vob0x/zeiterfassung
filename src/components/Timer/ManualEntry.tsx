@@ -56,7 +56,8 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ embedded = false }) => {
     if (!formData.date) newErrors.date = t('toast.selectDate');
     if (!formData.startTime) newErrors.startTime = t('toast.selectTime');
     if (!formData.endTime) newErrors.endTime = t('toast.selectTime');
-    if (formData.startTime && formData.endTime && formData.startTime >= formData.endTime) {
+    // Allow overnight entries (e.g., 23:00 → 01:00) — only reject identical times
+    if (formData.startTime && formData.endTime && formData.startTime === formData.endTime) {
       newErrors.endTime = t('toast.endAfterStart');
     }
     setErrors(newErrors);
