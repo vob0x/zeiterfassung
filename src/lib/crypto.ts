@@ -112,6 +112,10 @@ export async function encryptField(plaintext: string): Promise<string> {
  * IMPORTANT: Never returns ciphertext to the UI. If decryption fails
  * (no key, wrong key), returns a placeholder instead of the raw `enc:` blob.
  */
+// Rate-limit decryption warnings (once per 60s instead of per field)
+let _lastDecryptWarn = 0;
+let _decryptWarnCount = 0;
+
 export async function decryptField(ciphertext: string): Promise<string> {
   if (!ciphertext || !ciphertext.startsWith(ENC_PREFIX)) return ciphertext;
   const key = await getKey();
@@ -129,7 +133,13 @@ export async function decryptField(ciphertext: string): Promise<string> {
     );
     return new TextDecoder().decode(decrypted);
   } catch {
-    console.warn('Decryption failed for field — key mismatch or corrupted data');
+    _decryptWarnCount++;
+    const now = Date.now();
+    if (now - _lastDecryptWarn > 60000) {
+      console.warn(`[Crypto] Decryption failed for ${_decryptWarnCount} field(s) — key mismatch or corrupted data`);
+      _lastDecryptWarn = now;
+      _decryptWarnCount = 0;
+    }
     return ''; // Decryption failed — return empty rather than raw ciphertext
   }
 }

@@ -565,7 +565,9 @@ export const useTeamStore = create<TeamState>((set, get) => ({
                 };
               })
             );
-            memberEntriesMap.set(displayName_member, entries);
+            // Filter out entries where decryption failed (empty date = unrecoverable)
+            const validEntries = entries.filter(e => e.date && e.date !== '');
+            memberEntriesMap.set(displayName_member, validEntries);
           }
         }
 
