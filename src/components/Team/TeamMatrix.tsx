@@ -70,7 +70,16 @@ export function TeamMatrix({ dimension, entries, members }: TeamMatrixProps) {
           return matchesDimension && e.user_id === uid;
         });
 
-        const total = memberItemEntries.reduce((sum, e) => sum + getEffectiveDurationMs(e), 0) / (1000 * 60 * 60);
+        const total = memberItemEntries.reduce((sum, e) => {
+          const durationMs = getEffectiveDurationMs(e);
+          // For stakeholder dimension: divide duration proportionally among all stakeholders
+          // so that totals remain consistent across views (a 1h meeting with 2 stakeholders = 0.5h each)
+          if (isStakeholder) {
+            const shCount = Array.isArray(e.stakeholder) ? e.stakeholder.filter(Boolean).length : 1;
+            return sum + durationMs / Math.max(shCount, 1);
+          }
+          return sum + durationMs;
+        }, 0) / (1000 * 60 * 60);
 
         matrix[item][memberId] = total;
         itemTotals[item] += total;
