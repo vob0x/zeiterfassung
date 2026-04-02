@@ -172,7 +172,8 @@ const EditEntryModal: React.FC<EditEntryModalProps> = ({ entry, isOpen, onClose 
       style={{ WebkitOverflowScrolling: 'touch' }}
     >
       {/* Scroll wrapper: centers on desktop, full-height scroll on mobile */}
-      <div className="min-h-full flex items-center justify-center p-4 sm:p-6">
+      {/* pb-24 ensures buttons aren't hidden behind fixed bottom nav bar */}
+      <div className="min-h-full flex items-center justify-center p-4 pb-24 sm:p-6 sm:pb-6">
       <div
         ref={modalRef}
         className="rounded-lg border p-5 sm:p-6 shadow-xl max-w-md w-full"
