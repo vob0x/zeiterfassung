@@ -51,14 +51,18 @@ async function syncListToSupabase(
   names: string[],
   userId: string
 ) {
-  if (!isSupabaseAvailable() || !supabaseClient || names.length === 0) return;
+  if (!isSupabaseAvailable() || !supabaseClient) return;
 
   // Abort sync if no encryption key — never send plaintext to Supabase
   if (!hasEncryptionKey()) return;
 
-  // Prevent concurrent syncs of the same table (would cause race conditions)
+  // Wait for any in-progress sync on this table (instead of silently skipping)
   const lockKey = `${table}_${userId}`;
-  if (_syncInProgress.get(lockKey)) return;
+  const maxWait = 5000;
+  const start = Date.now();
+  while (_syncInProgress.get(lockKey) && Date.now() - start < maxWait) {
+    await new Promise((r) => setTimeout(r, 100));
+  }
   _syncInProgress.set(lockKey, true);
 
   // Ensure auth session is still valid (avoids 401 / RLS errors)
@@ -69,15 +73,6 @@ async function syncListToSupabase(
   }
 
   try {
-    // Encrypt names before sending to Supabase (Team Key if in team, personal key otherwise)
-    const encryptedRows = await Promise.all(
-      names.map(async (name, idx) => ({
-        user_id: userId,
-        name: await encryptFieldForTeam(name),
-        sort_order: idx,
-      }))
-    );
-
     // Delete existing rows first (encrypted values differ each time due to random IV)
     const { error: delErr } = await supabaseClient.from(table).delete().eq('user_id', userId);
     if (delErr) {
@@ -85,12 +80,21 @@ async function syncListToSupabase(
       return; // Auth issue — don't attempt insert
     }
 
-    // Insert fresh — immediately after delete to minimize race window
-    const { error } = await supabaseClient
-      .from(table)
-      .insert(encryptedRows);
-    if (error) {
-      console.warn(`[Sync] ${table} sync skipped:`, error.message);
+    // Insert fresh — only if there's data to insert (empty list = intentional delete-all)
+    if (names.length > 0) {
+      const encryptedRows = await Promise.all(
+        names.map(async (name, idx) => ({
+          user_id: userId,
+          name: await encryptFieldForTeam(name),
+          sort_order: idx,
+        }))
+      );
+      const { error } = await supabaseClient
+        .from(table)
+        .insert(encryptedRows);
+      if (error) {
+        console.warn(`[Sync] ${table} sync failed:`, error.message);
+      }
     }
   } catch {
     // Silent — network or auth issue, will retry on next sync cycle
@@ -231,12 +235,16 @@ export const useMasterStore = create<MasterState>((set, get) => ({
           setUserData('activities', finalActivities);
           setUserData('formats', finalFormats);
 
-          // Re-encrypt and push to Supabase: always push if we have data
-          // (this also cleans up old undecryptable rows via DELETE + INSERT)
-          if (finalStakeholders.length > 0) syncListToSupabase('stakeholders', finalStakeholders, userId);
-          if (finalProjects.length > 0) syncListToSupabase('projects', finalProjects, userId);
-          if (finalActivities.length > 0) syncListToSupabase('activities', finalActivities, userId);
-          if (finalFormats.length > 0) syncListToSupabase('formats', finalFormats, userId);
+          // Only re-encrypt and push to Supabase if key mismatch was detected
+          // (avoids unnecessary DELETE+INSERT on every app start → saves Disk IO)
+          const anyKeyMismatch = shKeyMismatch || prKeyMismatch || actKeyMismatch || fmtKeyMismatch;
+          if (anyKeyMismatch) {
+            console.info('[Sync] Key mismatch detected in fetch — re-encrypting master data');
+            if (finalStakeholders.length > 0) syncListToSupabase('stakeholders', finalStakeholders, userId);
+            if (finalProjects.length > 0) syncListToSupabase('projects', finalProjects, userId);
+            if (finalActivities.length > 0) syncListToSupabase('activities', finalActivities, userId);
+            if (finalFormats.length > 0) syncListToSupabase('formats', finalFormats, userId);
+          }
         }
       }
     } catch (error) {
@@ -307,7 +315,7 @@ export const useMasterStore = create<MasterState>((set, get) => ({
       setUserData('stakeholders', updated);
 
       const userId = getSupabaseUserId();
-      if (userId) syncListToSupabase('stakeholders', updated, userId);
+      if (userId) await syncListToSupabase('stakeholders', updated, userId);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to remove stakeholder';
       set({ error: message });
@@ -324,7 +332,7 @@ export const useMasterStore = create<MasterState>((set, get) => ({
       setUserData('projects', updated);
 
       const userId = getSupabaseUserId();
-      if (userId) syncListToSupabase('projects', updated, userId);
+      if (userId) await syncListToSupabase('projects', updated, userId);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to remove project';
       set({ error: message });
@@ -341,7 +349,7 @@ export const useMasterStore = create<MasterState>((set, get) => ({
       setUserData('activities', updated);
 
       const userId = getSupabaseUserId();
-      if (userId) syncListToSupabase('activities', updated, userId);
+      if (userId) await syncListToSupabase('activities', updated, userId);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to remove activity';
       set({ error: message });
@@ -363,7 +371,7 @@ export const useMasterStore = create<MasterState>((set, get) => ({
       setUserData('stakeholders', updated);
 
       const userId = getSupabaseUserId();
-      if (userId) syncListToSupabase('stakeholders', updated, userId);
+      if (userId) await syncListToSupabase('stakeholders', updated, userId);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to rename stakeholder';
       set({ error: message });
@@ -385,7 +393,7 @@ export const useMasterStore = create<MasterState>((set, get) => ({
       setUserData('projects', updated);
 
       const userId = getSupabaseUserId();
-      if (userId) syncListToSupabase('projects', updated, userId);
+      if (userId) await syncListToSupabase('projects', updated, userId);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to rename project';
       set({ error: message });
@@ -407,7 +415,7 @@ export const useMasterStore = create<MasterState>((set, get) => ({
       setUserData('activities', updated);
 
       const userId = getSupabaseUserId();
-      if (userId) syncListToSupabase('activities', updated, userId);
+      if (userId) await syncListToSupabase('activities', updated, userId);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to rename activity';
       set({ error: message });
@@ -442,7 +450,7 @@ export const useMasterStore = create<MasterState>((set, get) => ({
       setUserData('formats', updated);
 
       const userId = getSupabaseUserId();
-      if (userId) syncListToSupabase('formats', updated, userId);
+      if (userId) await syncListToSupabase('formats', updated, userId);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to remove format';
       set({ error: message });
@@ -464,7 +472,7 @@ export const useMasterStore = create<MasterState>((set, get) => ({
       setUserData('formats', updated);
 
       const userId = getSupabaseUserId();
-      if (userId) syncListToSupabase('formats', updated, userId);
+      if (userId) await syncListToSupabase('formats', updated, userId);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to rename format';
       set({ error: message });

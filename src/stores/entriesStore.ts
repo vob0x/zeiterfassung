@@ -174,10 +174,20 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
           );
 
           // Supabase responded successfully — it is the source of truth.
+          // Deduplicate by ID (in case Supabase has duplicate rows)
+          const sbByIdMap = new Map<string, TimeEntry>();
+          for (const entry of sbEntries) {
+            const existing = sbByIdMap.get(entry.id);
+            if (!existing || (entry.updated_at || '') > (existing.updated_at || '')) {
+              sbByIdMap.set(entry.id, entry);
+            }
+          }
+          const dedupedSbEntries = Array.from(sbByIdMap.values());
+
           // Only keep local entries that are PENDING push (just created locally,
           // not yet confirmed in Supabase). This prevents stale localStorage
           // entries from being re-pushed after Supabase data was intentionally cleared.
-          const sbIds = new Set(sbEntries.map((e) => e.id));
+          const sbIds = new Set(dedupedSbEntries.map((e) => e.id));
           const now = Date.now();
           const RECENT_THRESHOLD_MS = 30000; // 30 seconds
           const localOnly = localEntries.filter((e) => {
@@ -188,7 +198,7 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
             const createdAt = e.created_at ? new Date(e.created_at).getTime() : 0;
             return (now - createdAt) < RECENT_THRESHOLD_MS;
           });
-          const merged = [...sbEntries, ...localOnly];
+          const merged = [...dedupedSbEntries, ...localOnly];
 
           set({ entries: merged });
           setUserData('entries', merged);
@@ -537,11 +547,20 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
               created_at: entry.created_at,
               updated_at: updatedAt,
             });
+            // Use UPDATE (not upsert) to prevent duplicate rows if id has no unique constraint
+            const { id: rowId, ...rowWithoutId } = row;
             const { error: sbErr } = await supabaseClient
               .from('time_entries')
-              .upsert(row, { onConflict: 'id' });
+              .update(rowWithoutId)
+              .eq('id', id);
             if (sbErr) {
-              console.error('[Sync] Entry update failed:', sbErr.message, sbErr.details);
+              // Row might not exist yet (offline-created) — fall back to upsert
+              const { error: upsertErr } = await supabaseClient
+                .from('time_entries')
+                .upsert(row, { onConflict: 'id' });
+              if (upsertErr) {
+                console.error('[Sync] Entry update failed:', upsertErr.message, upsertErr.details);
+              }
             }
           }
         }
@@ -892,8 +911,19 @@ async function pullEntriesFromSupabase(): Promise<void> {
       })
     );
 
+    // Deduplicate by ID: if Supabase has multiple rows with same ID (schema issue),
+    // keep only the newest version (by updated_at)
+    const sbByIdMap = new Map<string, TimeEntry>();
+    for (const entry of sbEntries) {
+      const existing = sbByIdMap.get(entry.id);
+      if (!existing || (entry.updated_at || '') > (existing.updated_at || '')) {
+        sbByIdMap.set(entry.id, entry);
+      }
+    }
+    const dedupedSbEntries = Array.from(sbByIdMap.values());
+
     // Clear pending IDs that now appear in Supabase (confirmed synced)
-    const sbIds = new Set(sbEntries.map(e => e.id));
+    const sbIds = new Set(dedupedSbEntries.map(e => e.id));
     let pendingChanged = false;
     for (const id of Array.from(_pendingLocalIds)) {
       if (sbIds.has(id)) { _pendingLocalIds.delete(id); pendingChanged = true; }
@@ -922,7 +952,7 @@ async function pullEntriesFromSupabase(): Promise<void> {
       pushLocalEntriesToSupabase(localOnly, profile.id);
     }
 
-    const merged = [...sbEntries, ...localOnly];
+    const merged = [...dedupedSbEntries, ...localOnly];
 
     useEntriesStore.setState({ entries: merged });
     setUserData('entries', merged);
