@@ -74,18 +74,21 @@ export default function DuplicateReview({ groups, onRemove, onClose }: Duplicate
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 z-50 overflow-y-auto"
+      className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center"
       onClick={(e) => e.target === e.currentTarget && onClose()}
-      style={{ WebkitOverflowScrolling: 'touch' }}
     >
-      <div className="min-h-full flex items-start justify-center p-4 sm:p-6 pt-8">
-        <div
-          className="rounded-lg border shadow-xl w-full max-w-2xl"
-          style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between p-4 sm:p-5" style={{ borderBottom: '1px solid var(--border)' }}>
+      <div
+        className="rounded-lg border shadow-xl w-full max-w-2xl mx-4 sm:mx-6 flex flex-col"
+        style={{
+          background: 'var(--surface)',
+          borderColor: 'var(--border)',
+          maxHeight: 'calc(100vh - 2rem)',
+          maxWidth: '42rem',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+          {/* Header — fixed at top */}
+          <div className="flex items-center justify-between p-4 sm:p-5 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
             <div>
               <h2 className="text-lg font-bold" style={{ color: 'var(--text)' }}>
                 {groups.length} {t('manage.dupFound')}
@@ -99,8 +102,8 @@ export default function DuplicateReview({ groups, onRemove, onClose }: Duplicate
             </button>
           </div>
 
-          {/* Groups */}
-          <div className="p-4 sm:p-5 space-y-4 max-h-[60vh] overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
+          {/* Groups — scrollable middle */}
+          <div className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1 min-h-0" style={{ WebkitOverflowScrolling: 'touch' }}>
             {groups.map((group, gi) => (
               <div
                 key={group.fingerprint}
@@ -188,9 +191,9 @@ export default function DuplicateReview({ groups, onRemove, onClose }: Duplicate
             ))}
           </div>
 
-          {/* Footer actions */}
+          {/* Footer actions — fixed at bottom */}
           <div
-            className="p-4 sm:p-5 flex flex-wrap gap-2 items-center justify-between"
+            className="p-4 sm:p-5 flex flex-wrap gap-2 items-center justify-between flex-shrink-0"
             style={{ borderTop: '1px solid var(--border)' }}
           >
             <div className="flex gap-2">
@@ -225,7 +228,6 @@ export default function DuplicateReview({ groups, onRemove, onClose }: Duplicate
               </button>
             </div>
           </div>
-        </div>
       </div>
     </div>
   );
