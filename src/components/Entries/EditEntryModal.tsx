@@ -164,24 +164,24 @@ const EditEntryModal: React.FC<EditEntryModalProps> = ({ entry, isOpen, onClose 
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 z-50 overflow-y-auto"
+      className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center"
       onClick={(e) => e.target === e.currentTarget && onClose()}
       role="dialog"
       aria-modal="true"
       aria-labelledby="edit-modal-title"
-      style={{ WebkitOverflowScrolling: 'touch' }}
     >
-      {/* Scroll wrapper: centers on desktop, full-height scroll on mobile */}
-      {/* pb-24 ensures buttons aren't hidden behind fixed bottom nav bar */}
-      <div className="min-h-full flex items-center justify-center p-4 pb-24 sm:p-6 sm:pb-6">
       <div
         ref={modalRef}
-        className="rounded-lg border p-5 sm:p-6 shadow-xl max-w-md w-full"
-        style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+        className="rounded-lg border shadow-xl max-w-md w-full mx-4 sm:mx-6 flex flex-col overflow-hidden"
+        style={{
+          background: 'var(--surface)',
+          borderColor: 'var(--border)',
+          maxHeight: 'calc(100dvh - 2rem)',
+        }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
+        {/* Header — fixed at top */}
+        <div className="flex items-center justify-between p-5 sm:p-6 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
           <h2 className="text-lg font-bold" style={{ color: 'var(--text)' }}>{t('edit.title')}</h2>
           <button
             onClick={onClose}
@@ -192,7 +192,9 @@ const EditEntryModal: React.FC<EditEntryModalProps> = ({ entry, isOpen, onClose 
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Scrollable form body */}
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+        <div className="space-y-4 p-5 sm:p-6 overflow-y-auto flex-1 min-h-0" style={{ WebkitOverflowScrolling: 'touch' }}>
           {/* Date */}
           <div>
             <label className="block text-sm font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>
@@ -398,8 +400,10 @@ const EditEntryModal: React.FC<EditEntryModalProps> = ({ entry, isOpen, onClose 
             />
           </div>
 
-          {/* Buttons */}
-          <div className="flex gap-2 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
+          </div>
+
+          {/* Buttons — fixed at bottom */}
+          <div className="flex gap-2 p-5 sm:p-6 flex-shrink-0" style={{ borderTop: '1px solid var(--border)' }}>
             <button
               type="submit"
               className="btn btn-primary flex-1"
@@ -417,7 +421,6 @@ const EditEntryModal: React.FC<EditEntryModalProps> = ({ entry, isOpen, onClose 
             </button>
           </div>
         </form>
-      </div>
       </div>
     </div>
   );

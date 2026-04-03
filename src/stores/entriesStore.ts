@@ -508,18 +508,22 @@ export const useEntriesStore = create<EntriesState>((set, get) => ({
       if (isSupabaseAvailable() && supabaseClient && hasEncryptionKey()) {
         const profile = useAuthStore.getState().profile;
         if (profile?.id && !profile.id.startsWith('local_')) {
+          // Ensure auth session is valid before any Supabase query
+          const sessionOk = await ensureValidSession();
+          if (!sessionOk) return;
+
           const entry = updated.find((e) => e.id === id);
           if (entry) {
             // Conflict detection: check if Supabase has a newer version
             // Uses localBaseTime captured BEFORE the local update was applied
             try {
-              const { data: remoteRow } = await supabaseClient
+              const { data: remoteRow, error: conflictErr } = await supabaseClient
                 .from('time_entries')
                 .select('updated_at')
                 .eq('id', id)
                 .maybeSingle();
 
-              if (remoteRow?.updated_at) {
+              if (!conflictErr && remoteRow?.updated_at) {
                 const remoteTime = new Date(remoteRow.updated_at).getTime();
                 if (remoteTime > localBaseTime) {
                   // Remote was updated after our base version — another device edited it

@@ -579,12 +579,14 @@ a:hover {
   }
 
   .modal-content {
-    @apply card relative max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto;
+    @apply card relative max-w-md w-full mx-4 flex flex-col;
+    max-height: calc(100vh - 2rem);
+    max-height: calc(100dvh - 2rem);
     animation: slideInUp 0.3s ease-out;
   }
 
   .modal-header {
-    @apply flex items-center justify-between p-6 border-b;
+    @apply flex items-center justify-between p-6 border-b flex-shrink-0;
     border-color: var(--border);
   }
 
@@ -598,11 +600,12 @@ a:hover {
   }
 
   .modal-body {
-    @apply p-6;
+    @apply p-6 overflow-y-auto flex-1 min-h-0;
+    -webkit-overflow-scrolling: touch;
   }
 
   .modal-footer {
-    @apply flex gap-3 justify-end p-6 border-t;
+    @apply flex gap-3 justify-end p-6 border-t flex-shrink-0;
     border-color: var(--border);
   }
 
@@ -810,7 +813,9 @@ a:hover {
   }
 
   .modal-content {
-    @apply max-w-[calc(100vw-32px)];
+    @apply max-w-[calc(100vw-32px)] mx-2;
+    max-height: calc(100vh - 6rem);
+    max-height: calc(100dvh - 6rem);
   }
 }
 
