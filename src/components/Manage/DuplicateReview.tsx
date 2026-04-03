@@ -74,15 +74,16 @@ export default function DuplicateReview({ groups, onRemove, onClose }: Duplicate
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center"
+      className="fixed inset-0 bg-black/50 z-50 flex items-start sm:items-center justify-center overflow-y-auto"
       onClick={(e) => e.target === e.currentTarget && onClose()}
+      style={{ paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}
     >
       <div
-        className="rounded-lg border shadow-xl w-full max-w-2xl mx-4 sm:mx-6 flex flex-col"
+        className="rounded-lg border shadow-xl w-full max-w-2xl mx-4 sm:mx-6 flex flex-col my-4"
         style={{
           background: 'var(--surface)',
           borderColor: 'var(--border)',
-          maxHeight: 'calc(100vh - 2rem)',
+          maxHeight: 'calc(100dvh - 7rem)',
           maxWidth: '42rem',
         }}
         onClick={(e) => e.stopPropagation()}

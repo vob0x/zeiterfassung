@@ -164,19 +164,20 @@ const EditEntryModal: React.FC<EditEntryModalProps> = ({ entry, isOpen, onClose 
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center"
+      className="fixed inset-0 bg-black/50 z-50 flex items-start sm:items-center justify-center overflow-y-auto"
       onClick={(e) => e.target === e.currentTarget && onClose()}
       role="dialog"
       aria-modal="true"
       aria-labelledby="edit-modal-title"
+      style={{ paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}
     >
       <div
         ref={modalRef}
-        className="rounded-lg border shadow-xl max-w-md w-full mx-4 sm:mx-6 flex flex-col overflow-hidden"
+        className="rounded-lg border shadow-xl max-w-md w-full mx-4 sm:mx-6 flex flex-col overflow-hidden my-4"
         style={{
           background: 'var(--surface)',
           borderColor: 'var(--border)',
-          maxHeight: 'calc(100dvh - 2rem)',
+          maxHeight: 'calc(100dvh - 7rem)',
         }}
         onClick={(e) => e.stopPropagation()}
       >

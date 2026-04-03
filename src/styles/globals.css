@@ -572,17 +572,30 @@ a:hover {
      Modal Overlay Styles
      ============================================ */
   .modal-overlay {
-    @apply fixed inset-0 z-50 flex items-center justify-center;
+    @apply fixed inset-0 z-50 flex items-center justify-center overflow-y-auto;
     background-color: rgba(0, 0, 0, 0.7);
     backdrop-filter: blur(4px);
     animation: fadeIn 0.3s ease-out;
+    /* Account for mobile bottom nav (h-20 = 5rem) + safe area */
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
   }
 
   .modal-content {
     @apply card relative max-w-md w-full mx-4 flex flex-col;
-    max-height: calc(100vh - 2rem);
-    max-height: calc(100dvh - 2rem);
+    max-height: calc(100vh - 7rem);
+    max-height: calc(100dvh - 7rem);
     animation: slideInUp 0.3s ease-out;
+  }
+
+  /* Desktop: no bottom nav, reclaim space */
+  @media (min-width: 768px) {
+    .modal-overlay {
+      padding-bottom: 0;
+    }
+    .modal-content {
+      max-height: calc(100vh - 2rem);
+      max-height: calc(100dvh - 2rem);
+    }
   }
 
   .modal-header {
@@ -814,8 +827,6 @@ a:hover {
 
   .modal-content {
     @apply max-w-[calc(100vw-32px)] mx-2;
-    max-height: calc(100vh - 6rem);
-    max-height: calc(100dvh - 6rem);
   }
 }
 
