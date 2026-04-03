@@ -163,12 +163,13 @@ export const useMasterStore = create<MasterState>((set, get) => ({
       const sessionValid = userId ? await ensureValidSession() : false;
 
       if (isSupabaseAvailable() && supabaseClient && userId && sessionValid) {
-        // RLS automatically includes teammates' data if user is in a team
+        // Filter by own user_id — don't merge teammates' master data into own lists
+        // (teammates' data is separate; merging caused deleted items to reappear)
         const [shRes, prRes, actRes, fmtRes] = await Promise.all([
-          supabaseClient.from('stakeholders').select('name').order('sort_order'),
-          supabaseClient.from('projects').select('name').order('sort_order'),
-          supabaseClient.from('activities').select('name').order('sort_order'),
-          supabaseClient.from('formats').select('name').order('sort_order'),
+          supabaseClient.from('stakeholders').select('name').eq('user_id', userId).order('sort_order'),
+          supabaseClient.from('projects').select('name').eq('user_id', userId).order('sort_order'),
+          supabaseClient.from('activities').select('name').eq('user_id', userId).order('sort_order'),
+          supabaseClient.from('formats').select('name').eq('user_id', userId).order('sort_order'),
         ]);
 
         // If any query had an error, skip Supabase merge (keep localStorage as-is)
@@ -528,10 +529,10 @@ async function pullMasterDataFromSupabase(): Promise<void> {
 
   try {
     const [shRes, prRes, actRes, fmtRes] = await Promise.all([
-      supabaseClient.from('stakeholders').select('name').order('sort_order'),
-      supabaseClient.from('projects').select('name').order('sort_order'),
-      supabaseClient.from('activities').select('name').order('sort_order'),
-      supabaseClient.from('formats').select('name').order('sort_order'),
+      supabaseClient.from('stakeholders').select('name').eq('user_id', userId).order('sort_order'),
+      supabaseClient.from('projects').select('name').eq('user_id', userId).order('sort_order'),
+      supabaseClient.from('activities').select('name').eq('user_id', userId).order('sort_order'),
+      supabaseClient.from('formats').select('name').eq('user_id', userId).order('sort_order'),
     ]);
 
     // Re-check suppress after async query
@@ -576,8 +577,7 @@ async function pullMasterDataFromSupabase(): Promise<void> {
     };
 
     // If key mismatch detected, re-encrypt local data to Supabase (cleans up old ciphertext)
-    const userId = getSupabaseUserId();
-    if (userId && (shKeyMismatch || prKeyMismatch || actKeyMismatch || fmtKeyMismatch)) {
+    if (shKeyMismatch || prKeyMismatch || actKeyMismatch || fmtKeyMismatch) {
       console.info('[Sync] Key mismatch detected — re-encrypting master data to Supabase');
       if (result.stakeholders.length > 0) syncListToSupabase('stakeholders', result.stakeholders, userId);
       if (result.projects.length > 0) syncListToSupabase('projects', result.projects, userId);
